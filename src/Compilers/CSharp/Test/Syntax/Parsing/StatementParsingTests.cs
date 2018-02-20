@@ -704,8 +704,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
             Assert.NotNull(statement);
             Assert.Equal(SyntaxKind.LocalDeclarationStatement, statement.Kind());
             Assert.Equal(text, statement.ToString());
-            Assert.Equal(1, statement.Errors().Length);
-            Assert.Equal((int)ErrorCode.ERR_BadMemberFlag, statement.Errors()[0].Code);
+            Assert.Equal(0, statement.Errors().Length);
 
             var ds = (LocalDeclarationStatementSyntax)statement;
             Assert.Equal(1, ds.Modifiers.Count);

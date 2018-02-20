@@ -11,5 +11,13 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax
                 return this.Modifiers.Any(SyntaxKind.ConstKeyword);
             }
         }
+
+        internal bool IsReadOnly
+        {
+            get
+            {
+                return this.Modifiers.Any(SyntaxKind.ReadOnlyKeyword);
+            }
+        }
     }
 }

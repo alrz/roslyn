@@ -207,7 +207,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                             LocalDeclarationKind kind = decl.IsConst ? LocalDeclarationKind.Constant : LocalDeclarationKind.RegularVariable;
                             foreach (var vdecl in decl.Declaration.Variables)
                             {
-                                var localSymbol = MakeLocal(decl.Declaration, vdecl, kind, localDeclarationBinder);
+                                var localSymbol = MakeLocal(decl.Declaration, vdecl, kind, localDeclarationBinder, isReadOnly: decl.IsReadOnly);
                                 locals.Add(localSymbol);
 
                                 // also gather expression-declared variables from the bracketed argument lists and the initializers
@@ -279,7 +279,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             return ImmutableArray<LocalFunctionSymbol>.Empty;
         }
 
-        protected SourceLocalSymbol MakeLocal(VariableDeclarationSyntax declaration, VariableDeclaratorSyntax declarator, LocalDeclarationKind kind, Binder initializerBinderOpt = null)
+        protected SourceLocalSymbol MakeLocal(VariableDeclarationSyntax declaration, VariableDeclaratorSyntax declarator, LocalDeclarationKind kind, Binder initializerBinderOpt = null, bool isReadOnly = false)
         {
             return SourceLocalSymbol.MakeLocal(
                 this.ContainingMemberOrLambda,
@@ -289,7 +289,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                 declarator.Identifier,
                 kind,
                 declarator.Initializer,
-                initializerBinderOpt);
+                initializerBinderOpt,
+                isReadOnly);
         }
 
         protected LocalFunctionSymbol MakeLocalFunction(LocalFunctionStatementSyntax declaration)

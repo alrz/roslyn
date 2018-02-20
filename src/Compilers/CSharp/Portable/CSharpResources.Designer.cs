@@ -8261,11 +8261,29 @@ namespace Microsoft.CodeAnalysis.CSharp {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The parameter modifier &apos;readonly&apos; cannot be used with &apos;ref&apos;; use &apos;in&apos; instead..
+        /// </summary>
+        internal static string ERR_ReadOnlyParameterWithRef {
+            get {
+                return ResourceManager.GetString("ERR_ReadOnlyParameterWithRef", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Members of readonly field &apos;{0}&apos; of type &apos;{1}&apos; cannot be assigned with an object initializer because it is of a value type.
         /// </summary>
         internal static string ERR_ReadonlyValueTypeInObjectInitializer {
             get {
                 return ResourceManager.GetString("ERR_ReadonlyValueTypeInObjectInitializer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Read-only variables must be initialized..
+        /// </summary>
+        internal static string ERR_ReadOnlyVariableWithNoInitializer {
+            get {
+                return ResourceManager.GetString("ERR_ReadOnlyVariableWithNoInitializer", resourceCulture);
             }
         }
         

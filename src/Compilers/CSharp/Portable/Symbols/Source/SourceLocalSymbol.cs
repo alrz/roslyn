@@ -27,6 +27,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         private readonly RefKind _refKind;
         private readonly TypeSyntax _typeSyntax;
         private readonly LocalDeclarationKind _declarationKind;
+        private readonly bool _isReadOnly;
         private TypeSymbol _type;
 
         /// <summary>
@@ -47,7 +48,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             bool allowRefKind,
             TypeSyntax typeSyntax,
             SyntaxToken identifierToken,
-            LocalDeclarationKind declarationKind)
+            LocalDeclarationKind declarationKind,
+            bool isReadOnly = false)
         {
             Debug.Assert(identifierToken.Kind() != SyntaxKind.None);
             Debug.Assert(declarationKind != LocalDeclarationKind.None);
@@ -58,7 +60,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             this._identifierToken = identifierToken;
             this._typeSyntax = allowRefKind ? typeSyntax.SkipRef(out this._refKind) : typeSyntax;
             this._declarationKind = declarationKind;
-
+            this._isReadOnly = isReadOnly;
             // create this eagerly as it will always be needed for the EnsureSingleDefinition
             _locations = ImmutableArray.Create<Location>(identifierToken.GetLocation());
 
@@ -199,12 +201,13 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             SyntaxToken identifierToken,
             LocalDeclarationKind declarationKind,
             EqualsValueClauseSyntax initializer = null,
-            Binder initializerBinderOpt = null)
+            Binder initializerBinderOpt = null,
+            bool isReadOnly = false)
         {
             Debug.Assert(declarationKind != LocalDeclarationKind.ForEachIterationVariable);
             return (initializer != null)
-                ? new LocalWithInitializer(containingSymbol, scopeBinder, typeSyntax, identifierToken, initializer, initializerBinderOpt ?? scopeBinder, declarationKind)
-                : new SourceLocalSymbol(containingSymbol, scopeBinder, allowRefKind, typeSyntax, identifierToken, declarationKind);
+                ? new LocalWithInitializer(containingSymbol, scopeBinder, typeSyntax, identifierToken, initializer, initializerBinderOpt ?? scopeBinder, declarationKind, isReadOnly)
+                : new SourceLocalSymbol(containingSymbol, scopeBinder, allowRefKind, typeSyntax, identifierToken, declarationKind, isReadOnly);
         }
 
         internal override bool IsImportedFromMetadata
@@ -312,6 +315,26 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                     bool isVar;
                     TypeSymbol declType = this.TypeSyntaxBinder.BindType(_typeSyntax, new DiagnosticBag(), out isVar);
                     return isVar;
+                }
+
+                return false;
+            }
+        }
+
+        internal sealed override bool IsReadOnly
+        {
+            get
+            {
+                if (_isReadOnly)
+                {
+                    return true;
+                }
+
+                if (_typeSyntax.IsLet)
+                {
+                    bool isLet;
+                    TypeSymbol declType = this.TypeSyntaxBinder.BindType(_typeSyntax, new DiagnosticBag(), out isLet);
+                    return isLet;
                 }
 
                 return false;
@@ -503,8 +526,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 SyntaxToken identifierToken,
                 EqualsValueClauseSyntax initializer,
                 Binder initializerBinder,
-                LocalDeclarationKind declarationKind) :
-                    base(containingSymbol, scopeBinder, true, typeSyntax, identifierToken, declarationKind)
+                LocalDeclarationKind declarationKind,
+                bool isReadOnly) :
+                    base(containingSymbol, scopeBinder, true, typeSyntax, identifierToken, declarationKind, isReadOnly)
             {
                 Debug.Assert(declarationKind != LocalDeclarationKind.ForEachIterationVariable);
                 Debug.Assert(initializer != null);

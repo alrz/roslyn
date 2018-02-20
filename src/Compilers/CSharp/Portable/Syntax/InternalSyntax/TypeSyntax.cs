@@ -12,5 +12,15 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 return ts != null && ts.Identifier.ToString() == "var";
             }
         }
+
+        internal bool IsLet
+        {
+            get
+            {
+                var ts = this as IdentifierNameSyntax;
+                // TODO(readonly): Can use ContextualKind?
+                return ts != null && ts.Identifier.ToString() == "let";
+            }
+        }
     }
 }

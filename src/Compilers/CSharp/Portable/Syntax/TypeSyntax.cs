@@ -11,5 +11,13 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax
                 return ((InternalSyntax.TypeSyntax)this.Green).IsVar;
             }
         }
+
+        internal bool IsLet
+        {
+            get
+            {
+                return ((InternalSyntax.TypeSyntax)this.Green).IsLet;
+            }
+        }
     }
 }

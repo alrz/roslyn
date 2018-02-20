@@ -511,7 +511,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             // all parameters can be passed by ref/out or assigned to
             // except "in" parameters, which are readonly
-            if (parameterSymbol.RefKind == RefKind.In && RequiresAssignableVariable(valueKind))
+            if ((parameterSymbol.RefKind == RefKind.In || parameterSymbol.IsReadOnly) && RequiresAssignableVariable(valueKind))
             {
                 ReportReadOnlyError(parameterSymbol, node, valueKind, checkingReceiver, diagnostics);
                 return false;
@@ -1356,6 +1356,11 @@ moreArguments:
             else if (local.IsFixed)
             {
                 cause = MessageID.IDS_FIXEDLOCAL;
+            }
+            else if (local.IsReadOnly)
+            {
+                ReportReadOnlyError(local, node, kind, checkingReceiver, diagnostics);
+                return;
             }
             else
             {

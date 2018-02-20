@@ -595,9 +595,9 @@ namespace Microsoft.CodeAnalysis.CSharp
             var typeSyntax = node.Declaration.Type.SkipRef(out RefKind _);
             bool isConst = node.IsConst;
 
-            bool isVar;
+            bool isVarOrLet;
             AliasSymbol alias;
-            TypeSymbol declType = BindVariableType(node.Declaration, diagnostics, typeSyntax, ref isConst, isVar: out isVar, alias: out alias);
+            TypeSymbol declType = BindVariableType(node.Declaration, diagnostics, typeSyntax, ref isConst, isVar: out isVarOrLet, alias: out alias);
 
             // UNDONE: "possible expression" feature for IDE
 
@@ -607,12 +607,14 @@ namespace Microsoft.CodeAnalysis.CSharp
                 kind = LocalDeclarationKind.Constant;
             }
 
+            bool isReadOnly = node.IsReadOnly || (isVarOrLet && typeSyntax.IsLet);
+
             var variableList = node.Declaration.Variables;
             int variableCount = variableList.Count;
 
             if (variableCount == 1)
             {
-                return BindVariableDeclaration(kind, isVar, variableList[0], typeSyntax, declType, alias, diagnostics, node);
+                return BindVariableDeclaration(kind, isVarOrLet, isReadOnly, variableList[0], typeSyntax, declType, alias, diagnostics, node);
             }
             else
             {
@@ -621,7 +623,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 int i = 0;
                 foreach (var variableDeclaratorSyntax in variableList)
                 {
-                    boundDeclarations[i++] = BindVariableDeclaration(kind, isVar, variableDeclaratorSyntax, typeSyntax, declType, alias, diagnostics);
+                    boundDeclarations[i++] = BindVariableDeclaration(kind, isVarOrLet, isReadOnly, variableDeclaratorSyntax, typeSyntax, declType, alias, diagnostics);
                 }
 
                 return new BoundMultipleLocalDeclarations(node, boundDeclarations.AsImmutableOrNull());
@@ -797,6 +799,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         protected BoundLocalDeclaration BindVariableDeclaration(
             LocalDeclarationKind kind,
             bool isVar,
+            bool isReadOnly,
             VariableDeclaratorSyntax declarator,
             TypeSyntax typeSyntax,
             TypeSymbol declTypeOpt,
@@ -809,6 +812,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             return BindVariableDeclaration(LocateDeclaredVariableSymbol(declarator, typeSyntax),
                                            kind,
                                            isVar,
+                                           isReadOnly,
                                            declarator,
                                            typeSyntax,
                                            declTypeOpt,
@@ -821,6 +825,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             SourceLocalSymbol localSymbol,
             LocalDeclarationKind kind,
             bool isVar,
+            bool isReadOnly,
             VariableDeclaratorSyntax declarator,
             TypeSyntax typeSyntax,
             TypeSymbol declTypeOpt,
@@ -1015,7 +1020,8 @@ namespace Microsoft.CodeAnalysis.CSharp
             return LocateDeclaredVariableSymbol(declarator.Identifier, typeSyntax, declarator.Initializer);
         }
 
-        private SourceLocalSymbol LocateDeclaredVariableSymbol(SyntaxToken identifier, TypeSyntax typeSyntax, EqualsValueClauseSyntax equalsValue)
+        private SourceLocalSymbol LocateDeclaredVariableSymbol(
+            SyntaxToken identifier, TypeSyntax typeSyntax, EqualsValueClauseSyntax equalsValue)
         {
             SourceLocalSymbol localSymbol = this.LookupLocal(identifier);
 
@@ -2174,7 +2180,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             for (int i = 0; i < count; i++)
             {
                 var variableDeclarator = variables[i];
-                var declaration = BindVariableDeclaration(localKind, isVar, variableDeclarator, typeSyntax, declType, alias, diagnostics);
+                var declaration = BindVariableDeclaration(localKind, isVar, isReadOnly: false, variableDeclarator, typeSyntax, declType, alias, diagnostics);
 
                 declarationArray[i] = declaration;
             }

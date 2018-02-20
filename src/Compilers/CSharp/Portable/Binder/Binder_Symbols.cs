@@ -82,7 +82,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         private Symbol BindTypeOrAlias(TypeSyntax syntax, DiagnosticBag diagnostics, out bool isVar)
         {
             ConsList<Symbol> basesBeingResolved = null;
-            if (!syntax.IsVar)
+            if (!syntax.IsVar && !syntax.IsLet)
             {
                 isVar = false;
                 return BindTypeOrAlias(syntax, diagnostics, basesBeingResolved);
@@ -190,6 +190,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                 if (isVar)
                 {
+                    // TODO(readonly): check feature flag
                     CheckFeatureAvailability(syntax, MessageID.IDS_FeatureImplicitLocal, diagnostics);
                 }
 

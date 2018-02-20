@@ -3839,6 +3839,7 @@ tryAgain:
                 case SyntaxKind.OutKeyword:
                 case SyntaxKind.InKeyword:
                 case SyntaxKind.ParamsKeyword:
+                case SyntaxKind.ReadOnlyKeyword:
                     return true;
             }
 
@@ -3876,6 +3877,11 @@ tryAgain:
                                 modifier = CheckFeatureAvailability(modifier, MessageID.IDS_FeatureRefExtensionMethods);
                             }
 
+                            break;
+                        }
+                    case SyntaxKind.ReadOnlyKeyword:
+                        {
+                            // TODO(readonly): check feature flag
                             break;
                         }
                 }
@@ -4199,7 +4205,8 @@ tryAgain:
         {
             Fixed = 0x01,
             Const = 0x02,
-            Local = 0x04
+            Local = 0x04,
+            ReadOnly = 0x08,
         }
 
         private static SyntaxTokenList GetOriginalModifiers(CSharp.CSharpSyntaxNode decl)
@@ -4259,6 +4266,11 @@ tryAgain:
             }
 
             if (mods.Any(SyntaxKind.ConstKeyword))
+            {
+                flags |= VariableFlags.Const;
+            }
+
+            if (mods.Any(SyntaxKind.ReadOnlyKeyword))
             {
                 flags |= VariableFlags.Const;
             }
@@ -4399,6 +4411,7 @@ tryAgain:
             bool isFixed = (flags & VariableFlags.Fixed) != 0;
             bool isConst = (flags & VariableFlags.Const) != 0;
             bool isLocal = (flags & VariableFlags.Local) != 0;
+            bool isReadOnly = (flags & VariableFlags.ReadOnly) != 0;
 
             // Give better error message in the case where the user did something like:
             //
@@ -4531,6 +4544,10 @@ tryAgain:
                         {
                             goto case SyntaxKind.OpenBracketToken;
                         }
+                    }
+                    else if (isReadOnly)
+                    {
+                        name = this.AddError(name, ErrorCode.ERR_ReadOnlyVariableWithNoInitializer);
                     }
 
                     break;
@@ -8337,6 +8354,11 @@ tryAgain:
                 flags |= VariableFlags.Const;
             }
 
+            if (mods.Any((int)SyntaxKind.ReadOnlyKeyword))
+            {
+                flags |= VariableFlags.ReadOnly;
+            }
+
             var saveTerm = _termState;
             _termState |= TerminatorState.IsEndOfDeclarationClause;
             this.ParseVariableDeclarators(
@@ -8404,13 +8426,13 @@ tryAgain:
                     mod = this.EatToken();
                 }
 
-                if (k == SyntaxKind.StaticKeyword || k == SyntaxKind.ReadOnlyKeyword || k == SyntaxKind.VolatileKeyword)
+                if (k == SyntaxKind.StaticKeyword || k == SyntaxKind.VolatileKeyword)
                 {
                     mod = this.AddError(mod, ErrorCode.ERR_BadMemberFlag, mod.Text);
                 }
                 else if (list.Any(mod.RawKind))
                 {
-                    // check for duplicates, can only be const
+                    // check for duplicates, can only be const or readonly
                     mod = this.AddError(mod, ErrorCode.ERR_TypeExpected, mod.Text);
                 }
 

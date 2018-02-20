@@ -420,6 +420,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         {
             get { return this.OriginalDefinition; }
         }
+
+        internal virtual bool IsReadOnly => false;
+
         #endregion
 
         #region ISymbol Members

@@ -8590,6 +8590,16 @@ Para incorporar informações de tipo de interoperabilidade para os dois assembl
         <target state="new">Arguments with 'in' modifier cannot be used in dynamically dispatched expessions.</target>
         <note />
       </trans-unit>
+      <trans-unit id="ERR_ReadOnlyParameterWithRef">
+        <source>The parameter modifier 'readonly' cannot be used with 'ref'; use 'in' instead.</source>
+        <target state="new">The parameter modifier 'readonly' cannot be used with 'ref'; use 'in' instead.</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ERR_ReadOnlyVariableWithNoInitializer">
+        <source>Read-only variables must be initialized.</source>
+        <target state="new">Read-only variables must be initialized.</target>
+        <note />
+      </trans-unit>
     </body>
   </file>
 </xliff>

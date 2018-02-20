@@ -1553,5 +1553,8 @@ namespace Microsoft.CodeAnalysis.CSharp
         ERR_CantUseVoidInArglist = 8362,
         ERR_DefaultInPattern = 8363,
         ERR_InDynamicMethodArg = 8364,
+
+        ERR_ReadOnlyVariableWithNoInitializer = 9000,
+        ERR_ReadOnlyParameterWithRef,
     }
 }

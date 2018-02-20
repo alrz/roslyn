@@ -42,7 +42,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
                 CheckParameterModifiers(parameterSyntax, diagnostics);
 
-                var refKind = GetModifiers(parameterSyntax.Modifiers, out SyntaxToken refnessKeyword, out SyntaxToken paramsKeyword, out SyntaxToken thisKeyword);
+                var refKind = GetModifiers(parameterSyntax.Modifiers, out SyntaxToken refnessKeyword, out SyntaxToken paramsKeyword, out SyntaxToken thisKeyword, out SyntaxToken readOnlyKeyword);
                 if (thisKeyword.Kind() != SyntaxKind.None && !allowThis)
                 {
                     diagnostics.Add(ErrorCode.ERR_ThisInBadContext, thisKeyword.GetLocation());
@@ -55,7 +55,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                     // the somewhat more informative "arglist not valid" error.
                     if (paramsKeyword.Kind() != SyntaxKind.None
                         || refnessKeyword.Kind() != SyntaxKind.None
-                        || thisKeyword.Kind() != SyntaxKind.None)
+                        || thisKeyword.Kind() != SyntaxKind.None
+                        || readOnlyKeyword.Kind() != SyntaxKind.None)
                     {
                         // CS1669: __arglist is not valid in this context
                         diagnostics.Add(ErrorCode.ERR_IllegalVarArgs, arglistToken.GetLocation());
@@ -80,17 +81,18 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 }
 
                 var parameter = SourceParameterSymbol.Create(
-                    binder,
-                    owner,
-                    parameterType,
-                    parameterSyntax,
-                    refKind,
-                    parameterSyntax.Identifier,
-                    parameterIndex,
-                    (paramsKeyword.Kind() != SyntaxKind.None),
-                    parameterIndex == 0 && thisKeyword.Kind() != SyntaxKind.None,
-                    addRefReadOnlyModifier,
-                    diagnostics);
+                    context: binder,
+                    owner: owner,
+                    parameterType: parameterType,
+                    syntax: parameterSyntax,
+                    refKind: refKind,
+                    identifier: parameterSyntax.Identifier,
+                    ordinal: parameterIndex,
+                    isParams: (paramsKeyword.Kind() != SyntaxKind.None),
+                    isReadOnly: (readOnlyKeyword.Kind() != SyntaxKind.None),
+                    isExtensionMethodThis: parameterIndex == 0 && thisKeyword.Kind() != SyntaxKind.None,
+                    addRefReadOnlyModifier: addRefReadOnlyModifier,
+                    declarationDiagnostics: diagnostics);
 
                 ReportParameterErrors(owner, parameterSyntax, parameter, thisKeyword, paramsKeyword, firstDefault, diagnostics);
 
@@ -139,6 +141,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             var seenOut = false;
             var seenParams = false;
             var seenIn = false;
+            var seenReadOnly = false;
 
             foreach (var modifier in parameter.Modifiers)
             {
@@ -180,6 +183,10 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                         {
                             diagnostics.Add(ErrorCode.ERR_BadParameterModifiers, modifier.GetLocation(), SyntaxFacts.GetText(SyntaxKind.RefKeyword), SyntaxFacts.GetText(SyntaxKind.InKeyword));
                         }
+                        else if (seenReadOnly)
+                        {
+                            diagnostics.Add(ErrorCode.ERR_ReadOnlyParameterWithRef, modifier.GetLocation());
+                        }
                         else
                         {
                             seenRef = true;
@@ -206,6 +213,10 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                         else if (seenIn)
                         {
                             diagnostics.Add(ErrorCode.ERR_BadParameterModifiers, modifier.GetLocation(), SyntaxFacts.GetText(SyntaxKind.OutKeyword), SyntaxFacts.GetText(SyntaxKind.InKeyword));
+                        }
+                        else if (seenReadOnly)
+                        {
+                            diagnostics.Add(ErrorCode.ERR_BadParameterModifiers, modifier.GetLocation(), SyntaxFacts.GetText(SyntaxKind.OutKeyword), SyntaxFacts.GetText(SyntaxKind.ReadOnlyKeyword));
                         }
                         else
                         {
@@ -257,9 +268,36 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                         {
                             diagnostics.Add(ErrorCode.ERR_ParamsCantBeWithModifier, modifier.GetLocation(), SyntaxFacts.GetText(SyntaxKind.InKeyword));
                         }
+                        else if (seenReadOnly)
+                        {
+                            diagnostics.Add(ErrorCode.ERR_BadParameterModifiers, modifier.GetLocation(), SyntaxFacts.GetText(SyntaxKind.InKeyword), SyntaxFacts.GetText(SyntaxKind.ReadOnlyKeyword));
+                        }
                         else
                         {
                             seenIn = true;
+                        }
+                        break;
+
+                    case SyntaxKind.ReadOnlyKeyword:
+                        if (seenReadOnly)
+                        {
+                            diagnostics.Add(ErrorCode.ERR_DupParamMod, modifier.GetLocation(), SyntaxFacts.GetText(SyntaxKind.ReadOnlyKeyword));
+                        }
+                        else if (seenIn)
+                        {
+                            diagnostics.Add(ErrorCode.ERR_BadParameterModifiers, modifier.GetLocation(), SyntaxFacts.GetText(SyntaxKind.ReadOnlyKeyword), SyntaxFacts.GetText(SyntaxKind.InKeyword));
+                        }
+                        else if (seenOut)
+                        {
+                            diagnostics.Add(ErrorCode.ERR_BadParameterModifiers, modifier.GetLocation(), SyntaxFacts.GetText(SyntaxKind.ReadOnlyKeyword), SyntaxFacts.GetText(SyntaxKind.OutKeyword));
+                        }
+                        else if (seenRef)
+                        {
+                            diagnostics.Add(ErrorCode.ERR_ReadOnlyParameterWithRef, modifier.GetLocation());
+                        }
+                        else
+                        {
+                            seenReadOnly = true;
                         }
                         break;
 
@@ -317,6 +355,11 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 // CS1601: Cannot make reference to variable of type 'System.TypedReference'
                 diagnostics.Add(ErrorCode.ERR_MethodArgCantBeRefAny, parameterSyntax.Location, parameter.Type);
             }
+            else if (parameter.IsReadOnly && (owner.IsAbstract || owner.IsExtern || owner.IsPartialMethod() || owner.ContainingType.IsInterfaceType()))
+            {
+                // Members without body cannot define readonly parameters
+                diagnostics.Add(ErrorCode.ERR_BadMemberFlag, parameterSyntax.Location, SyntaxFacts.GetText(SyntaxKind.ReadOnlyKeyword));
+            }
         }
 
         internal static bool ReportDefaultParameterErrors(
@@ -351,7 +394,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             Conversion conversion = binder.Conversions.ClassifyImplicitConversionFromExpression(defaultExpression, parameterType, ref useSiteDiagnostics);
             diagnostics.Add(defaultExpression.Syntax, useSiteDiagnostics);
 
-            var refKind = GetModifiers(parameterSyntax.Modifiers, out SyntaxToken refnessKeyword, out SyntaxToken paramsKeyword, out SyntaxToken thisKeyword);
+            var refKind = GetModifiers(parameterSyntax.Modifiers, out SyntaxToken refnessKeyword, out SyntaxToken paramsKeyword, out SyntaxToken thisKeyword, out SyntaxToken readOnlyKeyword);
 
             // CONSIDER: We are inconsistent here regarding where the error is reported; is it
             // CONSIDER: reported on the parameter name, or on the value of the initializer?
@@ -507,13 +550,14 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             return null;
         }
 
-        private static RefKind GetModifiers(SyntaxTokenList modifiers, out SyntaxToken refnessKeyword, out SyntaxToken paramsKeyword, out SyntaxToken thisKeyword)
+        private static RefKind GetModifiers(SyntaxTokenList modifiers, out SyntaxToken refnessKeyword, out SyntaxToken paramsKeyword, out SyntaxToken thisKeyword, out SyntaxToken readonlyKeyword)
         {
             var refKind = RefKind.None;
 
             refnessKeyword = default(SyntaxToken);
             paramsKeyword = default(SyntaxToken);
             thisKeyword = default(SyntaxToken);
+            readonlyKeyword = default(SyntaxToken);
 
             foreach (var modifier in modifiers)
             {
@@ -545,6 +589,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                         break;
                     case SyntaxKind.ThisKeyword:
                         thisKeyword = modifier;
+                        break;
+                    case SyntaxKind.ReadOnlyKeyword:
+                        readonlyKeyword = modifier;
                         break;
                 }
             }

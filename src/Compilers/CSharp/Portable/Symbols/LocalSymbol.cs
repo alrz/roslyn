@@ -256,7 +256,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         /// </remarks>
         internal abstract SyntaxNode GetDeclaratorSyntax();
 
-        internal virtual bool IsWritable
+        internal virtual bool IsReadOnly => false;
+
+        internal bool IsWritable
         {
             get
             {
@@ -268,7 +270,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                     case LocalDeclarationKind.UsingVariable:
                         return false;
                     default:
-                        return RefKind != RefKind.RefReadOnly;
+                        return RefKind != RefKind.RefReadOnly && !this.IsReadOnly;
                 }
             }
         }

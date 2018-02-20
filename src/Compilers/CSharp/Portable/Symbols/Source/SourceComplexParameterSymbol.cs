@@ -23,6 +23,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             ParamsParameter = 1,
             ExtensionThisParameter = 2,
             DefaultParameter = 4,
+            ReadOnlyParameter = 8,
         }
 
         private readonly SyntaxReference _syntaxRef;
@@ -42,6 +43,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             SyntaxReference syntaxRef,
             ConstantValue defaultSyntaxValue,
             bool isParams,
+            bool isReadOnly,
             bool isExtensionMethodThis)
             : base(owner, parameterType, ordinal, refKind, name, locations)
         {
@@ -53,6 +55,11 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             if (isParams)
             {
                 _parameterSyntaxKind |= ParameterSyntaxKind.ParamsParameter;
+            }
+
+            if (isReadOnly)
+            {
+                _parameterSyntaxKind |= ParameterSyntaxKind.ReadOnlyParameter;
             }
 
             if (isExtensionMethodThis)
@@ -954,6 +961,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
         public override bool IsParams => (_parameterSyntaxKind & ParameterSyntaxKind.ParamsParameter) != 0;
 
+        internal override bool IsReadOnly => (_parameterSyntaxKind & ParameterSyntaxKind.ReadOnlyParameter) != 0;
+
         internal override bool IsExtensionMethodThis => (_parameterSyntaxKind & ParameterSyntaxKind.ExtensionThisParameter) != 0;
 
         public override ImmutableArray<CustomModifier> CustomModifiers => ImmutableArray<CustomModifier>.Empty;
@@ -986,8 +995,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             SyntaxReference syntaxRef,
             ConstantValue defaultSyntaxValue,
             bool isParams,
+            bool isReadOnly,
             bool isExtensionMethodThis)
-            : base(owner, ordinal, parameterType, refKind, name, locations, syntaxRef, defaultSyntaxValue, isParams, isExtensionMethodThis)
+            : base(owner, ordinal, parameterType, refKind, name, locations, syntaxRef, defaultSyntaxValue, isParams, isReadOnly, isExtensionMethodThis)
         {
             Debug.Assert(!customModifiers.IsEmpty || !refCustomModifiers.IsEmpty);
 

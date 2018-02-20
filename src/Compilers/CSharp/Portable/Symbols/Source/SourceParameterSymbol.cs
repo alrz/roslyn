@@ -31,6 +31,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             SyntaxToken identifier,
             int ordinal,
             bool isParams,
+            bool isReadOnly,
             bool isExtensionMethodThis,
             bool addRefReadOnlyModifier,
             DiagnosticBag declarationDiagnostics)
@@ -63,10 +64,12 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                     syntax.GetReference(),
                     ConstantValue.Unset,
                     isParams,
+                    isReadOnly,
                     isExtensionMethodThis);
             }
 
             if (!isParams &&
+                !isReadOnly &&
                 !isExtensionMethodThis &&
                 (syntax.Default == null) &&
                 (syntax.AttributeLists.Count == 0) &&
@@ -85,6 +88,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 syntax.GetReference(),
                 ConstantValue.Unset,
                 isParams,
+                isReadOnly,
                 isExtensionMethodThis);
         }
 
@@ -125,6 +129,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                     this.SyntaxReference,
                     this.ExplicitDefaultConstantValue,
                     newIsParams,
+                    this.IsReadOnly,
                     this.IsExtensionMethodThis);
             }
 
@@ -143,6 +148,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 this.SyntaxReference,
                 this.ExplicitDefaultConstantValue,
                 newIsParams,
+                this.IsReadOnly,
                 this.IsExtensionMethodThis);
         }
 
