@@ -5547,12 +5547,9 @@ partial class PartialPartial
         {
             var text = @"partial enum E{}";
             CreateCompilationWithMscorlib45(text).VerifyDiagnostics(
-                // (1,1): error CS0267: The 'partial' modifier can only appear immediately before 'class', 'struct', 'interface', or 'void'
+                // (1,14): error CS0106: The modifier 'partial' is not valid for this item
                 // partial enum E{}
-                Diagnostic(ErrorCode.ERR_PartialMisplaced, "partial").WithLocation(1, 1),
-                // (1,14): error CS0267: The 'partial' modifier can only appear immediately before 'class', 'struct', 'interface', or 'void'
-                // partial enum E{}
-                Diagnostic(ErrorCode.ERR_PartialMisplaced, "E").WithLocation(1, 14));
+                Diagnostic(ErrorCode.ERR_BadMemberFlag, "E").WithArguments("partial").WithLocation(1, 14));
         }
 
         [WorkItem(539120, "http://vstfdevdiv:8080/DevDiv2/DevDiv/_workitems/edit/539120")]

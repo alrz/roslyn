@@ -160,6 +160,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         IDS_FeatureExpressionVariablesInQueriesAndInitializers = MessageBase + 12742,
         IDS_FeatureExtensibleFixedStatement = MessageBase + 12743,
         IDS_FeatureIndexingMovableFixedBuffers = MessageBase + 12744,
+        IDS_FeatureRefPartialModOrdering = MessageBase + 12745,
     }
 
     // Message IDs may refer to strings that need to be localized.
@@ -213,6 +214,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 case MessageID.IDS_FeatureExpressionVariablesInQueriesAndInitializers: // semantic check
                 case MessageID.IDS_FeatureExtensibleFixedStatement:  // semantic check
                 case MessageID.IDS_FeatureIndexingMovableFixedBuffers: //semantic check
+                case MessageID.IDS_FeatureRefPartialModOrdering:
                     return LanguageVersion.CSharp7_3;
 
                 // C# 7.2 features.
