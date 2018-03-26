@@ -244,6 +244,20 @@ partial public class Test {}
                 Diagnostic(ErrorCode.ERR_SyntaxError, "").WithArguments("]", "").WithLocation(3, 11)
                 );
         }
-     }
+
+        [Fact]
+        public void TestNoRegressionOnRefPartialMember()
+        {
+            var text = @"
+class partial
+{
+    ref partial M() => throw null;
+}
+";
+
+            var comp = CreateCompilation(text, parseOptions: TestOptions.Regular7_3);
+            comp.VerifyDiagnostics();
+        }
+    }
 }
 

@@ -506,7 +506,7 @@ partial class PartialPartial
     }
 }
 ";
-            ParseAndRoundTripping(text, -1);
+            ParseAndRoundTripping(text, 0);
         }
 
         [Fact]

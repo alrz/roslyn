@@ -705,27 +705,10 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 case SyntaxKind.NamespaceKeyword:
                     return true;
                 case SyntaxKind.IdentifierToken:
-                    return IsPartialInNamespaceMemberDeclaration();
+                    return IsCurrentTokenPartialKeywordOfPartialMethodOrType();
                 default:
                     return IsPossibleStartOfTypeDeclaration(this.CurrentToken.Kind);
             }
-        }
-
-        private bool IsPartialInNamespaceMemberDeclaration()
-        {
-            if (this.CurrentToken.ContextualKind == SyntaxKind.PartialKeyword)
-            {
-                if (this.IsPartialType())
-                {
-                    return true;
-                }
-                else if (this.PeekToken(1).Kind == SyntaxKind.NamespaceKeyword)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         public bool IsEndOfNamespace()
@@ -1173,31 +1156,25 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 {
                     case DeclarationModifiers.Partial:
                         {
-                            var isPartialType = IsPartialType(
-                                out bool isPartialFollowedByTypeToken,
-                                out bool isTypeDeclaration,
-                                out SyntaxToken nextToken,
-                                out SyntaxToken lastToken);
-                            if (isPartialType || this.IsPartialMember())
-                            {
-                                // Standard legal cases.
-                                modTok = ConvertToKeyword(this.EatToken());
-                                modTok = CheckFeatureAvailability(modTok,
-                                    isPartialType
-                                        ? isPartialFollowedByTypeToken
-                                            ? MessageID.IDS_FeaturePartialTypes
-                                            : MessageID.IDS_FeatureRefPartialModOrdering
-                                        : MessageID.IDS_FeaturePartialMethod);
-                            }
-                            else if (isTypeDeclaration || lastToken.Kind == SyntaxKind.NamespaceKeyword || IsNonContextualModifier(nextToken))
-                            {
-                                // Error reported in binding
-                                modTok = ConvertToKeyword(this.EatToken());
-                            }
-                            else
+                            var flags = ShouldPartialBeTreatedAsModifier();
+                            if (flags == PartialModFlags.NotModifier)
                             {
                                 return;
                             }
+
+                            modTok = ConvertToKeyword(this.EatToken());
+                            if (flags == PartialModFlags.TreatAsModifier)
+                            {
+                                // Error reported in binding
+                                break;
+                            }
+
+                            modTok = CheckFeatureAvailability(modTok,
+                                flags == PartialModFlags.PartialType
+                                    ? IsPartialTypeDeclarationStart(this.CurrentToken.Kind)
+                                        ? MessageID.IDS_FeaturePartialTypes
+                                        : MessageID.IDS_FeatureRefPartialModOrdering
+                                    : MessageID.IDS_FeaturePartialMethod);
 
                             break;
                         }
@@ -1243,25 +1220,6 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             }
         }
 
-        private bool IsPartialType(out bool isPartialFollowedByTypeToken, out bool isTypeDeclaration, out SyntaxToken nextToken, out SyntaxToken lastToken)
-        {
-            Debug.Assert(this.CurrentToken.ContextualKind == SyntaxKind.PartialKeyword);
-
-            nextToken = PeekToken(1);
-            lastToken = nextToken;
-
-            isPartialFollowedByTypeToken = IsPartialTypeDeclarationStart(nextToken.Kind);
-
-            if (isPartialFollowedByTypeToken)
-            {
-                isTypeDeclaration = true;
-                return true;
-            }
-
-            isTypeDeclaration = IsTypeDeclaration(out lastToken);
-            return isTypeDeclaration && IsPartialTypeDeclarationStart(lastToken.Kind);
-        }
-
         private bool IsRefStruct(out bool isRefFollowedByStructOrPartialStruct, out bool isTypeDeclaration)
         {
             Debug.Assert(this.CurrentToken.ContextualKind == SyntaxKind.RefKeyword);
@@ -1279,6 +1237,104 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 
             isTypeDeclaration = IsTypeDeclaration(out nextToken);
             return isTypeDeclaration && nextToken.Kind == SyntaxKind.StructKeyword;
+        }
+
+        private static bool CanFollowTypeName(SyntaxKind kind)
+        {
+            switch (kind)
+            {
+                case SyntaxKind.DotToken:                   // partial.     qualified
+                case SyntaxKind.ColonColonToken:            // partial::    alias
+                case SyntaxKind.LessThanToken:              // partial<     generic type
+                case SyntaxKind.OpenBracketToken:           // partial[     array
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool CanFollowMemberName(SyntaxKind kind)
+        {
+            switch (kind)
+            {
+                case SyntaxKind.LessThanToken:              // partial<     generic method
+                case SyntaxKind.OpenBraceToken:             // partial {    property
+                case SyntaxKind.EqualsGreaterThanToken:     // partial =>   property
+                case SyntaxKind.OpenParenToken:             // partial(     method
+                    return true;
+            }
+
+            return false;
+        }
+
+        private enum PartialModFlags
+        {
+            PartialType,
+            PartialMember,
+            TreatAsModifier,
+            NotModifier
+        }
+
+        private PartialModFlags ShouldPartialBeTreatedAsModifier()
+        {
+            Debug.Assert(this.CurrentToken.ContextualKind == SyntaxKind.PartialKeyword);
+
+            int peekIndex = 1;
+            SyntaxToken currentToken;
+
+            while (GetModifier(currentToken = PeekToken(peekIndex)) != DeclarationModifiers.None)
+            {
+                if (SyntaxFacts.IsContextualKeyword(currentToken.ContextualKind))
+                {
+                    var nextTokenKind = PeekToken(peekIndex + 1).Kind;
+                    if (nextTokenKind == SyntaxKind.ThisKeyword ||
+                        (nextTokenKind == SyntaxKind.IdentifierToken
+                             ? CanFollowMemberName(PeekToken(peekIndex + 2).Kind)
+                             : CanFollowTypeName(nextTokenKind)))
+                    {
+                        break;
+                    }
+                }
+
+                peekIndex++;
+            }
+
+            switch (currentToken.Kind)
+            {
+                case SyntaxKind.NamespaceKeyword:
+                case SyntaxKind.DelegateKeyword:
+                case SyntaxKind.EnumKeyword:
+                    return PartialModFlags.TreatAsModifier;
+                case SyntaxKind.ClassKeyword:
+                case SyntaxKind.InterfaceKeyword:
+                case SyntaxKind.StructKeyword:
+                    return PartialModFlags.PartialType;
+            }
+
+            var point = this.GetResetPoint();
+
+            try
+            {
+                // Skip over all modifiers
+                for (; peekIndex > 0; peekIndex--)
+                {
+                    this.EatToken();
+                }
+
+                if (this.ScanType() != ScanTypeFlags.NotType && IsPossibleMemberName())
+                {
+                    return PartialModFlags.PartialMember;
+                }
+                else
+                {
+                    return PartialModFlags.NotModifier;
+                }
+            }
+            finally
+            {
+                this.Reset(ref point);
+                this.Release(ref point);
+            }
         }
 
         private bool ShouldAsyncBeTreatedAsModifier(bool parsingStatementNotDeclaration)
@@ -1420,12 +1476,6 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             }
         }
 
-        private bool IsPartialType()
-        {
-            Debug.Assert(this.CurrentToken.ContextualKind == SyntaxKind.PartialKeyword);
-            return IsPartialType(out _, out _, out _, out _);
-        }
-
         private static bool IsPartialTypeDeclarationStart(SyntaxKind token)
         {
             switch (token)
@@ -1437,45 +1487,6 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             }
 
             return false;
-        }
-
-        private bool IsPartialMember()
-        {
-            // note(cyrusn): this could have been written like so:
-            //
-            //  return
-            //    this.CurrentToken.ContextualKind == SyntaxKind.PartialKeyword &&
-            //    this.PeekToken(1).Kind == SyntaxKind.VoidKeyword;
-            //
-            // However, we want to be lenient and allow the user to write 
-            // 'partial' in most modifier lists.  We will then provide them with
-            // a more specific message later in binding that they are doing 
-            // something wrong.
-            //
-            // Some might argue that the simple check would suffice.
-            // However, we'd like to maintain behavior with 
-            // previously shipped versions, and so we're keeping this code.
-
-            // Here we check for:
-            //   partial ReturnType MemberName
-            Debug.Assert(this.CurrentToken.ContextualKind == SyntaxKind.PartialKeyword);
-            var point = this.GetResetPoint();
-            try
-            {
-                this.EatToken(); // partial
-
-                if (this.ScanType() == ScanTypeFlags.NotType)
-                {
-                    return false;
-                }
-
-                return IsPossibleMemberName();
-            }
-            finally
-            {
-                this.Reset(ref point);
-                this.Release(ref point);
-            }
         }
 
         private bool IsPossibleMemberName()
@@ -2477,11 +2488,6 @@ parse_member_name:;
             _pool.Free(types);
             return result;
         }
-
-        //private bool ReconsiderTypeAsAsyncModifier(ref SyntaxListBuilder modifiers, ref type, ref identifierOrThisOpt, ref typeParameterListOpt))
-        //        {
-        //            goto parse_member_name;
-        //        }
 
         private bool IsFieldDeclaration(bool isEvent)
         {
@@ -5007,7 +5013,7 @@ tryAgain:
         {
             if (this.CurrentToken.ContextualKind == SyntaxKind.PartialKeyword)
             {
-                if (this.IsPartialType() || this.IsPartialMember())
+                if (ShouldPartialBeTreatedAsModifier() != PartialModFlags.NotModifier)
                 {
                     return true;
                 }
