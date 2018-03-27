@@ -1140,19 +1140,13 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     return DeclarationModifiers.None;
             }
         }
-        
+
         private void ParseModifiers(SyntaxListBuilder tokens, bool forAccessors)
         {
             while (true)
             {
-                var newMod = GetModifier(this.CurrentToken);
-                if (newMod == DeclarationModifiers.None)
-                {
-                    break;
-                }
-
                 SyntaxToken modTok;
-                switch (newMod)
+                switch (GetModifier(this.CurrentToken))
                 {
                     case DeclarationModifiers.Partial:
                         {
@@ -1173,7 +1167,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 
                             modTok = CheckFeatureAvailability(modTok,
                                 flags == ScanPartialFlags.PartialType
-                                    ? IsPartialTypeDeclarationStart(this.CurrentToken.Kind)
+                                    ? IsTypeDeclarationStart(this.CurrentToken.Kind) // pre-7.3 requirement.
                                         ? MessageID.IDS_FeaturePartialTypes
                                         : MessageID.IDS_FeatureRefPartialModOrdering
                                     : MessageID.IDS_FeaturePartialMethod);
@@ -1183,7 +1177,17 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 
                     case DeclarationModifiers.Ref:
                         {
-                            if (IsRefStruct(out bool isRefFollowedByStructOrPartialStruct, out bool isTypeDeclaration))
+                            bool isTypeDecl;
+
+                            var nextToken = PeekToken(1);
+
+                            // In the previous version of the language, we required 'ref' to
+                            // appear immediately before 'struct' or 'partial struct'.
+                            var isRefFollowedByStructOrPartialStruct = nextToken.Kind == SyntaxKind.StructKeyword ||
+                                (nextToken.ContextualKind == SyntaxKind.PartialKeyword && this.PeekToken(2).Kind == SyntaxKind.StructKeyword);
+
+                            if (isRefFollowedByStructOrPartialStruct ||
+                                ((isTypeDecl = IsTypeDeclaration(out SyntaxToken typeDeclStart)) && typeDeclStart.Kind == SyntaxKind.StructKeyword))
                             {
                                 modTok = this.EatToken();
                                 modTok = CheckFeatureAvailability(modTok,
@@ -1191,9 +1195,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                                         ? MessageID.IDS_FeatureRefStructs
                                         : MessageID.IDS_FeatureRefPartialModOrdering);
                             }
-                            else if (isTypeDeclaration || (forAccessors && this.IsPossibleAccessorModifier()))
+                            else if (isTypeDecl || (forAccessors && this.IsPossibleAccessorModifier()))
                             {
-                                // Accept ref as a modifier for properties, types declarations
+                                // Accept ref as a modifier for properties, type declarations
                                 // and event accessors, to produce an error later during binding.
                                 modTok = this.EatToken();
                             }
@@ -1214,6 +1218,10 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                         modTok = ConvertToKeyword(this.EatToken());
                         modTok = CheckFeatureAvailability(modTok, MessageID.IDS_FeatureAsync);
                         break;
+
+                    case DeclarationModifiers.None:
+                        return;
+
                     default:
                         modTok = this.EatToken();
                         break;
@@ -1221,25 +1229,6 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 
                 tokens.Add(modTok);
             }
-        }
-
-        private bool IsRefStruct(out bool isRefFollowedByStructOrPartialStruct, out bool isTypeDeclaration)
-        {
-            Debug.Assert(this.CurrentToken.ContextualKind == SyntaxKind.RefKeyword);
-
-            var nextToken = PeekToken(1);
-
-            isRefFollowedByStructOrPartialStruct = nextToken.Kind == SyntaxKind.StructKeyword ||
-                (nextToken.ContextualKind == SyntaxKind.PartialKeyword && this.PeekToken(2).Kind == SyntaxKind.StructKeyword);
-
-            if (isRefFollowedByStructOrPartialStruct)
-            {
-                isTypeDeclaration = true;
-                return true;
-            }
-
-            isTypeDeclaration = IsTypeDeclaration(out nextToken);
-            return isTypeDeclaration && nextToken.Kind == SyntaxKind.StructKeyword;
         }
 
         private static bool IsContextualModifier(SyntaxToken token)
@@ -1264,31 +1253,18 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
         // While, in fact, 'partial' is only a modifier on the second method.
         private bool IsPossibleModifier()
         {
-            if (GetModifier(this.CurrentToken) == DeclarationModifiers.None)
+            if (!IsAnyModifier(this.CurrentToken))
             {
                 return false;
             }
 
             if (IsContextualModifier(this.CurrentToken))
             {
-                // We won't check for valid cases, since the following token could be
-                // yet another contextual keyword, so we just exlclude tokens that
-                // makes this a definite non-modifier.
-                switch (this.PeekToken(1).Kind)
-                {
-                    case SyntaxKind.DotToken:                   // partial.         qualified name
-                    case SyntaxKind.ColonColonToken:            // partial::        qualified name
-                    case SyntaxKind.OpenBracketToken:           // partial[         array type
-                    case SyntaxKind.OpenBraceToken:             // partial {        property
-                    case SyntaxKind.EqualsGreaterThanToken:     // partial =>       property
-                    case SyntaxKind.OpenParenToken:             // partial(         method
-                    case SyntaxKind.CommaToken:                 // partial,         field
-                    case SyntaxKind.SemicolonToken:             // partial;         field
-                    case SyntaxKind.LessThanToken:              // partial<         generic type or method
-                    case SyntaxKind.EqualsToken:                // partial=         field initializer
-                    case SyntaxKind.ThisKeyword:                // partial this     indexer type
-                        return false;
-                }
+                var tk = this.PeekToken(1);
+                return tk.Kind == SyntaxKind.IdentifierToken ||
+                    IsPredefinedType(tk.Kind) ||
+                    IsTypeDeclarationStart(tk.Kind) || 
+                    IsAnyModifier(tk);
             }
 
             return true;
@@ -1512,30 +1488,22 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             return GetModifier(nextToken.Kind, contextualKind: SyntaxKind.None) != DeclarationModifiers.None;
         }
 
-        private bool IsTypeDeclaration(out SyntaxToken lastToken)
+        private static bool IsAnyModifier(SyntaxToken nextToken)
+        {
+            return GetModifier(nextToken) != DeclarationModifiers.None;
+        }
+
+        private bool IsTypeDeclaration(out SyntaxToken typeDeclarationStart)
         {
             for (var peekIndex = 1; ; peekIndex++)
             {
                 var currentToken = this.PeekToken(peekIndex);
-                if (GetModifier(currentToken) == DeclarationModifiers.None)
+                if (!IsAnyModifier(currentToken))
                 {
-                    lastToken = currentToken;
-                    return IsTypeDeclarationStart(lastToken.Kind);
+                    typeDeclarationStart = currentToken;
+                    return IsTypeDeclarationStart(typeDeclarationStart.Kind);
                 }
             }
-        }
-
-        private static bool IsPartialTypeDeclarationStart(SyntaxKind token)
-        {
-            switch (token)
-            {
-                case SyntaxKind.StructKeyword:
-                case SyntaxKind.ClassKeyword:
-                case SyntaxKind.InterfaceKeyword:
-                    return true;
-            }
-
-            return false;
         }
 
         private bool IsPossibleMemberName()
@@ -2342,10 +2310,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 
                 // Check for misplaced modifiers.  if we see any, then consider this member
                 // terminated and restart parsing.
-                if (GetModifier(this.CurrentToken) != DeclarationModifiers.None &&
-                    this.CurrentToken.ContextualKind != SyntaxKind.PartialKeyword &&
-                    this.CurrentToken.ContextualKind != SyntaxKind.AsyncKeyword &&
-                    IsComplete(type))
+                if (IsNonContextualModifier(this.CurrentToken) && IsComplete(type))
                 {
                     var misplacedModifier = this.CurrentToken;
                     type = this.AddError(
@@ -3296,7 +3261,7 @@ parse_member_name:;
             }
 
             var peekIndex = 1;
-            while (GetModifier(this.PeekToken(peekIndex)) != DeclarationModifiers.None)
+            while (IsAnyModifier(this.PeekToken(peekIndex)))
             {
                 peekIndex++;
             }
