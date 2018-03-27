@@ -1353,9 +1353,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 if (this.ScanType() != ScanTypeFlags.NotType)
                 {
                     // If the last additional modifier was a contextual keyword, it could actually
-                    // be the return type of a generic method, in which case we actually scanned for
-                    // the member name above, and therefore IsPossibleMemberName returns false here.
-                    if (IsPossibleMemberName() || IsOperatorKeyword() || (lastModOpt != null && IsContextualModifier(lastModOpt)))
+                    // be the return type of a generic method, in which case we have scanned for
+                    // the member name above, and therefore IsPossiblePartialMemberStart returns false.
+                    if (IsPossiblePartialMemberStart() || (lastModOpt != null && IsContextualModifier(lastModOpt)))
                     {
                         return ScanPartialFlags.PartialMember;
                     }
@@ -1368,6 +1368,22 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 this.Reset(ref point);
                 this.Release(ref point);
             }
+        }
+
+        private bool IsPossiblePartialMemberStart()
+        {
+            switch (this.CurrentToken.Kind)
+            {
+                case SyntaxKind.IdentifierToken:
+                case SyntaxKind.ThisKeyword:
+                case SyntaxKind.ImplicitKeyword:
+                case SyntaxKind.ExplicitKeyword:
+                case SyntaxKind.OperatorKeyword:
+                case SyntaxKind.EventKeyword:
+                    return true;
+            }
+
+            return false;
         }
 
         private bool ShouldAsyncBeTreatedAsModifier(bool parsingStatementNotDeclaration)
