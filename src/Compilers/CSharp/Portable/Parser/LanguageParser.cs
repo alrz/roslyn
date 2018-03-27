@@ -1156,21 +1156,23 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 {
                     case DeclarationModifiers.Partial:
                         {
-                            var flags = ShouldPartialBeTreatedAsModifier();
-                            if (flags == PartialModFlags.NotModifier)
+                            var flags = ScanPartialTypeOrMember();
+                            if (flags == ScanPartialFlags.NotModifier)
                             {
+                                // This can't be a modifier.
                                 return;
                             }
 
                             modTok = ConvertToKeyword(this.EatToken());
-                            if (flags == PartialModFlags.TreatAsModifier)
+                            if (flags == ScanPartialFlags.TreatAsModifier)
                             {
-                                // Error reported in binding
+                                // Not a partial type or member but we will parse it
+                                // to report better diagnostics later in binding
                                 break;
                             }
 
                             modTok = CheckFeatureAvailability(modTok,
-                                flags == PartialModFlags.PartialType
+                                flags == ScanPartialFlags.PartialType
                                     ? IsPartialTypeDeclarationStart(this.CurrentToken.Kind)
                                         ? MessageID.IDS_FeaturePartialTypes
                                         : MessageID.IDS_FeatureRefPartialModOrdering
@@ -1189,9 +1191,10 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                                         ? MessageID.IDS_FeatureRefStructs
                                         : MessageID.IDS_FeatureRefPartialModOrdering);
                             }
-                            else if (isTypeDeclaration || forAccessors && this.IsPossibleAccessorModifier())
+                            else if (isTypeDeclaration || (forAccessors && this.IsPossibleAccessorModifier()))
                             {
-                                // Accept ref as a modifier for properties and event accessors, to produce an error later during binding.
+                                // Accept ref as a modifier for properties, types declarations
+                                // and event accessors, to produce an error later during binding.
                                 modTok = this.EatToken();
                             }
                             else
@@ -1239,96 +1242,126 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             return isTypeDeclaration && nextToken.Kind == SyntaxKind.StructKeyword;
         }
 
-        private static bool CanFollowTypeName(SyntaxKind kind)
+        private static bool IsContextualModifier(SyntaxToken token)
         {
-            switch (kind)
+            switch (token.ContextualKind)
             {
-                case SyntaxKind.DotToken:                   // partial.     qualified
-                case SyntaxKind.ColonColonToken:            // partial::    alias
-                case SyntaxKind.LessThanToken:              // partial<     generic type
-                case SyntaxKind.OpenBracketToken:           // partial[     array
+                case SyntaxKind.PartialKeyword:
+                case SyntaxKind.AsyncKeyword:
                     return true;
             }
 
             return false;
         }
 
-        private static bool CanFollowMemberName(SyntaxKind kind)
+        // Returns true if the current token is probably a modifier.
+        // To avoid further lookahead, caller is responsible to disambiguate some edge cases.
+        // For instance, we return true for both of these:
+        //
+        //    partial partial<T>()
+        //    partial partail<T> partial()
+        //
+        // While, in fact, 'partial' is only a modifier on the second method.
+        private bool IsPossibleModifier()
         {
-            switch (kind)
+            if (GetModifier(this.CurrentToken) == DeclarationModifiers.None)
             {
-                case SyntaxKind.LessThanToken:              // partial<     generic method
-                case SyntaxKind.OpenBraceToken:             // partial {    property
-                case SyntaxKind.EqualsGreaterThanToken:     // partial =>   property
-                case SyntaxKind.OpenParenToken:             // partial(     method
-                    return true;
+                return false;
             }
 
-            return false;
+            if (IsContextualModifier(this.CurrentToken))
+            {
+                // We won't check for valid cases, since the following token could be
+                // yet another contextual keyword, so we just exlclude tokens that
+                // makes this a definite non-modifier.
+                switch (this.PeekToken(1).Kind)
+                {
+                    case SyntaxKind.DotToken:                   // partial.         qualified name
+                    case SyntaxKind.ColonColonToken:            // partial::        qualified name
+                    case SyntaxKind.OpenBracketToken:           // partial[         array type
+                    case SyntaxKind.OpenBraceToken:             // partial {        property
+                    case SyntaxKind.EqualsGreaterThanToken:     // partial =>       property
+                    case SyntaxKind.OpenParenToken:             // partial(         method
+                    case SyntaxKind.CommaToken:                 // partial,         field
+                    case SyntaxKind.SemicolonToken:             // partial;         field
+                    case SyntaxKind.LessThanToken:              // partial<         generic type or method
+                    case SyntaxKind.EqualsToken:                // partial=         field initializer
+                    case SyntaxKind.ThisKeyword:                // partial this     indexer type
+                        return false;
+                }
+            }
+
+            return true;
         }
 
-        private enum PartialModFlags
+        /// <summary>
+        ///  Possible results from scanning for a partial member or type.
+        /// </summary>
+        private enum ScanPartialFlags
         {
+            /// <summary>
+            /// Definitly a partial type.
+            /// </summary>
             PartialType,
+            /// <summary>
+            /// Definitly a partial member.
+            /// </summary>
             PartialMember,
+            /// <summary>
+            /// Treat as modifier for better diagnostics to be reported during binding.
+            /// </summary>
             TreatAsModifier,
+            /// <summary>
+            /// Not a modifier.
+            /// </summary>
             NotModifier
         }
 
-        private PartialModFlags ShouldPartialBeTreatedAsModifier()
+        private ScanPartialFlags ScanPartialTypeOrMember()
         {
             Debug.Assert(this.CurrentToken.ContextualKind == SyntaxKind.PartialKeyword);
-
-            int peekIndex = 1;
-            SyntaxToken currentToken;
-
-            while (GetModifier(currentToken = PeekToken(peekIndex)) != DeclarationModifiers.None)
-            {
-                if (SyntaxFacts.IsContextualKeyword(currentToken.ContextualKind))
-                {
-                    var nextTokenKind = PeekToken(peekIndex + 1).Kind;
-                    if (nextTokenKind == SyntaxKind.ThisKeyword ||
-                        (nextTokenKind == SyntaxKind.IdentifierToken
-                             ? CanFollowMemberName(PeekToken(peekIndex + 2).Kind)
-                             : CanFollowTypeName(nextTokenKind)))
-                    {
-                        break;
-                    }
-                }
-
-                peekIndex++;
-            }
-
-            switch (currentToken.Kind)
-            {
-                case SyntaxKind.NamespaceKeyword:
-                case SyntaxKind.DelegateKeyword:
-                case SyntaxKind.EnumKeyword:
-                    return PartialModFlags.TreatAsModifier;
-                case SyntaxKind.ClassKeyword:
-                case SyntaxKind.InterfaceKeyword:
-                case SyntaxKind.StructKeyword:
-                    return PartialModFlags.PartialType;
-            }
 
             var point = this.GetResetPoint();
 
             try
             {
-                // Skip over all modifiers
-                for (; peekIndex > 0; peekIndex--)
+                EatToken(); // partial
+
+                SyntaxToken lastModOpt = null;
+
+                // Skip over additional modifiers
+                while (IsPossibleModifier())
                 {
-                    this.EatToken();
+                    lastModOpt = EatToken();
                 }
 
-                if (this.ScanType() != ScanTypeFlags.NotType && IsPossibleMemberName())
+                switch (this.CurrentToken.Kind)
                 {
-                    return PartialModFlags.PartialMember;
+                    case SyntaxKind.NamespaceKeyword:
+                    case SyntaxKind.DelegateKeyword:
+                    case SyntaxKind.EnumKeyword:
+                        // Just treat as a modifier in erroneous cases.
+                        // We'll report an error later during binding.
+                        return ScanPartialFlags.TreatAsModifier;
+                    case SyntaxKind.ClassKeyword:
+                    case SyntaxKind.InterfaceKeyword:
+                    case SyntaxKind.StructKeyword:
+                        return ScanPartialFlags.PartialType;
                 }
-                else
+
+                // Scan for the return type or possibly the member name. See the next comment.
+                if (this.ScanType() != ScanTypeFlags.NotType)
                 {
-                    return PartialModFlags.NotModifier;
+                    // If the last additional modifier was a contextual keyword, it could actually
+                    // be the return type of a generic method, in which case we actually scanned for
+                    // the member name above, and therefore IsPossibleMemberName returns false here.
+                    if (IsPossibleMemberName() || IsOperatorKeyword() || (lastModOpt != null && IsContextualModifier(lastModOpt)))
+                    {
+                        return ScanPartialFlags.PartialMember;
+                    }
                 }
+
+                return ScanPartialFlags.NotModifier;
             }
             finally
             {
@@ -5013,7 +5046,7 @@ tryAgain:
         {
             if (this.CurrentToken.ContextualKind == SyntaxKind.PartialKeyword)
             {
-                if (ShouldPartialBeTreatedAsModifier() != PartialModFlags.NotModifier)
+                if (ScanPartialTypeOrMember() != ScanPartialFlags.NotModifier)
                 {
                     return true;
                 }
