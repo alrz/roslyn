@@ -1582,11 +1582,6 @@
         <target state="translated">Não é possível converter implicitamente tipo "{0}" em "{1}". Existe uma conversão explícita (há uma conversão ausente?)</target>
         <note />
       </trans-unit>
-      <trans-unit id="ERR_PartialMisplaced">
-        <source>The 'partial' modifier can only appear immediately before 'class', 'struct', 'interface', or 'void'</source>
-        <target state="translated">O modificador 'partial' só pode aparecer imediatamente antes de 'class', 'struct', 'interface' ou 'void'</target>
-        <note />
-      </trans-unit>
       <trans-unit id="ERR_ImportedCircularBase">
         <source>Imported type '{0}' is invalid. It contains a circular base class dependency.</source>
         <target state="translated">Tipo importado "{0}" é inválido. Ele contém uma dependência de classe de base circular.</target>
@@ -8733,6 +8728,11 @@ Para incorporar informações de tipo de interoperabilidade para os dois assembl
       <trans-unit id="ERR_InvalidObjectCreation">
         <source>Invalid object creation</source>
         <target state="new">Invalid object creation</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="IDS_FeatureRefPartialModOrdering">
+        <source>ref and partial modifier ordering</source>
+        <target state="new">ref and partial modifier ordering</target>
         <note />
       </trans-unit>
     </body>

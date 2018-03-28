@@ -1582,11 +1582,6 @@
         <target state="translated">Typ {0} nejde implicitně převést na typ {1}. Existuje explicitní převod. (Nechybí výraz přetypování?)</target>
         <note />
       </trans-unit>
-      <trans-unit id="ERR_PartialMisplaced">
-        <source>The 'partial' modifier can only appear immediately before 'class', 'struct', 'interface', or 'void'</source>
-        <target state="translated">Modifikátor partial se smí objevit jenom bezprostředně před klíčovým slovem class, struct, interface nebo void.</target>
-        <note />
-      </trans-unit>
       <trans-unit id="ERR_ImportedCircularBase">
         <source>Imported type '{0}' is invalid. It contains a circular base class dependency.</source>
         <target state="translated">Importovaný typ {0} je neplatný. Obsahuje cyklickou závislost základních tříd.</target>
@@ -8733,6 +8728,11 @@ Pokud chcete odstranit toto varování, můžete místo toho použít /reference
       <trans-unit id="ERR_InvalidObjectCreation">
         <source>Invalid object creation</source>
         <target state="new">Invalid object creation</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="IDS_FeatureRefPartialModOrdering">
+        <source>ref and partial modifier ordering</source>
+        <target state="new">ref and partial modifier ordering</target>
         <note />
       </trans-unit>
     </body>

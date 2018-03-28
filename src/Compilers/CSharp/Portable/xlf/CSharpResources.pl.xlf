@@ -1582,11 +1582,6 @@
         <target state="translated">Nie można niejawnie przekonwertować typu „{0}” na „{1}”. Istnieje konwersja jawna (czy nie brakuje rzutu?).</target>
         <note />
       </trans-unit>
-      <trans-unit id="ERR_PartialMisplaced">
-        <source>The 'partial' modifier can only appear immediately before 'class', 'struct', 'interface', or 'void'</source>
-        <target state="translated">Modyfikator „partial” może się pojawić tylko bezpośrednio przed typem „class”, „struct”, „interface” lub „void”</target>
-        <note />
-      </trans-unit>
       <trans-unit id="ERR_ImportedCircularBase">
         <source>Imported type '{0}' is invalid. It contains a circular base class dependency.</source>
         <target state="translated">Importowany typ „{0}” jest nieprawidłowy. Zawiera on cykliczną zależność klasy bazowej.</target>
@@ -8733,6 +8728,11 @@ Aby usunąć ostrzeżenie, możesz zamiast tego użyć opcji /reference (ustaw w
       <trans-unit id="ERR_InvalidObjectCreation">
         <source>Invalid object creation</source>
         <target state="new">Invalid object creation</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="IDS_FeatureRefPartialModOrdering">
+        <source>ref and partial modifier ordering</source>
+        <target state="new">ref and partial modifier ordering</target>
         <note />
       </trans-unit>
     </body>

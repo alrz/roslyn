@@ -1582,11 +1582,6 @@
         <target state="translated">Der Typ "{0}" kann nicht implizit in "{1}" konvertiert werden. Es ist bereits eine explizite Konvertierung vorhanden (möglicherweise fehlt eine Umwandlung).</target>
         <note />
       </trans-unit>
-      <trans-unit id="ERR_PartialMisplaced">
-        <source>The 'partial' modifier can only appear immediately before 'class', 'struct', 'interface', or 'void'</source>
-        <target state="translated">Der "partial"-Modifizierer kann nur unmittelbar vor "class", "struct", "interface" oder "void" verwendet werden.</target>
-        <note />
-      </trans-unit>
       <trans-unit id="ERR_ImportedCircularBase">
         <source>Imported type '{0}' is invalid. It contains a circular base class dependency.</source>
         <target state="translated">Der importierte Typ "{0}" ist ungültig. Er enthält eine Basisklassen-Ringabhängigkeit.</target>
@@ -8733,6 +8728,11 @@ Um die Warnung zu beheben, können Sie stattdessen /reference verwenden (Einbett
       <trans-unit id="ERR_InvalidObjectCreation">
         <source>Invalid object creation</source>
         <target state="new">Invalid object creation</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="IDS_FeatureRefPartialModOrdering">
+        <source>ref and partial modifier ordering</source>
+        <target state="new">ref and partial modifier ordering</target>
         <note />
       </trans-unit>
     </body>

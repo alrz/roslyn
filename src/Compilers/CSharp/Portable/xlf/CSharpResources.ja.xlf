@@ -1582,11 +1582,6 @@
         <target state="translated">型 '{0}' を '{1}' に暗黙的に変換できません。明示的な変換が存在します (cast が不足していないかどうかを確認してください)</target>
         <note />
       </trans-unit>
-      <trans-unit id="ERR_PartialMisplaced">
-        <source>The 'partial' modifier can only appear immediately before 'class', 'struct', 'interface', or 'void'</source>
-        <target state="translated">partial' 識別子は、'class'、'struct'、'interface'、または 'void' の直前にのみ指定できます</target>
-        <note />
-      </trans-unit>
       <trans-unit id="ERR_ImportedCircularBase">
         <source>Imported type '{0}' is invalid. It contains a circular base class dependency.</source>
         <target state="translated">インポートされた型 '{0}' は無効です。この型には循環する基底クラスの依存関係が含まれています。</target>
@@ -8733,6 +8728,11 @@ To remove the warning, you can use /reference instead (set the Embed Interop Typ
       <trans-unit id="ERR_InvalidObjectCreation">
         <source>Invalid object creation</source>
         <target state="new">Invalid object creation</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="IDS_FeatureRefPartialModOrdering">
+        <source>ref and partial modifier ordering</source>
+        <target state="new">ref and partial modifier ordering</target>
         <note />
       </trans-unit>
     </body>
