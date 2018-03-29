@@ -1210,7 +1210,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                         }
 
                     case DeclarationModifiers.Async:
-                        if (!ShouldAsyncBeTreatedAsModifier(parsingStatementNotDeclaration: false))
+                        if (!ShouldAsyncBeTreatedAsModifier())
                         {
                             return;
                         }
@@ -1258,16 +1258,25 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 return false;
             }
 
-            if (IsContextualModifier(this.CurrentToken))
+            if (!IsContextualModifier(this.CurrentToken))
             {
-                var tk = this.PeekToken(1);
-                return tk.Kind == SyntaxKind.IdentifierToken ||
-                    IsPredefinedType(tk.Kind) ||
-                    IsTypeDeclarationStart(tk.Kind) || 
-                    IsAnyModifier(tk);
+                return true;
             }
 
-            return true;
+            var tk = this.PeekToken(1);
+            switch (tk.Kind)
+            {
+                case SyntaxKind.IdentifierToken:
+                case SyntaxKind.EventKeyword:
+                case SyntaxKind.ImplicitKeyword:
+                case SyntaxKind.ExplicitKeyword:
+                case SyntaxKind.NamespaceKeyword:
+                    return true;
+            }
+
+            return IsPredefinedType(tk.Kind)
+                || IsTypeDeclarationStart(tk.Kind)
+                || IsAnyModifier(tk);
         }
 
         /// <summary>
@@ -1316,6 +1325,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     case SyntaxKind.NamespaceKeyword:
                     case SyntaxKind.DelegateKeyword:
                     case SyntaxKind.EnumKeyword:
+                    case SyntaxKind.EventKeyword:
+                    case SyntaxKind.ImplicitKeyword:
+                    case SyntaxKind.ExplicitKeyword:
                         // Just treat as a modifier in erroneous cases.
                         // We'll report an error later during binding.
                         return ScanPartialFlags.TreatAsModifier;
@@ -1362,11 +1374,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             return false;
         }
 
-        private bool ShouldAsyncBeTreatedAsModifier(bool parsingStatementNotDeclaration)
+        private bool ShouldAsyncBeTreatedAsModifier()
         {
             Debug.Assert(this.CurrentToken.ContextualKind == SyntaxKind.AsyncKeyword);
-
-            // Adapted from CParser::IsAsyncMethod.
 
             if (IsNonContextualModifier(PeekToken(1)))
             {
@@ -1375,69 +1385,54 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 return true;
             }
 
-            // Some of our helpers start at the current token, so we'll have to advance for their
-            // sake and then backtrack when we're done.  Don't leave this block without releasing
-            // the reset point.
-            ResetPoint resetPoint = GetResetPoint();
+            var point = this.GetResetPoint();
 
             try
             {
-                this.EatToken(); //move past contextual 'async'
+                EatToken(); // async
 
-                if (!parsingStatementNotDeclaration &&
-                    (this.CurrentToken.ContextualKind == SyntaxKind.PartialKeyword))
+                SyntaxToken lastModOpt = null;
+
+                // Skip over additional modifiers
+                while (IsPossibleModifier())
                 {
-                    this.EatToken(); // "partial" doesn't affect our decision, so look past it.
+                    lastModOpt = EatToken();
                 }
 
-                // Comment directly from CParser::IsAsyncMethod.
-                // ... 'async' [partial] <typedecl> ...
-                // ... 'async' [partial] <event> ...
-                // ... 'async' [partial] <implicit> <operator> ...
-                // ... 'async' [partial] <explicit> <operator> ...
-                // ... 'async' [partial] <typename> <operator> ...
-                // ... 'async' [partial] <typename> <membername> ...
-                // DEVNOTE: Although we parse async user defined conversions, operators, etc. here,
-                // anything other than async methods are detected as erroneous later, during the define phase
-
-                if (!parsingStatementNotDeclaration)
+                switch (this.CurrentToken.Kind)
                 {
-                    var ctk = this.CurrentToken.Kind;
-                    if (IsPossibleStartOfTypeDeclaration(ctk) ||
-                        ctk == SyntaxKind.EventKeyword ||
-                        ((ctk == SyntaxKind.ExplicitKeyword || ctk == SyntaxKind.ImplicitKeyword) && PeekToken(1).Kind == SyntaxKind.OperatorKeyword))
-                    {
+                    case SyntaxKind.NamespaceKeyword:
+                    case SyntaxKind.DelegateKeyword:
+                    case SyntaxKind.EnumKeyword:
+                    case SyntaxKind.EventKeyword:
+                    case SyntaxKind.ImplicitKeyword:
+                    case SyntaxKind.ExplicitKeyword:
+                    case SyntaxKind.ClassKeyword:
+                    case SyntaxKind.InterfaceKeyword:
+                    case SyntaxKind.StructKeyword:
                         return true;
-                    }
                 }
 
-                if (ScanType() != ScanTypeFlags.NotType)
+                // Scan for the return type or possibly the member name. See the next comment.
+                if (this.ScanType() != ScanTypeFlags.NotType)
                 {
-                    // We've seen "async TypeName".  Now we have to determine if we should we treat 
-                    // 'async' as a modifier.  Or is the user actually writing something like 
-                    // "public async Goo" where 'async' is actually the return type.
-
-                    if (IsPossibleMemberName())
-                    {
-                        // we have: "async Type X" or "async Type this", 'async' is definitely a 
-                        // modifier here.
-                        return true;
-                    }
-
-                    var currentTokenKind = this.CurrentToken.Kind;
-
-                    // The file ends with "async TypeName", it's not legal code, and it's much 
-                    // more likely that this is meant to be a modifier.
-                    if (currentTokenKind == SyntaxKind.EndOfFileToken)
+                    // If the last additional modifier was a contextual keyword, it could actually
+                    // be the return type of a generic method, in which case we have scanned for
+                    // the member name above, and therefore IsPossiblePartialMemberStart returns false.
+                    if (IsPossiblePartialMemberStart() || (lastModOpt != null && IsContextualModifier(lastModOpt)))
                     {
                         return true;
                     }
 
-                    // "async TypeName }".  In this case, we just have an incomplete member, and 
-                    // we should definitely default to 'async' being considered a return type here.
-                    if (currentTokenKind == SyntaxKind.CloseBraceToken)
+                    switch (this.CurrentToken.Kind)
                     {
-                        return true;
+                        // The file ends with "async TypeName", it's not legal code, and it's much 
+                        // more likely that this is meant to be a modifier.
+                        case SyntaxKind.EndOfFileToken:
+                        // "async TypeName namespace". In this case, we just have an incomplete member before
+                        // an existing namespace declaration.  Treat this 'async' as a keyword.
+                        case SyntaxKind.NamespaceKeyword:
+                            return true;
                     }
 
                     // "async TypeName void". In this case, we just have an incomplete member before
@@ -1460,27 +1455,23 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     {
                         return true;
                     }
-
-                    // "async TypeName namespace". In this case, we just have an incomplete member before
-                    // an existing namespace declaration.  Treat this 'async' as a keyword.
-                    if (currentTokenKind == SyntaxKind.NamespaceKeyword)
-                    {
-                        return true;
-                    }
-
-                    if (!parsingStatementNotDeclaration && currentTokenKind == SyntaxKind.OperatorKeyword)
-                    {
-                        return true;
-                    }
                 }
+
+                switch (this.CurrentToken.Kind)
+                {
+                    // "async TypeName }".  In this case, we just have an incomplete member, and 
+                    // we should definitely default to 'async' being considered a return type here.
+                    case SyntaxKind.CloseBraceToken:
+                        return true;
+                }
+
+                return false;
             }
             finally
             {
-                this.Reset(ref resetPoint);
-                this.Release(ref resetPoint);
+                this.Reset(ref point);
+                this.Release(ref point);
             }
-
-            return false;
         }
 
         private static bool IsNonContextualModifier(SyntaxToken nextToken)
@@ -2386,23 +2377,6 @@ parse_member_name:;
                     }
                 }
 
-                // If the modifiers did not include "async", and the type we got was "async", and there was an
-                // error in the identifier or its type parameters, then the user is probably in the midst of typing
-                // an async method.  In that case we reconsider "async" to be a modifier, and treat the identifier
-                // (with the type parameters) as the type (with type arguments).  Then we go back to looking for
-                // the member name again.
-                // For example, if we get
-                //     async Task<
-                // then we want async to be a modifier and Task<MISSING> to be a type.
-                if (!sawRef &&
-                    identifierOrThisOpt != null &&
-                    (typeParameterListOpt != null && typeParameterListOpt.ContainsDiagnostics
-                      || this.CurrentToken.Kind != SyntaxKind.OpenParenToken && this.CurrentToken.Kind != SyntaxKind.OpenBraceToken) &&
-                    ReconsiderTypeAsAsyncModifier(ref modifiers, ref type, ref explicitInterfaceOpt, identifierOrThisOpt, typeParameterListOpt))
-                {
-                    goto parse_member_name;
-                }
-
                 Debug.Assert(identifierOrThisOpt != null);
 
                 if (identifierOrThisOpt.Kind == SyntaxKind.ThisKeyword)
@@ -2429,40 +2403,6 @@ parse_member_name:;
                 _pool.Free(attributes);
                 _termState = saveTermState;
             }
-        }
-
-        // if the modifiers do not contain async or replace and the type is the identifier "async" or "replace", then
-        // add that identifier to the modifiers and assign a new type from the identifierOrThisOpt and the
-        // type parameter list
-        private bool ReconsiderTypeAsAsyncModifier(
-            ref SyntaxListBuilder modifiers,
-            ref TypeSyntax type,
-            ref ExplicitInterfaceSpecifierSyntax explicitInterfaceOpt,
-            SyntaxToken identifierOrThisOpt,
-            TypeParameterListSyntax typeParameterListOpt)
-        {
-            if (type.Kind != SyntaxKind.IdentifierName) return false;
-            if (identifierOrThisOpt.Kind != SyntaxKind.IdentifierToken) return false;
-
-            var identifier = ((IdentifierNameSyntax)type).Identifier;
-            var contextualKind = identifier.ContextualKind;
-            if (contextualKind != SyntaxKind.AsyncKeyword ||
-                modifiers.Any((int)contextualKind))
-            {
-                return false;
-            }
-
-            modifiers.Add(ConvertToKeyword(identifier));
-            SimpleNameSyntax newType = typeParameterListOpt == null
-                ? (SimpleNameSyntax)_syntaxFactory.IdentifierName(identifierOrThisOpt)
-                : _syntaxFactory.GenericName(identifierOrThisOpt, TypeArgumentFromTypeParameters(typeParameterListOpt));
-            type = (explicitInterfaceOpt == null)
-                ? (TypeSyntax)newType
-                : _syntaxFactory.QualifiedName(explicitInterfaceOpt.Name, explicitInterfaceOpt.DotToken, newType);
-            explicitInterfaceOpt = null;
-            identifierOrThisOpt = default(SyntaxToken);
-            typeParameterListOpt = default(TypeParameterListSyntax);
-            return true;
         }
 
         private TypeArgumentListSyntax TypeArgumentFromTypeParameters(TypeParameterListSyntax typeParameterList)
@@ -6780,7 +6720,7 @@ tryAgain:
 
             tk = this.CurrentToken.ContextualKind;
             if (IsAdditionalLocalFunctionModifier(tk) &&
-                (tk != SyntaxKind.AsyncKeyword || ShouldAsyncBeTreatedAsModifier(parsingStatementNotDeclaration: true)))
+                (tk != SyntaxKind.AsyncKeyword || ShouldAsyncBeTreatedAsModifier()))
             {
                 return true;
             }

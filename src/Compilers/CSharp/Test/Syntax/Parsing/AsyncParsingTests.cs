@@ -1380,7 +1380,7 @@ class C
 {
     async partial event
 ");
-            Check(SyntaxKind.IncompleteMember);
+            Check(SyntaxKind.EventDeclaration);
 
             // ... 'async' <implicit> <operator> ...
             UsingTree(@"
@@ -1396,7 +1396,7 @@ class C
 {
     async partial implicit operator
 ");
-            Check(SyntaxKind.OperatorDeclaration);
+            Check(SyntaxKind.ConversionOperatorDeclaration);
 
             // ... 'async' <explicit> <operator> ...
             UsingTree(@"
@@ -1412,7 +1412,7 @@ class C
 {
     async partial explicit operator
 ");
-            Check(SyntaxKind.OperatorDeclaration);
+            Check(SyntaxKind.ConversionOperatorDeclaration);
 
             // ... 'async' <typename> <operator> ...
             UsingTree(@"
