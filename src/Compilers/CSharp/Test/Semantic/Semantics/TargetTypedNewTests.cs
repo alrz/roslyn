@@ -3100,7 +3100,7 @@ class C
                 Diagnostic(ErrorCode.ERR_BadBinaryOps, "(1, 2L) != new()").WithArguments("!=", "(int, long)", "new(...)").WithLocation(9, 18));
         }
 
-        [Fact(Skip = "PROTOTYPE(target-typed-new)")]
+        [Fact]
         public void TestEquality_Tuples_ErrorCases2()
         {
             string source = @"
@@ -3117,7 +3117,32 @@ class C
 ";
 
             var comp = CreateCompilation(source, options: TestOptions.DebugDll);
-            comp.VerifyDiagnostics();
+            comp.VerifyEmitDiagnostics(
+                // (6,18): error CS0019: Operator '==' cannot be applied to operands of type 'new(...)' and 'int'
+                //         var v1 = (new(), new()) == (1, 2L);
+                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(new(), new()) == (1, 2L)").WithArguments("==", "new(...)", "int").WithLocation(6, 18),
+                // (6,18): error CS0019: Operator '==' cannot be applied to operands of type 'new(...)' and 'long'
+                //         var v1 = (new(), new()) == (1, 2L);
+                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(new(), new()) == (1, 2L)").WithArguments("==", "new(...)", "long").WithLocation(6, 18),
+                // (7,18): error CS0019: Operator '!=' cannot be applied to operands of type 'new(...)' and 'int'
+                //         var v2 = (new(), new()) != (1, 2L);
+                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(new(), new()) != (1, 2L)").WithArguments("!=", "new(...)", "int").WithLocation(7, 18),
+                // (7,18): error CS0019: Operator '!=' cannot be applied to operands of type 'new(...)' and 'long'
+                //         var v2 = (new(), new()) != (1, 2L);
+                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(new(), new()) != (1, 2L)").WithArguments("!=", "new(...)", "long").WithLocation(7, 18),
+                // (8,18): error CS0019: Operator '==' cannot be applied to operands of type 'int' and 'new(...)'
+                //         var v3 = (1, 2L) == (new(), new());
+                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(1, 2L) == (new(), new())").WithArguments("==", "int", "new(...)").WithLocation(8, 18),
+                // (8,18): error CS0019: Operator '==' cannot be applied to operands of type 'long' and 'new(...)'
+                //         var v3 = (1, 2L) == (new(), new());
+                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(1, 2L) == (new(), new())").WithArguments("==", "long", "new(...)").WithLocation(8, 18),
+                // (9,18): error CS0019: Operator '!=' cannot be applied to operands of type 'int' and 'new(...)'
+                //         var v4 = (1, 2L) != (new(), new());
+                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(1, 2L) != (new(), new())").WithArguments("!=", "int", "new(...)").WithLocation(9, 18),
+                // (9,18): error CS0019: Operator '!=' cannot be applied to operands of type 'long' and 'new(...)'
+                //         var v4 = (1, 2L) != (new(), new());
+                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(1, 2L) != (new(), new())").WithArguments("!=", "long", "new(...)").WithLocation(9, 18)
+                );
         }
 
         [Fact]
