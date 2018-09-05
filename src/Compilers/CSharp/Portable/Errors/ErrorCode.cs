@@ -1583,7 +1583,6 @@ namespace Microsoft.CodeAnalysis.CSharp
         ERR_FeatureNotAvailableInVersion8 = 8400,
 
         ERR_IllegalTargetType = 9366,
-        ERR_IllegalDefaultValueTypeCtor = 9367,
         ERR_BadDynamicMethodArgTypelessNew = 9368,
         ERR_TypelessNewNotValid = 9369,
         #endregion diagnostics introduced for C# 8.0
