@@ -355,6 +355,9 @@ namespace Microsoft.CodeAnalysis.CSharp
                         return new BoundDelegateCreationExpression(syntax, argument: receiver, methodOpt: method, isExtensionMethod: oldNode.IsExtensionMethod, type: rewrittenType);
                     }
 
+                case ConversionKind.ImplicitNew:
+                    throw ExceptionUtilities.Unreachable;
+
                 default:
                     break;
             }

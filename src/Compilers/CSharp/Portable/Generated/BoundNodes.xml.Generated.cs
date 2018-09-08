@@ -1068,8 +1068,8 @@ namespace Microsoft.CodeAnalysis.CSharp
 
     internal sealed partial class BoundTupleBinaryOperator : BoundExpression
     {
-        public BoundTupleBinaryOperator(SyntaxNode syntax, BoundExpression left, BoundExpression right, BoundExpression convertedLeft, BoundExpression convertedRight, BinaryOperatorKind operatorKind, TupleBinaryOperatorInfo.Multiple operators, TypeSymbol type, bool hasErrors = false)
-            : base(BoundKind.TupleBinaryOperator, syntax, type, hasErrors || left.HasErrors() || right.HasErrors() || convertedLeft.HasErrors() || convertedRight.HasErrors())
+        public BoundTupleBinaryOperator(SyntaxNode syntax, BoundExpression left, BoundExpression right, BoundExpression convertedLeft, BoundExpression convertedRight, BinaryOperatorKind operatorKind, TupleBinaryOperatorInfo.Multiple operators, ImmutableArray<BoundExpression> argsToConvertedLeftOpt, ImmutableArray<BoundExpression> argsToConvertedRightOpt, TypeSymbol type, bool hasErrors = false)
+            : base(BoundKind.TupleBinaryOperator, syntax, type, hasErrors || left.HasErrors() || right.HasErrors() || convertedLeft.HasErrors() || convertedRight.HasErrors() || argsToConvertedLeftOpt.HasErrors() || argsToConvertedRightOpt.HasErrors())
         {
 
             Debug.Assert(left != null, "Field 'left' cannot be null (use Null=\"allow\" in BoundNodes.xml to remove this check)");
@@ -1085,6 +1085,8 @@ namespace Microsoft.CodeAnalysis.CSharp
             this.ConvertedRight = convertedRight;
             this.OperatorKind = operatorKind;
             this.Operators = operators;
+            this.ArgsToConvertedLeftOpt = argsToConvertedLeftOpt;
+            this.ArgsToConvertedRightOpt = argsToConvertedRightOpt;
         }
 
 
@@ -1100,16 +1102,20 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         public TupleBinaryOperatorInfo.Multiple Operators { get; }
 
+        public ImmutableArray<BoundExpression> ArgsToConvertedLeftOpt { get; }
+
+        public ImmutableArray<BoundExpression> ArgsToConvertedRightOpt { get; }
+
         public override BoundNode Accept(BoundTreeVisitor visitor)
         {
             return visitor.VisitTupleBinaryOperator(this);
         }
 
-        public BoundTupleBinaryOperator Update(BoundExpression left, BoundExpression right, BoundExpression convertedLeft, BoundExpression convertedRight, BinaryOperatorKind operatorKind, TupleBinaryOperatorInfo.Multiple operators, TypeSymbol type)
+        public BoundTupleBinaryOperator Update(BoundExpression left, BoundExpression right, BoundExpression convertedLeft, BoundExpression convertedRight, BinaryOperatorKind operatorKind, TupleBinaryOperatorInfo.Multiple operators, ImmutableArray<BoundExpression> argsToConvertedLeftOpt, ImmutableArray<BoundExpression> argsToConvertedRightOpt, TypeSymbol type)
         {
-            if (left != this.Left || right != this.Right || convertedLeft != this.ConvertedLeft || convertedRight != this.ConvertedRight || operatorKind != this.OperatorKind || operators != this.Operators || type != this.Type)
+            if (left != this.Left || right != this.Right || convertedLeft != this.ConvertedLeft || convertedRight != this.ConvertedRight || operatorKind != this.OperatorKind || operators != this.Operators || argsToConvertedLeftOpt != this.ArgsToConvertedLeftOpt || argsToConvertedRightOpt != this.ArgsToConvertedRightOpt || type != this.Type)
             {
-                var result = new BoundTupleBinaryOperator(this.Syntax, left, right, convertedLeft, convertedRight, operatorKind, operators, type, this.HasErrors);
+                var result = new BoundTupleBinaryOperator(this.Syntax, left, right, convertedLeft, convertedRight, operatorKind, operators, argsToConvertedLeftOpt, argsToConvertedRightOpt, type, this.HasErrors);
                 result.WasCompilerGenerated = this.WasCompilerGenerated;
                 return result;
             }
@@ -8088,6 +8094,8 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             this.Visit(node.Left);
             this.Visit(node.Right);
+            this.VisitList(node.ArgsToConvertedLeftOpt);
+            this.VisitList(node.ArgsToConvertedRightOpt);
             return null;
         }
         public override BoundNode VisitUserDefinedConditionalLogicalOperator(BoundUserDefinedConditionalLogicalOperator node)
@@ -8918,8 +8926,10 @@ namespace Microsoft.CodeAnalysis.CSharp
             BoundExpression right = (BoundExpression)this.Visit(node.Right);
             BoundExpression convertedLeft = node.ConvertedLeft;
             BoundExpression convertedRight = node.ConvertedRight;
+            ImmutableArray<BoundExpression> argsToConvertedLeftOpt = (ImmutableArray<BoundExpression>)this.VisitList(node.ArgsToConvertedLeftOpt);
+            ImmutableArray<BoundExpression> argsToConvertedRightOpt = (ImmutableArray<BoundExpression>)this.VisitList(node.ArgsToConvertedRightOpt);
             TypeSymbol type = this.VisitType(node.Type);
-            return node.Update(left, right, convertedLeft, convertedRight, node.OperatorKind, node.Operators, type);
+            return node.Update(left, right, convertedLeft, convertedRight, node.OperatorKind, node.Operators, argsToConvertedLeftOpt, argsToConvertedRightOpt, type);
         }
         public override BoundNode VisitUserDefinedConditionalLogicalOperator(BoundUserDefinedConditionalLogicalOperator node)
         {
@@ -9952,6 +9962,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                 new TreeDumperNode("convertedRight", null, new TreeDumperNode[] { Visit(node.ConvertedRight, null) }),
                 new TreeDumperNode("operatorKind", node.OperatorKind, null),
                 new TreeDumperNode("operators", node.Operators, null),
+                new TreeDumperNode("argsToConvertedLeftOpt", null, node.ArgsToConvertedLeftOpt.IsDefault ? Array.Empty<TreeDumperNode>() : from x in node.ArgsToConvertedLeftOpt select Visit(x, null)),
+                new TreeDumperNode("argsToConvertedRightOpt", null, node.ArgsToConvertedRightOpt.IsDefault ? Array.Empty<TreeDumperNode>() : from x in node.ArgsToConvertedRightOpt select Visit(x, null)),
                 new TreeDumperNode("type", node.Type, null)
             }
             );

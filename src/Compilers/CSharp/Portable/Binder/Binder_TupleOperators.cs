@@ -29,9 +29,73 @@ namespace Microsoft.CodeAnalysis.CSharp
             BoundExpression convertedRight = ApplyConvertedTypes(right, operators, isRight: true, discardDiagnostics);
             discardDiagnostics.Free();
 
+            // PROTOTYPE(target-typed-new): Keep element-wise converted nodes for lowering new() expressions.
+            ImmutableArray<BoundExpression> argsToConvertedLeft = GetArgsToConvertedExpressions(left, convertedLeft);
+            ImmutableArray<BoundExpression> argsToConvertedRight = GetArgsToConvertedExpressions(right, convertedRight);
+
+            if (!left.HasAnyErrors && convertedLeft.HasAnyErrors ||
+                !right.HasAnyErrors && convertedRight.HasAnyErrors)
+            {
+                // PROTOTYPE(target-typed-new): This must be only a target-typed-new error since the original node has no errors.
+                // PROTOTYPE(target-typed-new): Should we consider producing precise errors on a target-typed-new? Rebind?
+                Error(diagnostics, ErrorCode.ERR_BadBinaryOps, node, node.OperatorToken.Text, left.Display, right.Display);
+            }
+
             TypeSymbol resultType = GetSpecialType(SpecialType.System_Boolean, diagnostics, node);
 
-            return new BoundTupleBinaryOperator(node, left, right, convertedLeft, convertedRight, kind, operators, resultType);
+            return new BoundTupleBinaryOperator(node, left, right, convertedLeft, convertedRight, kind, operators, argsToConvertedLeft, argsToConvertedRight, resultType);
+        }
+
+        private static ImmutableArray<BoundExpression> GetArgsToConvertedExpressions(BoundExpression expr, BoundExpression converted)
+        {
+            // This would be only needed for target-typed-new lowering.
+            if (!HasAnyTypelessNewExpressions(expr))
+            {
+                return default;
+            }
+
+            var builder = ArrayBuilder<BoundExpression>.GetInstance();
+            GetConvertedExpressions(converted, builder);
+            return builder.ToImmutableAndFree();
+        }
+
+        private static void GetConvertedExpressions(BoundExpression expr, ArrayBuilder<BoundExpression> builder)
+        {
+            switch (expr.Kind)
+            {
+                case BoundKind.Conversion:
+                    GetConvertedExpressions(((BoundConversion)expr).Operand, builder);
+                    break;
+                case BoundKind.ConvertedTupleLiteral:
+                    foreach(var argument in ((BoundConvertedTupleLiteral)expr).Arguments)
+                    {
+                        GetConvertedExpressions(argument, builder);
+                    }
+                    break;
+                default:
+                    builder.Add(expr);
+                    break;
+            }
+        }
+
+        private static bool HasAnyTypelessNewExpressions(BoundExpression expr)
+        {
+            switch (expr.Kind)
+            {
+                case BoundKind.UnboundObjectCreationExpression:
+                    return true;
+                case BoundKind.TupleLiteral:
+                    foreach (var argument in ((BoundTupleLiteral)expr).Arguments)
+                    {
+                        if (HasAnyTypelessNewExpressions(argument))
+                        {
+                            return true;
+                        }
+                    }
+                    break;
+            }
+
+            return false;
         }
 
         private BoundExpression ApplyConvertedTypes(BoundExpression expr, TupleBinaryOperatorInfo @operator, bool isRight, DiagnosticBag diagnostics)
@@ -201,26 +265,36 @@ namespace Microsoft.CodeAnalysis.CSharp
                 methodSymbolOpt: null, conversionForBool: Conversion.Identity, boolOperator: default);
         }
 
+        private static bool TryGetInferredTypeForTypelessExpression(BoundExpression expr, TypeSymbol targetType, out TypeSymbol type)
+        {
+            if (expr.IsLiteralDefault() || expr.IsTypelessNew())
+            {
+                Debug.Assert(targetType?.StrippedType().IsTupleType != false);
+                type = targetType;
+                return (object)type != null;
+            }
+
+            type = expr.Type;
+            return true;
+        }
+
         private TupleBinaryOperatorInfo.Multiple BindTupleBinaryOperatorNestedInfo(BinaryExpressionSyntax node, BinaryOperatorKind kind,
             BoundExpression left, BoundExpression right, DiagnosticBag diagnostics)
         {
-            left = GiveTupleTypeToDefaultLiteralIfNeeded(left, right.Type);
-            right = GiveTupleTypeToDefaultLiteralIfNeeded(right, left.Type);
-
-            if ((left.Type is null && left.IsLiteralDefault()) ||
-                (right.Type is null && right.IsLiteralDefault()))
+            if (!TryGetInferredTypeForTypelessExpression(left, right.Type, out TypeSymbol leftType) ||
+                !TryGetInferredTypeForTypelessExpression(right, left.Type, out TypeSymbol rightType))
             {
                 Error(diagnostics, ErrorCode.ERR_AmbigBinaryOps, node, node.OperatorToken.Text, left.Display, right.Display);
                 return TupleBinaryOperatorInfo.Multiple.ErrorInstance;
             }
 
-            // Aside from default (which we fixed or ruled out above) and tuple literals,
+            // Aside from default and new() (which we fixed or ruled out above) and tuple literals,
             // we must have typed expressions at this point
-            Debug.Assert(left.Type != null || left.Kind == BoundKind.TupleLiteral);
-            Debug.Assert(right.Type != null || right.Kind == BoundKind.TupleLiteral);
+            Debug.Assert(leftType != null || left.Kind == BoundKind.TupleLiteral);
+            Debug.Assert(rightType != null || right.Kind == BoundKind.TupleLiteral);
 
-            int leftCardinality = GetTupleCardinality(left);
-            int rightCardinality = GetTupleCardinality(right);
+            int leftCardinality = GetTupleCardinality(left, leftType);
+            int rightCardinality = GetTupleCardinality(right, rightType);
 
             if (leftCardinality != rightCardinality)
             {
@@ -228,8 +302,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                 return TupleBinaryOperatorInfo.Multiple.ErrorInstance;
             }
 
-            (ImmutableArray<BoundExpression> leftParts, ImmutableArray<string> leftNames) = GetTupleArgumentsOrPlaceholders(left);
-            (ImmutableArray<BoundExpression> rightParts, ImmutableArray<string> rightNames) = GetTupleArgumentsOrPlaceholders(right);
+            (ImmutableArray<BoundExpression> leftParts, ImmutableArray<string> leftNames) = GetTupleArgumentsOrPlaceholders(left, leftType);
+            (ImmutableArray<BoundExpression> rightParts, ImmutableArray<string> rightNames) = GetTupleArgumentsOrPlaceholders(right, rightType);
             ReportNamesMismatchesIfAny(left, right, leftNames, rightNames, diagnostics);
 
             int length = leftParts.Length;
@@ -246,8 +320,8 @@ namespace Microsoft.CodeAnalysis.CSharp
             var operators = operatorsBuilder.ToImmutableAndFree();
 
             // typeless tuple literals are not nullable
-            bool leftNullable = left.Type?.IsNullableType() == true;
-            bool rightNullable = right.Type?.IsNullableType() == true;
+            bool leftNullable = leftType?.IsNullableType() == true;
+            bool rightNullable = rightType?.IsNullableType() == true;
             bool isNullable = leftNullable || rightNullable;
 
             TypeSymbol leftTupleType = MakeConvertedType(operators.SelectAsArray(o => o.LeftConvertedTypeOpt), node.Left, leftParts, leftNames, isNullable, compilation, diagnostics);
@@ -337,17 +411,17 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private static bool IsTupleBinaryOperation(BoundExpression left, BoundExpression right)
         {
-            bool leftDefault = left.IsLiteralDefault();
-            bool rightDefault = right.IsLiteralDefault();
-            if (leftDefault && rightDefault)
+            bool leftDefaultOrNew = left.IsLiteralDefault() || left.IsTypelessNew();
+            bool rightDefaultOrNew = right.IsLiteralDefault() || right.IsTypelessNew();
+            if (leftDefaultOrNew && rightDefaultOrNew)
             {
                 return false;
             }
 
-            return (GetTupleCardinality(left) > 1 || leftDefault) && (GetTupleCardinality(right) > 1 || rightDefault);
+            return (GetTupleCardinality(left) > 1 || leftDefaultOrNew) && (GetTupleCardinality(right) > 1 || rightDefaultOrNew);
         }
 
-        private static int GetTupleCardinality(BoundExpression expr)
+        private static int GetTupleCardinality(BoundExpression expr, TypeSymbol exprType = null)
         {
             if (expr.Kind == BoundKind.TupleLiteral)
             {
@@ -355,7 +429,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 return tuple.Arguments.Length;
             }
 
-            TypeSymbol type = expr.Type;
+            TypeSymbol type = exprType ?? expr.Type;
             if (type is null)
             {
                 return -1;
@@ -376,7 +450,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// - the elements from the literal, or some placeholder with proper type (for tuple expressions)
         /// - the elements' names
         /// </summary>
-        private static (ImmutableArray<BoundExpression> Elements, ImmutableArray<string> Names) GetTupleArgumentsOrPlaceholders(BoundExpression expr)
+        private static (ImmutableArray<BoundExpression> Elements, ImmutableArray<string> Names) GetTupleArgumentsOrPlaceholders(BoundExpression expr, TypeSymbol exprType)
         {
             if (expr.Kind == BoundKind.TupleLiteral)
             {
@@ -385,7 +459,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
 
             // placeholder bound nodes with the proper types are sufficient to bind the element-wise binary operators
-            TypeSymbol tupleType = expr.Type.StrippedType();
+            TypeSymbol tupleType = exprType.StrippedType();
             ImmutableArray<BoundExpression> placeholders = tupleType.TupleElementTypes
                 .SelectAsArray((t, s) => (BoundExpression)new BoundTupleOperandPlaceholder(s, t), expr.Syntax);
 

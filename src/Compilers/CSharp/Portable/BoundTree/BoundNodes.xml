@@ -335,6 +335,9 @@
 
     <Field Name="OperatorKind" Type="BinaryOperatorKind"/>
     <Field Name="Operators" Type="TupleBinaryOperatorInfo.Multiple"/>
+   
+    <Field Name="ArgsToConvertedLeftOpt" Type="ImmutableArray&lt;BoundExpression&gt;" Null="allow" />
+    <Field Name="ArgsToConvertedRightOpt" Type="ImmutableArray&lt;BoundExpression&gt;" Null="allow" />
   </Node>
 
   <Node Name="BoundUserDefinedConditionalLogicalOperator" Base="BoundExpression">

@@ -28,8 +28,8 @@ namespace Microsoft.CodeAnalysis.CSharp
             var initEffects = ArrayBuilder<BoundExpression>.GetInstance();
             var temps = ArrayBuilder<LocalSymbol>.GetInstance();
 
-            BoundExpression newLeft = ReplaceTerminalElementsWithTemps(node.Left, node.Operators, initEffects, temps);
-            BoundExpression newRight = ReplaceTerminalElementsWithTemps(node.Right, node.Operators, initEffects, temps);
+            BoundExpression newLeft = ReplaceTerminalElementsWithTemps(node.Left, node.Operators, initEffects, temps, node.ArgsToConvertedLeftOpt);
+            BoundExpression newRight = ReplaceTerminalElementsWithTemps(node.Right, node.Operators, initEffects, temps, node.ArgsToConvertedRightOpt);
 
             var returnValue = RewriteTupleNestedOperators(node.Operators, newLeft, newRight, boolType, temps, node.OperatorKind);
             BoundExpression result = MakeSequenceOrResultValue(temps.ToImmutableAndFree(), initEffects.ToImmutableAndFree(), returnValue);
@@ -50,7 +50,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// Walk down tuple literals and replace all the side-effecting elements that need saving with temps.
         /// Expressions that are not tuple literals need saving, and tuple literals that are involved in a simple comparison rather than a tuple comparison.
         /// </summary>
-        private BoundExpression ReplaceTerminalElementsWithTemps(BoundExpression expr, TupleBinaryOperatorInfo operators, ArrayBuilder<BoundExpression> initEffects, ArrayBuilder<LocalSymbol> temps)
+        private BoundExpression ReplaceTerminalElementsWithTemps(BoundExpression expr, TupleBinaryOperatorInfo operators, ArrayBuilder<BoundExpression> initEffects, ArrayBuilder<LocalSymbol> temps, ImmutableArray<BoundExpression> argsToConverted, int index = 0)
         {
             if (operators.InfoKind == TupleBinaryOperatorInfoKind.Multiple)
             {
@@ -64,17 +64,18 @@ namespace Microsoft.CodeAnalysis.CSharp
                     for (int i = 0; i < tuple.Arguments.Length; i++)
                     {
                         var argument = tuple.Arguments[i];
-                        var newArgument = ReplaceTerminalElementsWithTemps(argument, multiple.Operators[i], initEffects, temps);
+                        var newArgument = ReplaceTerminalElementsWithTemps(argument, multiple.Operators[i], initEffects, temps, argsToConverted, index + i);
                         builder.Add(newArgument);
                     }
                     return new BoundTupleLiteral(tuple.Syntax, tuple.ArgumentNamesOpt, tuple.InferredNamesOpt, builder.ToImmutableAndFree(), tuple.Type, tuple.HasErrors);
                 }
             }
 
+            BoundExpression loweredExpr = expr.IsTypelessNew() ? argsToConverted[index] : VisitExpression(expr);
+
             // Examples:
             // in `expr == (..., ...)` we need to save `expr` because it's not a tuple literal
             // in `(..., expr) == (..., (..., ...))` we need to save `expr` because it is used in a simple comparison
-            BoundExpression loweredExpr = VisitExpression(expr);
             if ((object)loweredExpr.Type != null)
             {
                 BoundExpression value = NullableAlwaysHasValue(loweredExpr);
