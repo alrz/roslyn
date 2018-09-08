@@ -153,15 +153,9 @@ class C
                 // (9,16): error CS1736: Default parameter value for 'p1' must be a compile-time constant
                 //         C p1 = new(),
                 Diagnostic(ErrorCode.ERR_DefaultValueMustBeConstant, "new()").WithArguments("p1").WithLocation(9, 16),
-                // (10,16): error CS9367: The default constructor of the value type 'S' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         S p2 = new(),
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("S").WithLocation(10, 16),
                 // (10,16): error CS1736: Default parameter value for 'p2' must be a compile-time constant
                 //         S p2 = new(),
                 Diagnostic(ErrorCode.ERR_DefaultValueMustBeConstant, "new()").WithArguments("p2").WithLocation(10, 16),
-                // (11,17): error CS9367: The default constructor of the value type 'S' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         S? p3 = new()
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("S").WithLocation(11, 17),
                 // (11,17): error CS1736: Default parameter value for 'p3' must be a compile-time constant
                 //         S? p3 = new()
                 Diagnostic(ErrorCode.ERR_DefaultValueMustBeConstant, "new()").WithArguments("p3").WithLocation(11, 17)
@@ -300,12 +294,7 @@ class C
 ";
             var comp = CreateCompilation(source, options: TestOptions.DebugExe);
             comp.VerifyDiagnostics(
-                // (13,23): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         Console.Write(new() as int?);
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(13, 23),
-                // (14,23): error CS9367: The default constructor of the value type 'S' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         Console.Write(new() as S?);
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("S").WithLocation(14, 23));
+                );
         }
 
         [Fact]
@@ -348,33 +337,29 @@ unsafe class C
     public void Test<T>()
     {
         var v0 = new();
-        Struct v1 = new();
+        Struct v1 = new(); // ok
         Action v2 = new();
         Static v3 = new();
         Abstract v4 = new();
         Interface v5 = new();
         Enumeration v6 = new();
-        int v7 = new();
+        int v7 = new(); // ok
         int* v8 = new();
-        int? v9 = new();
-        (int, int) v10 = new();
+        int? v9 = new(); // ok
+        (int, int) v10 = new(); // ok
         dynamic v11 = new();
         int[] v12 = new();
         Error v13 = new();
         T v14 = new();
-        ValueTuple<int, int> v15 = new();
-        ValueTuple<int, int> v16 = new(2, 3);
+        ValueTuple<int, int> v15 = new(); // ok
+        ValueTuple<int, int> v16 = new(2, 3); // ok
     }
 }
 ";
             var comp = CreateCompilation(source, options: TestOptions.UnsafeReleaseDll);
-            comp.VerifyDiagnostics(
-                // (14,13): error CS0815: Cannot assign new(...) to an implicitly-typed variable
-                //         var v0 = new();
+            comp.VerifyDiagnostics(// (14,13): error CS0815: Cannot assign new(...) to an implicitly-typed variable
+                                   //         var v0 = new();
                 Diagnostic(ErrorCode.ERR_ImplicitlyTypedVariableAssignedBadValue, "v0 = new()").WithArguments("new(...)").WithLocation(14, 13),
-                // (15,21): error CS9367: The default constructor of the value type 'Struct' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         Struct v1 = new();
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("Struct").WithLocation(15, 21),
                 // (16,21): error CS9366: The type 'Action' may not be used as the target-type of 'new(...)'
                 //         Action v2 = new();
                 Diagnostic(ErrorCode.ERR_IllegalTargetType, "new()").WithArguments("System.Action").WithLocation(16, 21),
@@ -393,18 +378,9 @@ unsafe class C
                 // (20,26): error CS9366: The type 'Enumeration' may not be used as the target-type of 'new(...)'
                 //         Enumeration v6 = new();
                 Diagnostic(ErrorCode.ERR_IllegalTargetType, "new()").WithArguments("Enumeration").WithLocation(20, 26),
-                // (21,18): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         int v7 = new();
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(21, 18),
                 // (22,19): error CS1919: Unsafe type 'int*' cannot be used in object creation
                 //         int* v8 = new();
                 Diagnostic(ErrorCode.ERR_UnsafeTypeInObjectCreation, "new()").WithArguments("int*").WithLocation(22, 19),
-                // (23,19): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         int? v9 = new();
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(23, 19),
-                // (24,26): error CS8181: 'new' cannot be used with tuple type. Use a tuple literal expression instead.
-                //         (int, int) v10 = new();
-                Diagnostic(ErrorCode.ERR_NewWithTupleTypeSyntax, "new()").WithArguments("(int, int)").WithLocation(24, 26),
                 // (25,23): error CS0143: The type 'dynamic' has no constructors defined
                 //         dynamic v11 = new();
                 Diagnostic(ErrorCode.ERR_NoConstructors, "new()").WithArguments("dynamic").WithLocation(25, 23),
@@ -417,12 +393,21 @@ unsafe class C
                 // (28,17): error CS0304: Cannot create an instance of the variable type 'T' because it does not have the new() constraint
                 //         T v14 = new();
                 Diagnostic(ErrorCode.ERR_NoNewTyvar, "new()").WithArguments("T").WithLocation(28, 17),
-                // (29,36): error CS8181: 'new' cannot be used with tuple type. Use a tuple literal expression instead.
+                // (15,16): warning CS0219: The variable 'v1' is assigned but its value is never used
+                //         Struct v1 = new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "v1").WithArguments("v1").WithLocation(15, 16),
+                // (21,13): warning CS0219: The variable 'v7' is assigned but its value is never used
+                //         int v7 = new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "v7").WithArguments("v7").WithLocation(21, 13),
+                // (23,14): warning CS0219: The variable 'v9' is assigned but its value is never used
+                //         int? v9 = new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "v9").WithArguments("v9").WithLocation(23, 14),
+                // (24,20): warning CS0219: The variable 'v10' is assigned but its value is never used
+                //         (int, int) v10 = new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "v10").WithArguments("v10").WithLocation(24, 20),
+                // (29,30): warning CS0219: The variable 'v15' is assigned but its value is never used
                 //         ValueTuple<int, int> v15 = new();
-                Diagnostic(ErrorCode.ERR_NewWithTupleTypeSyntax, "new()").WithArguments("(int, int)").WithLocation(29, 36),
-                // (30,36): error CS8181: 'new' cannot be used with tuple type. Use a tuple literal expression instead.
-                //         ValueTuple<int, int> v16 = new(2, 3);
-                Diagnostic(ErrorCode.ERR_NewWithTupleTypeSyntax, "new(2, 3)").WithArguments("(int, int)").WithLocation(30, 36)
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "v15").WithArguments("v15").WithLocation(29, 30)
                 );
         }
 
@@ -443,29 +428,26 @@ unsafe class C
     public void Test<T>()
     {
         var v1 = (Struct)new();
-        var v2 = (Action)new();
+        var v2 = (Action)new(); // ok
         var v3 = (Static)new();
         var v4 = (Abstract)new();
         var v5 = (Interface)new();
         var v6 = (Enumeration)new();
-        var v7 = (int)new();
+        var v7 = (int)new(); // ok
         var v8 = (int*)new();
-        var v9 = (int?)new();
-        var v10 = ((int,int))new();
+        var v9 = (int?)new(); // ok
+        var v10 = ((int,int))new(); // ok
         var v11 = (dynamic)new();
         var v12 = (int[])new();
         var v13 = (Error)new();
         var v14 = (T)new();
-        var v15 = (ValueTuple<int, int>)new();
-        var v16 = (ValueTuple<int, int>)new(2, 3);
+        var v15 = (ValueTuple<int, int>)new(); // ok
+        var v16 = (ValueTuple<int, int>)new(2, 3); // ok
     }
 }
 ";
             var comp = CreateCompilation(source, options: TestOptions.UnsafeReleaseDll);
             comp.VerifyDiagnostics(
-                // (14,26): error CS9367: The default constructor of the value type 'Struct' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         var v1 = (Struct)new();
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("Struct").WithLocation(14, 26),
                 // (15,18): error CS9366: The type 'Action' may not be used as the target-type of 'new(...)'
                 //         var v2 = (Action)new();
                 Diagnostic(ErrorCode.ERR_IllegalTargetType, "(Action)new()").WithArguments("System.Action").WithLocation(15, 18),
@@ -484,18 +466,9 @@ unsafe class C
                 // (19,18): error CS9366: The type 'Enumeration' may not be used as the target-type of 'new(...)'
                 //         var v6 = (Enumeration)new();
                 Diagnostic(ErrorCode.ERR_IllegalTargetType, "(Enumeration)new()").WithArguments("Enumeration").WithLocation(19, 18),
-                // (20,23): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         var v7 = (int)new();
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(20, 23),
                 // (21,18): error CS1919: Unsafe type 'int*' cannot be used in object creation
                 //         var v8 = (int*)new();
                 Diagnostic(ErrorCode.ERR_UnsafeTypeInObjectCreation, "(int*)new()").WithArguments("int*").WithLocation(21, 18),
-                // (22,24): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         var v9 = (int?)new();
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(22, 24),
-                // (23,19): error CS8181: 'new' cannot be used with tuple type. Use a tuple literal expression instead.
-                //         var v10 = ((int,int))new();
-                Diagnostic(ErrorCode.ERR_NewWithTupleTypeSyntax, "((int,int))new()").WithArguments("(int, int)").WithLocation(23, 19),
                 // (24,19): error CS0143: The type 'dynamic' has no constructors defined
                 //         var v11 = (dynamic)new();
                 Diagnostic(ErrorCode.ERR_NoConstructors, "(dynamic)new()").WithArguments("dynamic").WithLocation(24, 19),
@@ -508,12 +481,21 @@ unsafe class C
                 // (27,22): error CS0304: Cannot create an instance of the variable type 'T' because it does not have the new() constraint
                 //         var v14 = (T)new();
                 Diagnostic(ErrorCode.ERR_NoNewTyvar, "new()").WithArguments("T").WithLocation(27, 22),
-                // (28,19): error CS8181: 'new' cannot be used with tuple type. Use a tuple literal expression instead.
+                // (14,13): warning CS0219: The variable 'v1' is assigned but its value is never used
+                //         var v1 = (Struct)new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "v1").WithArguments("v1").WithLocation(14, 13),
+                // (20,13): warning CS0219: The variable 'v7' is assigned but its value is never used
+                //         var v7 = (int)new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "v7").WithArguments("v7").WithLocation(20, 13),
+                // (22,13): warning CS0219: The variable 'v9' is assigned but its value is never used
+                //         var v9 = (int?)new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "v9").WithArguments("v9").WithLocation(22, 13),
+                // (23,13): warning CS0219: The variable 'v10' is assigned but its value is never used
+                //         var v10 = ((int,int))new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "v10").WithArguments("v10").WithLocation(23, 13),
+                // (28,13): warning CS0219: The variable 'v15' is assigned but its value is never used
                 //         var v15 = (ValueTuple<int, int>)new();
-                Diagnostic(ErrorCode.ERR_NewWithTupleTypeSyntax, "(ValueTuple<int, int>)new()").WithArguments("(int, int)").WithLocation(28, 19),
-                // (29,19): error CS8181: 'new' cannot be used with tuple type. Use a tuple literal expression instead.
-                //         var v16 = (ValueTuple<int, int>)new(2, 3);
-                Diagnostic(ErrorCode.ERR_NewWithTupleTypeSyntax, "(ValueTuple<int, int>)new(2, 3)").WithArguments("(int, int)").WithLocation(29, 19)
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "v15").WithArguments("v15").WithLocation(28, 13)
                 );
         }
 
@@ -759,6 +741,23 @@ class C
                 // (8,22): error CS8131: Deconstruct assignment requires an expression with a type on the right-hand-side.
                 //         (C _, C _) = new();
                 Diagnostic(ErrorCode.ERR_DeconstructRequiresExpression, "new()").WithLocation(8, 22)
+                );
+        }
+
+        [Fact]
+        public void TestDeconstruction2()
+        {
+            var soruce = @"
+class C
+{
+    public static void Main()
+    {
+        (C _, C _) = (new(), new());
+    }
+}
+";
+            var comp = CreateCompilation(soruce, options: TestOptions.DebugExe);
+            comp.VerifyDiagnostics(
                 );
         }
 
@@ -1186,10 +1185,7 @@ class C
             var comp = CreateCompilation(source).VerifyDiagnostics(
                 // (9,19): error CS1729: 'C' does not contain a constructor that takes 0 arguments
                 //         C c = new(new(), new());
-                Diagnostic(ErrorCode.ERR_BadCtorArgCount, "new()").WithArguments("C", "0").WithLocation(9, 19),
-                // (9,26): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         C c = new(new(), new());
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(9, 26)
+                Diagnostic(ErrorCode.ERR_BadCtorArgCount, "new()").WithArguments("C", "0").WithLocation(9, 19)
                 );
         }
 
@@ -1511,15 +1507,9 @@ public class CustomAttribute : System.Attribute
 ";
             var comp = CreateCompilation(source);
             comp.VerifyDiagnostics(
-                // (2,12): error CS9367: The default constructor of the value type 'byte' may not be used with target-typed 'new'. Consider using 'default' instead.
-                // [Custom(z: new(), y: new(), x: new())]
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("byte").WithLocation(2, 12),
                 // (2,22): error CS1729: 'string' does not contain a constructor that takes 0 arguments
                 // [Custom(z: new(), y: new(), x: new())]
                 Diagnostic(ErrorCode.ERR_BadCtorArgCount, "new()").WithArguments("string", "0").WithLocation(2, 22),
-                // (2,32): error CS9367: The default constructor of the value type 'int' may not be used with target-typed 'new'. Consider using 'default' instead.
-                // [Custom(z: new(), y: new(), x: new())]
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(2, 32),
                 // (5,13): error CS1729: 'int' does not contain a constructor that takes 1 arguments
                 //     [Custom(new(1), new('s', 2))]
                 Diagnostic(ErrorCode.ERR_BadCtorArgCount, "new(1)").WithArguments("int", "1").WithLocation(5, 13),
@@ -1704,10 +1694,7 @@ class C
                 Diagnostic(ErrorCode.ERR_MustHaveRefReturn, "return").WithLocation(6, 9),
                 // (6,16): error CS8151: The return expression must be of type 'int' because this method returns by reference
                 //         return new();
-                Diagnostic(ErrorCode.ERR_RefReturnMustHaveIdentityConversion, "new()").WithArguments("int").WithLocation(6, 16),
-                // (6,16): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         return new();
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(6, 16)
+                Diagnostic(ErrorCode.ERR_RefReturnMustHaveIdentityConversion, "new()").WithArguments("int").WithLocation(6, 16)
                 );
         }
 
@@ -1948,9 +1935,9 @@ class C
                 // (6,26): error CS0133: The expression being assigned to 'x' must be constant
                 //         const object x = new();
                 Diagnostic(ErrorCode.ERR_NotConstantExpression, "new()").WithArguments("x").WithLocation(6, 26),
-                // (7,23): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
+                // (7,19): warning CS0219: The variable 'y' is assigned but its value is never used
                 //         const int y = new();
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(7, 23)
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "y").WithArguments("y").WithLocation(7, 19)
                 );
         }
 
@@ -2005,12 +1992,6 @@ class C
                 // (6,17): error CS8119: The switch expression must be a value; found 'new(...)'.
                 //         switch (new())
                 Diagnostic(ErrorCode.ERR_SwitchExpressionValueExpected, "new()").WithArguments("new(...)").WithLocation(6, 17),
-                // (8,29): error CS9367: The default constructor of the value type 'bool' may not be used with target-typed 'new'. Consider using 'default' instead.
-                //             case new() when new():
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("bool").WithLocation(8, 29),
-                // (9,32): error CS9367: The default constructor of the value type 'bool' may not be used with target-typed 'new'. Consider using 'default' instead.
-                //             case (new()) when (new()):
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("bool").WithLocation(9, 32),
                 // (10,17): warning CS0162: Unreachable code detected
                 //                 break;
                 Diagnostic(ErrorCode.WRN_UnreachableCode, "break").WithLocation(10, 17)
@@ -2067,9 +2048,9 @@ class C
 ";
             var comp = CreateCompilation(source);
             comp.VerifyDiagnostics(
-                // (9,21): error CS9367: The default constructor of the value type 'bool' may not be used with target-typed 'new'. Consider using 'default' instead.
+                // (9,21): warning CS8360: Filter expression is a constant 'false', consider removing the try-catch block
                 //         catch when (new())
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("bool").WithLocation(9, 21)
+                Diagnostic(ErrorCode.WRN_FilterIsConstantFalseRedundantTryCatch, "new()").WithLocation(9, 21)
                 );
         }
 
@@ -2221,9 +2202,9 @@ class C
                 // (6,29): error CS0103: The name 'a' does not exist in the current context
                 //         int i = checked(new(a));
                 Diagnostic(ErrorCode.ERR_NameNotInContext, "a").WithArguments("a").WithLocation(6, 29),
-                // (7,25): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
+                // (7,13): warning CS0219: The variable 'j' is assigned but its value is never used
                 //         int j = checked(new());
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(7, 25)
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "j").WithArguments("j").WithLocation(7, 13)
                 );
         }
 
@@ -2242,12 +2223,6 @@ class C
 ";
             var comp = CreateCompilation(source, options: TestOptions.DebugExe);
             comp.VerifyDiagnostics(
-                // (6,27): error CS9367: The default constructor of the value type 'TypedReference' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         var t = __reftype(new());
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("System.TypedReference").WithLocation(6, 27),
-                // (7,29): error CS9367: The default constructor of the value type 'TypedReference' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         int rv = __refvalue(new(), int);
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("System.TypedReference").WithLocation(7, 29)
                 );
         }
 
@@ -2278,15 +2253,15 @@ class C
 ";
             var comp = CreateCompilation(source, options: TestOptions.DebugExe);
             comp.VerifyDiagnostics(
-                // (6,13): error CS9367: The default constructor of the value type 'bool' may not be used with target-typed 'new'. Consider using 'default' instead.
-                //         if (new())
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("bool").WithLocation(6, 13),
-                // (11,16): error CS9367: The default constructor of the value type 'bool' may not be used with target-typed 'new'. Consider using 'default' instead.
-                //         while (new())
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("bool").WithLocation(11, 16),
-                // (16,25): error CS9367: The default constructor of the value type 'bool' may not be used with target-typed 'new'. Consider using 'default' instead.
-                //         for (int i = 0; new(); i++)
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("bool").WithLocation(16, 25)
+                // (8,13): warning CS0162: Unreachable code detected
+                //             System.Console.Write("if");
+                Diagnostic(ErrorCode.WRN_UnreachableCode, "System").WithLocation(8, 13),
+                // (13,13): warning CS0162: Unreachable code detected
+                //             System.Console.Write("while");
+                Diagnostic(ErrorCode.WRN_UnreachableCode, "System").WithLocation(13, 13),
+                // (18,13): warning CS0162: Unreachable code detected
+                //             System.Console.Write("for");
+                Diagnostic(ErrorCode.WRN_UnreachableCode, "System").WithLocation(18, 13)
                 );
         }
 
@@ -2375,11 +2350,7 @@ class C
 }
 ";
             var comp = CreateCompilation(source);
-            comp.VerifyDiagnostics(
-                // (6,28): error CS9367: The default constructor of the value type 'int' may not be used with target-typed 'new'. Consider using 'default' instead.
-                //         var t = new object[new()];
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(6, 28)
-                );
+            comp.VerifyDiagnostics();
         }
 
         [Fact]
@@ -2582,12 +2553,6 @@ enum E : byte
 ";
             var comp = CreateCompilation(source);
             comp.VerifyDiagnostics(
-                // (5,9): error CS8310: Operator '+' cannot be applied to operand 'new(...)'
-                //     B = new() + 1
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() + 1").WithArguments("+", "new(...)").WithLocation(5, 9),
-                // (4,9): error CS9367: The default constructor of the value type 'byte' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //     A = new(),
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("byte").WithLocation(4, 9)
                 );
         }
 
@@ -2787,54 +2752,6 @@ class C
 
             var comp = CreateCompilation(source);
             comp.VerifyDiagnostics(
-                // (6,17): error CS8310: Operator '+' cannot be applied to operand 'new(...)'
-                //         var a = new() + 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() + 1").WithArguments("+", "new(...)").WithLocation(6, 17),
-                // (7,17): error CS8310: Operator '-' cannot be applied to operand 'new(...)'
-                //         var b = new() - 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() - 1").WithArguments("-", "new(...)").WithLocation(7, 17),
-                // (8,17): error CS8310: Operator '&' cannot be applied to operand 'new(...)'
-                //         var c = new() & 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() & 1").WithArguments("&", "new(...)").WithLocation(8, 17),
-                // (9,17): error CS8310: Operator '|' cannot be applied to operand 'new(...)'
-                //         var d = new() | 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() | 1").WithArguments("|", "new(...)").WithLocation(9, 17),
-                // (10,17): error CS8310: Operator '^' cannot be applied to operand 'new(...)'
-                //         var e = new() ^ 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() ^ 1").WithArguments("^", "new(...)").WithLocation(10, 17),
-                // (11,17): error CS8310: Operator '*' cannot be applied to operand 'new(...)'
-                //         var f = new() * 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() * 1").WithArguments("*", "new(...)").WithLocation(11, 17),
-                // (12,17): error CS8310: Operator '/' cannot be applied to operand 'new(...)'
-                //         var g = new() / 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() / 1").WithArguments("/", "new(...)").WithLocation(12, 17),
-                // (13,17): error CS8310: Operator '%' cannot be applied to operand 'new(...)'
-                //         var h = new() % 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() % 1").WithArguments("%", "new(...)").WithLocation(13, 17),
-                // (14,17): error CS8310: Operator '>>' cannot be applied to operand 'new(...)'
-                //         var i = new() >> 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() >> 1").WithArguments(">>", "new(...)").WithLocation(14, 17),
-                // (15,17): error CS8310: Operator '<<' cannot be applied to operand 'new(...)'
-                //         var j = new() << 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() << 1").WithArguments("<<", "new(...)").WithLocation(15, 17),
-                // (16,17): error CS8310: Operator '>' cannot be applied to operand 'new(...)'
-                //         var k = new() > 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() > 1").WithArguments(">", "new(...)").WithLocation(16, 17),
-                // (17,17): error CS8310: Operator '<' cannot be applied to operand 'new(...)'
-                //         var l = new() < 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() < 1").WithArguments("<", "new(...)").WithLocation(17, 17),
-                // (18,17): error CS8310: Operator '>=' cannot be applied to operand 'new(...)'
-                //         var m = new() >= 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() >= 1").WithArguments(">=", "new(...)").WithLocation(18, 17),
-                // (19,17): error CS8310: Operator '<=' cannot be applied to operand 'new(...)'
-                //         var n = new() <= 1;
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() <= 1").WithArguments("<=", "new(...)").WithLocation(19, 17),
-                // (20,17): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         var o = new() == 1; // ok
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(20, 17),
-                // (21,17): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         var p = new() != 1; // ok
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(21, 17),
                 // (22,17): error CS8310: Operator '&&' cannot be applied to operand 'new(...)'
                 //         var q = new() && 1;
                 Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() && 1").WithArguments("&&", "new(...)").WithLocation(22, 17),
@@ -2846,7 +2763,55 @@ class C
                 Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() ?? 1").WithArguments("??", "new(...)").WithLocation(24, 17),
                 // (25,17): error CS8310: Operator '??' cannot be applied to operand 'new(...)'
                 //         var t = new() ?? default(int?);
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() ?? default(int?)").WithArguments("??", "new(...)").WithLocation(25, 17)
+                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "new() ?? default(int?)").WithArguments("??", "new(...)").WithLocation(25, 17),
+                // (6,13): warning CS0219: The variable 'a' is assigned but its value is never used
+                //         var a = new() + 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "a").WithArguments("a").WithLocation(6, 13),
+                // (7,13): warning CS0219: The variable 'b' is assigned but its value is never used
+                //         var b = new() - 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "b").WithArguments("b").WithLocation(7, 13),
+                // (8,13): warning CS0219: The variable 'c' is assigned but its value is never used
+                //         var c = new() & 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "c").WithArguments("c").WithLocation(8, 13),
+                // (9,13): warning CS0219: The variable 'd' is assigned but its value is never used
+                //         var d = new() | 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "d").WithArguments("d").WithLocation(9, 13),
+                // (10,13): warning CS0219: The variable 'e' is assigned but its value is never used
+                //         var e = new() ^ 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "e").WithArguments("e").WithLocation(10, 13),
+                // (11,13): warning CS0219: The variable 'f' is assigned but its value is never used
+                //         var f = new() * 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "f").WithArguments("f").WithLocation(11, 13),
+                // (12,13): warning CS0219: The variable 'g' is assigned but its value is never used
+                //         var g = new() / 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "g").WithArguments("g").WithLocation(12, 13),
+                // (13,13): warning CS0219: The variable 'h' is assigned but its value is never used
+                //         var h = new() % 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "h").WithArguments("h").WithLocation(13, 13),
+                // (14,13): warning CS0219: The variable 'i' is assigned but its value is never used
+                //         var i = new() >> 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "i").WithArguments("i").WithLocation(14, 13),
+                // (15,13): warning CS0219: The variable 'j' is assigned but its value is never used
+                //         var j = new() << 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "j").WithArguments("j").WithLocation(15, 13),
+                // (16,13): warning CS0219: The variable 'k' is assigned but its value is never used
+                //         var k = new() > 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "k").WithArguments("k").WithLocation(16, 13),
+                // (17,13): warning CS0219: The variable 'l' is assigned but its value is never used
+                //         var l = new() < 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "l").WithArguments("l").WithLocation(17, 13),
+                // (18,13): warning CS0219: The variable 'm' is assigned but its value is never used
+                //         var m = new() >= 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "m").WithArguments("m").WithLocation(18, 13),
+                // (19,13): warning CS0219: The variable 'n' is assigned but its value is never used
+                //         var n = new() <= 1;
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "n").WithArguments("n").WithLocation(19, 13),
+                // (20,13): warning CS0219: The variable 'o' is assigned but its value is never used
+                //         var o = new() == 1; // ok
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "o").WithArguments("o").WithLocation(20, 13),
+                // (21,13): warning CS0219: The variable 'p' is assigned but its value is never used
+                //         var p = new() != 1; // ok
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "p").WithArguments("p").WithLocation(21, 13)
                 );
         }
 
@@ -2884,54 +2849,12 @@ class C
 
             var comp = CreateCompilation(source);
             comp.VerifyDiagnostics(
-                // (6,17): error CS8310: Operator '+' cannot be applied to operand 'new(...)'
-                //         var a = 1 + new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 + new()").WithArguments("+", "new(...)").WithLocation(6, 17),
-                // (7,17): error CS8310: Operator '-' cannot be applied to operand 'new(...)'
-                //         var b = 1 - new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 - new()").WithArguments("-", "new(...)").WithLocation(7, 17),
-                // (8,17): error CS8310: Operator '&' cannot be applied to operand 'new(...)'
-                //         var c = 1 & new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 & new()").WithArguments("&", "new(...)").WithLocation(8, 17),
-                // (9,17): error CS8310: Operator '|' cannot be applied to operand 'new(...)'
-                //         var d = 1 | new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 | new()").WithArguments("|", "new(...)").WithLocation(9, 17),
-                // (10,17): error CS8310: Operator '^' cannot be applied to operand 'new(...)'
-                //         var e = 1 ^ new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 ^ new()").WithArguments("^", "new(...)").WithLocation(10, 17),
-                // (11,17): error CS8310: Operator '*' cannot be applied to operand 'new(...)'
-                //         var f = 1 * new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 * new()").WithArguments("*", "new(...)").WithLocation(11, 17),
-                // (12,17): error CS8310: Operator '/' cannot be applied to operand 'new(...)'
+                // (12,17): error CS0020: Division by constant zero
                 //         var g = 1 / new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 / new()").WithArguments("/", "new(...)").WithLocation(12, 17),
-                // (13,17): error CS8310: Operator '%' cannot be applied to operand 'new(...)'
+                Diagnostic(ErrorCode.ERR_IntDivByZero, "1 / new()").WithLocation(12, 17),
+                // (13,17): error CS0020: Division by constant zero
                 //         var h = 1 % new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 % new()").WithArguments("%", "new(...)").WithLocation(13, 17),
-                // (14,17): error CS8310: Operator '>>' cannot be applied to operand 'new(...)'
-                //         var i = 1 >> new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 >> new()").WithArguments(">>", "new(...)").WithLocation(14, 17),
-                // (15,17): error CS8310: Operator '<<' cannot be applied to operand 'new(...)'
-                //         var j = 1 << new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 << new()").WithArguments("<<", "new(...)").WithLocation(15, 17),
-                // (16,17): error CS8310: Operator '>' cannot be applied to operand 'new(...)'
-                //         var k = 1 > new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 > new()").WithArguments(">", "new(...)").WithLocation(16, 17),
-                // (17,17): error CS8310: Operator '<' cannot be applied to operand 'new(...)'
-                //         var l = 1 < new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 < new()").WithArguments("<", "new(...)").WithLocation(17, 17),
-                // (18,17): error CS8310: Operator '>=' cannot be applied to operand 'new(...)'
-                //         var m = 1 >= new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 >= new()").WithArguments(">=", "new(...)").WithLocation(18, 17),
-                // (19,17): error CS8310: Operator '<=' cannot be applied to operand 'new(...)'
-                //         var n = 1 <= new();
-                Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 <= new()").WithArguments("<=", "new(...)").WithLocation(19, 17),
-                // (20,22): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         var o = 1 == new();
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(20, 22),
-                // (21,22): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         var p = 1 != new();
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(21, 22),
+                Diagnostic(ErrorCode.ERR_IntDivByZero, "1 % new()").WithLocation(13, 17),
                 // (22,17): error CS8310: Operator '&&' cannot be applied to operand 'new(...)'
                 //         var q = 1 && new();
                 Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 && new()").WithArguments("&&", "new(...)").WithLocation(22, 17),
@@ -2940,7 +2863,49 @@ class C
                 Diagnostic(ErrorCode.ERR_BadOpOnTypelessExpression, "1 || new()").WithArguments("||", "new(...)").WithLocation(23, 17),
                 // (25,17): error CS0019: Operator '??' cannot be applied to operands of type 'int' and 'new(...)'
                 //         var t = 1 ?? new();
-                Diagnostic(ErrorCode.ERR_BadBinaryOps, "1 ?? new()").WithArguments("??", "int", "new(...)").WithLocation(25, 17)
+                Diagnostic(ErrorCode.ERR_BadBinaryOps, "1 ?? new()").WithArguments("??", "int", "new(...)").WithLocation(25, 17),
+                // (6,13): warning CS0219: The variable 'a' is assigned but its value is never used
+                //         var a = 1 + new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "a").WithArguments("a").WithLocation(6, 13),
+                // (7,13): warning CS0219: The variable 'b' is assigned but its value is never used
+                //         var b = 1 - new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "b").WithArguments("b").WithLocation(7, 13),
+                // (8,13): warning CS0219: The variable 'c' is assigned but its value is never used
+                //         var c = 1 & new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "c").WithArguments("c").WithLocation(8, 13),
+                // (9,13): warning CS0219: The variable 'd' is assigned but its value is never used
+                //         var d = 1 | new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "d").WithArguments("d").WithLocation(9, 13),
+                // (10,13): warning CS0219: The variable 'e' is assigned but its value is never used
+                //         var e = 1 ^ new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "e").WithArguments("e").WithLocation(10, 13),
+                // (11,13): warning CS0219: The variable 'f' is assigned but its value is never used
+                //         var f = 1 * new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "f").WithArguments("f").WithLocation(11, 13),
+                // (14,13): warning CS0219: The variable 'i' is assigned but its value is never used
+                //         var i = 1 >> new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "i").WithArguments("i").WithLocation(14, 13),
+                // (15,13): warning CS0219: The variable 'j' is assigned but its value is never used
+                //         var j = 1 << new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "j").WithArguments("j").WithLocation(15, 13),
+                // (16,13): warning CS0219: The variable 'k' is assigned but its value is never used
+                //         var k = 1 > new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "k").WithArguments("k").WithLocation(16, 13),
+                // (17,13): warning CS0219: The variable 'l' is assigned but its value is never used
+                //         var l = 1 < new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "l").WithArguments("l").WithLocation(17, 13),
+                // (18,13): warning CS0219: The variable 'm' is assigned but its value is never used
+                //         var m = 1 >= new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "m").WithArguments("m").WithLocation(18, 13),
+                // (19,13): warning CS0219: The variable 'n' is assigned but its value is never used
+                //         var n = 1 <= new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "n").WithArguments("n").WithLocation(19, 13),
+                // (20,13): warning CS0219: The variable 'o' is assigned but its value is never used
+                //         var o = 1 == new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "o").WithArguments("o").WithLocation(20, 13),
+                // (21,13): warning CS0219: The variable 'p' is assigned but its value is never used
+                //         var p = 1 != new();
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "p").WithArguments("p").WithLocation(21, 13)
                 );
         }
 
@@ -3016,9 +2981,6 @@ class C
                 // (8,19): error CS0023: Operator 'is' cannot be applied to operand of type 'new(...)'
                 //         bool v3 = new() is new();
                 Diagnostic(ErrorCode.ERR_BadUnaryOp, "new() is new()").WithArguments("is", "new(...)").WithLocation(8, 19),
-                // (9,25): error CS9367: The default constructor of the value type 'bool' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         bool v4 = v1 is new();
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("bool").WithLocation(9, 25),
                 // (10,27): error CS0150: A constant value is expected
                 //         bool v5 = this is new();
                 Diagnostic(ErrorCode.ERR_ConstantExpected, "new()").WithLocation(10, 27)
@@ -3072,32 +3034,18 @@ class C
         public void TestEquality_Tuples_ErrorCases1()
         {
             string source = @"
-class C
-{
-    void M1()
-    {
-        var v1 = new() == (1, 2L);
-        var v2 = new() != (1, 2L);
-        var v3 = (1, 2L) == new();
-        var v4 = (1, 2L) != new();
+public class C {
+    public static bool operator ==(C d, C c)=>true; 
+    public static bool operator !=(C d, C c)=>false;
+    static void Main() {
+        System.Console.Write((new(), new())==(new C(), new C()));
     }
 }
 ";
 
-            var comp = CreateCompilation(source, options: TestOptions.DebugDll);
-            comp.VerifyDiagnostics(
-                // (6,18): error CS0019: Operator '==' cannot be applied to operands of type 'new(...)' and '(int, long)'
-                //         var v1 = new() == (1, 2L);
-                Diagnostic(ErrorCode.ERR_BadBinaryOps, "new() == (1, 2L)").WithArguments("==", "new(...)", "(int, long)").WithLocation(6, 18),
-                // (7,18): error CS0019: Operator '!=' cannot be applied to operands of type 'new(...)' and '(int, long)'
-                //         var v2 = new() != (1, 2L);
-                Diagnostic(ErrorCode.ERR_BadBinaryOps, "new() != (1, 2L)").WithArguments("!=", "new(...)", "(int, long)").WithLocation(7, 18),
-                // (8,18): error CS0019: Operator '==' cannot be applied to operands of type '(int, long)' and 'new(...)'
-                //         var v3 = (1, 2L) == new();
-                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(1, 2L) == new()").WithArguments("==", "(int, long)", "new(...)").WithLocation(8, 18),
-                // (9,18): error CS0019: Operator '!=' cannot be applied to operands of type '(int, long)' and 'new(...)'
-                //         var v4 = (1, 2L) != new();
-                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(1, 2L) != new()").WithArguments("!=", "(int, long)", "new(...)").WithLocation(9, 18));
+            var comp = CreateCompilation(source, options: TestOptions.DebugExe);
+            comp.VerifyDiagnostics();
+            CompileAndVerify(comp, expectedOutput: "FalseTrueFalseTrue");
         }
 
         [Fact]
@@ -3106,43 +3054,19 @@ class C
             string source = @"
 class C
 {
-    void M()
+    static void Main()
     {
-        var v1 = (new(), new()) == (1, 2L);
-        var v2 = (new(), new()) != (1, 2L);
-        var v3 = (1, 2L) == (new(), new());
-        var v4 = (1, 2L) != (new(), new());
+        System.Console.Write((new(1),new()) == (1, 2L));
+        System.Console.Write((new(), new()) != (1, 2L));
+        System.Console.Write((1, 2L) == (new(), new()));
+        System.Console.Write((1, 2L) != (new(), new()));
     }
 }
 ";
 
-            var comp = CreateCompilation(source, options: TestOptions.DebugDll);
-            comp.VerifyEmitDiagnostics(
-                // (6,18): error CS0019: Operator '==' cannot be applied to operands of type 'new(...)' and 'int'
-                //         var v1 = (new(), new()) == (1, 2L);
-                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(new(), new()) == (1, 2L)").WithArguments("==", "new(...)", "int").WithLocation(6, 18),
-                // (6,18): error CS0019: Operator '==' cannot be applied to operands of type 'new(...)' and 'long'
-                //         var v1 = (new(), new()) == (1, 2L);
-                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(new(), new()) == (1, 2L)").WithArguments("==", "new(...)", "long").WithLocation(6, 18),
-                // (7,18): error CS0019: Operator '!=' cannot be applied to operands of type 'new(...)' and 'int'
-                //         var v2 = (new(), new()) != (1, 2L);
-                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(new(), new()) != (1, 2L)").WithArguments("!=", "new(...)", "int").WithLocation(7, 18),
-                // (7,18): error CS0019: Operator '!=' cannot be applied to operands of type 'new(...)' and 'long'
-                //         var v2 = (new(), new()) != (1, 2L);
-                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(new(), new()) != (1, 2L)").WithArguments("!=", "new(...)", "long").WithLocation(7, 18),
-                // (8,18): error CS0019: Operator '==' cannot be applied to operands of type 'int' and 'new(...)'
-                //         var v3 = (1, 2L) == (new(), new());
-                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(1, 2L) == (new(), new())").WithArguments("==", "int", "new(...)").WithLocation(8, 18),
-                // (8,18): error CS0019: Operator '==' cannot be applied to operands of type 'long' and 'new(...)'
-                //         var v3 = (1, 2L) == (new(), new());
-                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(1, 2L) == (new(), new())").WithArguments("==", "long", "new(...)").WithLocation(8, 18),
-                // (9,18): error CS0019: Operator '!=' cannot be applied to operands of type 'int' and 'new(...)'
-                //         var v4 = (1, 2L) != (new(), new());
-                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(1, 2L) != (new(), new())").WithArguments("!=", "int", "new(...)").WithLocation(9, 18),
-                // (9,18): error CS0019: Operator '!=' cannot be applied to operands of type 'long' and 'new(...)'
-                //         var v4 = (1, 2L) != (new(), new());
-                Diagnostic(ErrorCode.ERR_BadBinaryOps, "(1, 2L) != (new(), new())").WithArguments("!=", "long", "new(...)").WithLocation(9, 18)
-                );
+            var comp = CreateCompilation(source, options: TestOptions.DebugExe);
+            comp.VerifyDiagnostics();
+            CompileAndVerify(comp, expectedOutput: "FalseTrueFalseTrue");
         }
 
         [Fact]
@@ -3366,53 +3290,48 @@ using System;
 
 struct S
 {
-    public S(int i) {}
+    public static bool operator ==(S o1, S o2) 
+    {
+        Console.Write(1);
+        return default;
+    }
 
-    public extern static bool operator ==(S o1, S o2);
-    public extern static bool operator !=(S o1, S o2);
+    public static bool operator !=(S o1, S o2)
+    {
+        Console.Write(2);
+        return default;
+    }
+
+    public static bool operator ==(S? o1, S? o2)
+    {
+        Console.Write(3);
+        return default;
+    }
+
+    public static bool operator !=(S? o1, S? o2)
+    {
+        Console.Write(4);
+        return default;
+    }
 
     static void Main()
     {
-        Console.WriteLine(new S() == new());
-        Console.WriteLine(new() == new S());
-        Console.WriteLine(new S() != new());
-        Console.WriteLine(new() != new S());
+        _ = new S() == new();
+        _ = new() == new S();
+        _ = new S() != new();
+        _ = new() != new S();
 
-        Console.WriteLine(new S?() == new());
-        Console.WriteLine(new() == new S?());
-        Console.WriteLine(new S?() != new());
-        Console.WriteLine(new() != new S?());
+        _ = new S?() == new();
+        _ = new() == new S?();
+        _ = new S?() != new();
+        _ = new() != new S?();
     }
 }
 ";
 
             var comp = CreateCompilation(source, options: TestOptions.DebugExe.WithWarningLevel(0));
-            comp.VerifyDiagnostics(
-                // (13,38): error CS9367: The default constructor of the value type 'S' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         Console.WriteLine(new S() == new());
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("S").WithLocation(13, 38),
-                // (14,27): error CS9367: The default constructor of the value type 'S' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         Console.WriteLine(new() == new S());
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("S").WithLocation(14, 27),
-                // (15,38): error CS9367: The default constructor of the value type 'S' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         Console.WriteLine(new S() != new());
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("S").WithLocation(15, 38),
-                // (16,27): error CS9367: The default constructor of the value type 'S' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         Console.WriteLine(new() != new S());
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("S").WithLocation(16, 27),
-                // (18,39): error CS9367: The default constructor of the value type 'S' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         Console.WriteLine(new S?() == new());
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("S").WithLocation(18, 39),
-                // (19,27): error CS9367: The default constructor of the value type 'S' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         Console.WriteLine(new() == new S?());
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("S").WithLocation(19, 27),
-                // (20,39): error CS9367: The default constructor of the value type 'S' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         Console.WriteLine(new S?() != new());
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("S").WithLocation(20, 39),
-                // (21,27): error CS9367: The default constructor of the value type 'S' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         Console.WriteLine(new() != new S?());
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("S").WithLocation(21, 27)
-                );
+            comp.VerifyDiagnostics();
+            CompileAndVerify(comp, expectedOutput: "11223344");
         }
 
         [Fact]
@@ -3477,11 +3396,7 @@ class C
 ";
 
             var comp = CreateCompilation(source, options: TestOptions.DebugExe);
-            comp.VerifyDiagnostics(
-                // (6,25): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         var a = new int[new()];
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(6, 25)
-                );
+            comp.VerifyDiagnostics();
         }
 
         [Fact]
@@ -3500,9 +3415,6 @@ class C
 
             var comp = CreateCompilation(source, options: TestOptions.DebugExe);
             comp.VerifyDiagnostics(
-                // (7,24): error CS9367: The default constructor of the value type 'int' may not be used with 'new(...)'; Use 'default' or a literal expression instead
-                //         var x = flag ? new() : 1;
-                Diagnostic(ErrorCode.ERR_IllegalDefaultValueTypeCtor, "new()").WithArguments("int").WithLocation(7, 24)
                 );
         }
 
