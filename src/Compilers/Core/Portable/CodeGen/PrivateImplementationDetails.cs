@@ -146,6 +146,12 @@ namespace Microsoft.CodeAnalysis.CodeGen
             });
         }
 
+        internal Cci.ITypeReference CreateStorageStruct(uint size)
+        {
+            Debug.Assert(!IsFrozen);
+            return _proxyTypes.GetOrAdd(size, this.GetStorageStruct);
+        }
+
         private Cci.ITypeReference GetStorageStruct(uint size)
         {
             switch (size)

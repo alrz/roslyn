@@ -110,6 +110,10 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
                     EmitConvertedStackAllocExpression((BoundConvertedStackAllocExpression)expression, used);
                     break;
 
+                case BoundKind.BlobInitialization:
+                    EmitBlobInitialization((BoundBlobInitialization)expression, used);
+                    break;
+
                 case BoundKind.Conversion:
                     EmitConversionExpression((BoundConversion)expression, used);
                     break;
@@ -1919,6 +1923,20 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
                     }
                 }
             }
+        }
+
+        private void EmitBlobInitialization(BoundBlobInitialization expression, bool used)
+        {
+            Debug.Assert(used);
+            Debug.Assert(expression.Initializers.Any());
+            Debug.Assert(expression.ElementType.SpecialType.IsBlittable());
+
+            SyntaxNode syntax = expression.Syntax;
+            int size = expression.Initializers.Length * expression.ElementType.SpecialType.SizeInBytes();
+            Cci.ITypeReference type = this._builder.module.GetStorageStruct(size, syntax, _diagnostics);
+            LocalDefinition temp = _builder.LocalSlotManager.AllocateSlot(type, LocalSlotConstraints.None);
+            _builder.EmitLocalAddress(temp);
+            EmitElementStackAllocInitializers(expression.ElementType, expression.Initializers, includeConstants: true);
         }
 
         private void EmitObjectCreationExpression(BoundObjectCreationExpression expression, bool used)

@@ -942,47 +942,54 @@ namespace Microsoft.CodeAnalysis.CSharp
             TypeSymbol int32Type = compilation.GetSpecialType(SpecialType.System_Int32);
             BoundExpression arraySize = MakeLiteral(syntax, ConstantValue.Create(arrayArgs.Length), int32Type, localRewriter);
 
-            var initializer = new BoundArrayInitialization(syntax, arrayArgs) { WasCompilerGenerated = true };
-
             if (paramsType.IsSZArray())
             {
-                return new BoundArrayCreation(syntax, ImmutableArray.Create(arraySize), initializer, paramsType) { WasCompilerGenerated = true };
+                return new BoundArrayCreation(
+                    syntax,
+                    ImmutableArray.Create(arraySize),
+                    new BoundArrayInitialization(syntax, arrayArgs) { WasCompilerGenerated = true },
+                    paramsType)
+                { WasCompilerGenerated = true };
+            }
+
+            if (arrayArgs.Length == 0)
+            {
+                return new BoundDefaultExpression(syntax, paramsType);
             }
 
             TypeSymbol elementType = paramsType.GetElementTypeOfParamsType();
-            bool isReferenceType = elementType.IsReferenceType;
+            bool isReadOnlySpan = compilation.IsReadOnlySpanType(paramsType);
 
-            BoundExpression[] args;
-            if (isReferenceType)
+            WellKnownMember constructor;
+            ImmutableArray<BoundExpression> arguments;
+            if (elementType.SpecialType.IsBlittable())
             {
-                args = new BoundExpression[]
-                {
-                    new BoundArrayCreation(
+                constructor = isReadOnlySpan
+                    ? WellKnownMember.System_ReadOnlySpan_T__ctor
+                    : WellKnownMember.System_Span_T__ctor;
+
+                arguments = ImmutableArray.Create(
+                    new BoundBlobInitialization(
                         syntax,
-                        ImmutableArray.Create(arraySize),
-                        initializer,
-                        ArrayTypeSymbol.CreateSZArray(compilation.Assembly, elementType))
-                    { WasCompilerGenerated = true }
-                };
+                        elementType,
+                        arrayArgs)
+                    { WasCompilerGenerated = true },
+                    arraySize);
             }
             else
             {
-                args = new BoundExpression[]
-                {
-                    new BoundConvertedStackAllocExpression(
-                        syntax,
-                        elementType,
-                        arraySize,
-                        initializer,
-                        paramsType)
-                    { WasCompilerGenerated = true },
-                    arraySize,
-                };
-            }
+                constructor = isReadOnlySpan
+                    ? WellKnownMember.System_ReadOnlySpan_T__ctor2
+                    : WellKnownMember.System_Span_T__ctor2;
 
-            WellKnownMember constructor = compilation.IsReadOnlySpanType(paramsType)
-                ? isReferenceType ? WellKnownMember.System_ReadOnlySpan_T__ctor2 : WellKnownMember.System_ReadOnlySpan_T__ctor
-                : isReferenceType ? WellKnownMember.System_Span_T__ctor2 : WellKnownMember.System_Span_T__ctor;
+                arguments = ImmutableArray.Create<BoundExpression>(
+                    new BoundArrayCreation(
+                        syntax,
+                        ImmutableArray.Create(arraySize),
+                        new BoundArrayInitialization(syntax, arrayArgs) { WasCompilerGenerated = true },
+                        ArrayTypeSymbol.CreateSZArray(compilation.Assembly, elementType))
+                    { WasCompilerGenerated = true });
+            }
 
             // TODO use TryGetWellKnownTypeMember instead, should test with a missing ctor
             var spanConstructor = compilation.GetWellKnownTypeMember(constructor) as MethodSymbol;
@@ -996,7 +1003,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     type: ErrorTypeSymbol.UnknownResultType);
             }
 
-            return new BoundObjectCreationExpression(syntax, spanConstructor.AsMember((NamedTypeSymbol)paramsType), binder, arguments: args);
+            return new BoundObjectCreationExpression(syntax, spanConstructor.AsMember((NamedTypeSymbol)paramsType), binder, arguments);
         }
 
         /// <summary>

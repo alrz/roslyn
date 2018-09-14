@@ -13,6 +13,8 @@ namespace Microsoft.CodeAnalysis.CodeGen
         Cci.IFieldReference GetFieldForData(ImmutableArray<byte> data, SyntaxNode syntaxNode, DiagnosticBag diagnostics);
         Cci.IMethodReference GetInitArrayHelper();
 
+        Cci.ITypeReference GetStorageStruct(int size, SyntaxNode syntaxNode, DiagnosticBag diagnostics);
+
         string GetStringFromToken(uint token);
         Cci.IReference GetReferenceFromToken(uint token);
 

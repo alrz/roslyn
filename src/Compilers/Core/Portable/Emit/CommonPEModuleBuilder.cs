@@ -821,6 +821,16 @@ namespace Microsoft.CodeAnalysis.Emit
             return privateImpl.CreateDataField(data);
         }
 
+        Cci.ITypeReference ITokenDeferral.GetStorageStruct(int size, SyntaxNode syntaxNode, DiagnosticBag diagnostics)
+        {
+            Debug.Assert(this.SupportsPrivateImplClass);
+
+            var privateImpl = this.GetPrivateImplClass((TSyntaxNode)syntaxNode, diagnostics);
+
+            // map a field to the block (that makes it addressable via a token)
+            return privateImpl.CreateStorageStruct((uint)size);
+        }
+
         public abstract Cci.IMethodReference GetInitArrayHelper();
 
         public ArrayMethods ArrayMethods

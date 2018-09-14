@@ -150,6 +150,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         ArrayInitialization,
         StackAllocArrayCreation,
         ConvertedStackAllocExpression,
+        BlobInitialization,
         FieldAccess,
         HoistedFieldAccess,
         PropertyAccess,
@@ -5460,6 +5461,41 @@ namespace Microsoft.CodeAnalysis.CSharp
         }
     }
 
+    internal sealed partial class BoundBlobInitialization : BoundExpression
+    {
+        public BoundBlobInitialization(SyntaxNode syntax, TypeSymbol elementType, ImmutableArray<BoundExpression> initializers, bool hasErrors = false)
+            : base(BoundKind.BlobInitialization, syntax, null, hasErrors || initializers.HasErrors())
+        {
+
+            Debug.Assert(elementType != null, "Field 'elementType' cannot be null (use Null=\"allow\" in BoundNodes.xml to remove this check)");
+            Debug.Assert(!initializers.IsDefault, "Field 'initializers' cannot be null (use Null=\"allow\" in BoundNodes.xml to remove this check)");
+
+            this.ElementType = elementType;
+            this.Initializers = initializers;
+        }
+
+
+        public TypeSymbol ElementType { get; }
+
+        public ImmutableArray<BoundExpression> Initializers { get; }
+
+        public override BoundNode Accept(BoundTreeVisitor visitor)
+        {
+            return visitor.VisitBlobInitialization(this);
+        }
+
+        public BoundBlobInitialization Update(TypeSymbol elementType, ImmutableArray<BoundExpression> initializers)
+        {
+            if (elementType != this.ElementType || initializers != this.Initializers)
+            {
+                var result = new BoundBlobInitialization(this.Syntax, elementType, initializers, this.HasErrors);
+                result.WasCompilerGenerated = this.WasCompilerGenerated;
+                return result;
+            }
+            return this;
+        }
+    }
+
     internal sealed partial class BoundFieldAccess : BoundExpression
     {
         public BoundFieldAccess(SyntaxNode syntax, BoundExpression receiverOpt, FieldSymbol fieldSymbol, ConstantValue constantValueOpt, LookupResultKind resultKind, bool isByValue, bool isDeclaration, TypeSymbol type, bool hasErrors = false)
@@ -6630,6 +6666,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                     return VisitStackAllocArrayCreation(node as BoundStackAllocArrayCreation, arg);
                 case BoundKind.ConvertedStackAllocExpression: 
                     return VisitConvertedStackAllocExpression(node as BoundConvertedStackAllocExpression, arg);
+                case BoundKind.BlobInitialization: 
+                    return VisitBlobInitialization(node as BoundBlobInitialization, arg);
                 case BoundKind.FieldAccess: 
                     return VisitFieldAccess(node as BoundFieldAccess, arg);
                 case BoundKind.HoistedFieldAccess: 
@@ -7203,6 +7241,10 @@ namespace Microsoft.CodeAnalysis.CSharp
             return this.DefaultVisit(node, arg);
         }
         public virtual R VisitConvertedStackAllocExpression(BoundConvertedStackAllocExpression node, A arg)
+        {
+            return this.DefaultVisit(node, arg);
+        }
+        public virtual R VisitBlobInitialization(BoundBlobInitialization node, A arg)
         {
             return this.DefaultVisit(node, arg);
         }
@@ -7823,6 +7865,10 @@ namespace Microsoft.CodeAnalysis.CSharp
             return this.DefaultVisit(node);
         }
         public virtual BoundNode VisitConvertedStackAllocExpression(BoundConvertedStackAllocExpression node)
+        {
+            return this.DefaultVisit(node);
+        }
+        public virtual BoundNode VisitBlobInitialization(BoundBlobInitialization node)
         {
             return this.DefaultVisit(node);
         }
@@ -8602,6 +8648,11 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             this.Visit(node.Count);
             this.Visit(node.InitializerOpt);
+            return null;
+        }
+        public override BoundNode VisitBlobInitialization(BoundBlobInitialization node)
+        {
+            this.VisitList(node.Initializers);
             return null;
         }
         public override BoundNode VisitFieldAccess(BoundFieldAccess node)
@@ -9505,6 +9556,13 @@ namespace Microsoft.CodeAnalysis.CSharp
             TypeSymbol elementType = this.VisitType(node.ElementType);
             TypeSymbol type = this.VisitType(node.Type);
             return node.Update(elementType, count, initializerOpt, type);
+        }
+        public override BoundNode VisitBlobInitialization(BoundBlobInitialization node)
+        {
+            ImmutableArray<BoundExpression> initializers = (ImmutableArray<BoundExpression>)this.VisitList(node.Initializers);
+            TypeSymbol elementType = this.VisitType(node.ElementType);
+            TypeSymbol type = this.VisitType(node.Type);
+            return node.Update(elementType, initializers);
         }
         public override BoundNode VisitFieldAccess(BoundFieldAccess node)
         {
@@ -11020,6 +11078,16 @@ namespace Microsoft.CodeAnalysis.CSharp
                 new TreeDumperNode("elementType", node.ElementType, null),
                 new TreeDumperNode("count", null, new TreeDumperNode[] { Visit(node.Count, null) }),
                 new TreeDumperNode("initializerOpt", null, new TreeDumperNode[] { Visit(node.InitializerOpt, null) }),
+                new TreeDumperNode("type", node.Type, null)
+            }
+            );
+        }
+        public override TreeDumperNode VisitBlobInitialization(BoundBlobInitialization node, object arg)
+        {
+            return new TreeDumperNode("blobInitialization", null, new TreeDumperNode[]
+            {
+                new TreeDumperNode("elementType", node.ElementType, null),
+                new TreeDumperNode("initializers", null, from x in node.Initializers select Visit(x, null)),
                 new TreeDumperNode("type", node.Type, null)
             }
             );

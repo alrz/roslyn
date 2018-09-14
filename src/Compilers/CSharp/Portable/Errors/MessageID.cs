@@ -202,7 +202,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             switch (feature)
             {
                 case MessageID.IDS_FeatureParamsArrayInterfaceAndSpan: // semantic check
-                    return LanguageVersion.CSharp8;
+                    return LanguageVersion.CSharp7;
 
                 // C# 7.3 features.
                 case MessageID.IDS_FeatureAttributesOnBackingFields: // semantic check
