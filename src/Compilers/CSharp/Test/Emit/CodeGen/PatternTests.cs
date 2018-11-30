@@ -1969,5 +1969,121 @@ static class Program
   IL_0016:  ret
 }");
         }
+
+        [Fact]
+        public void ConstantPatternVsString()
+        {
+            var source =
+@"
+static class Program
+{
+    public static bool M1(string x)
+    {
+        return x is """";
+    }
+    public static bool M2(string x)
+    {
+        return x is ""a"";
+    }
+    public static bool M3(string x)
+    {
+        switch (x)
+        {
+            case """":
+            case ""a"":
+                return true;
+        }
+        return false;
+    }
+    public static bool M4(System.Type x)
+    {
+        return x is { Name: nameof(Program) };
+    }
+    public static void Main()
+    {
+        System.Console.WriteLine(M1(""""));
+        System.Console.WriteLine(M2(""a""));
+        System.Console.WriteLine(M3(""""));
+        System.Console.WriteLine(M3(""a""));
+        System.Console.WriteLine(M4(typeof(Program)));
+    }
+}
+";
+            var compilation = CreateCompilation(source, options: TestOptions.ReleaseExe);
+            compilation.VerifyDiagnostics();
+            var expectedOutput =
+@"True
+True
+True
+True
+True
+";
+            var compVerifier = CompileAndVerify(compilation, expectedOutput: expectedOutput);
+            compVerifier.VerifyIL("Program.M1",
+@"{
+  // Code size       17 (0x11)
+  .maxstack  2
+  IL_0000:  ldarg.0
+  IL_0001:  brfalse.s  IL_000f
+  IL_0003:  ldarg.0
+  IL_0004:  ldstr      """"
+  IL_0009:  call       ""bool string.op_Equality(string, string)""
+  IL_000e:  ret
+  IL_000f:  ldc.i4.0
+  IL_0010:  ret
+}");
+            compVerifier.VerifyIL("Program.M2", 
+@"{
+  // Code size       17 (0x11)
+  .maxstack  2
+  IL_0000:  ldarg.0
+  IL_0001:  brfalse.s  IL_000f
+  IL_0003:  ldarg.0
+  IL_0004:  ldstr      ""a""
+  IL_0009:  call       ""bool string.op_Equality(string, string)""
+  IL_000e:  ret
+  IL_000f:  ldc.i4.0
+  IL_0010:  ret
+}");
+            compVerifier.VerifyIL("Program.M3", 
+@"{
+  // Code size       31 (0x1f)
+  .maxstack  2
+  IL_0000:  ldarg.0
+  IL_0001:  brfalse.s  IL_001d
+  IL_0003:  ldarg.0
+  IL_0004:  brfalse.s  IL_000e
+  IL_0006:  ldarg.0
+  IL_0007:  call       ""int string.Length.get""
+  IL_000c:  brfalse.s  IL_001b
+  IL_000e:  ldarg.0
+  IL_000f:  ldstr      ""a""
+  IL_0014:  call       ""bool string.op_Equality(string, string)""
+  IL_0019:  brfalse.s  IL_001d
+  IL_001b:  ldc.i4.1
+  IL_001c:  ret
+  IL_001d:  ldc.i4.0
+  IL_001e:  ret
+}");
+            compVerifier.VerifyIL("Program.M4", 
+@"{
+  // Code size       27 (0x1b)
+  .maxstack  2
+  .locals init (string V_0)
+  IL_0000:  ldarg.0
+  IL_0001:  brfalse.s  IL_0019
+  IL_0003:  ldarg.0
+  IL_0004:  callvirt   ""string System.Reflection.MemberInfo.Name.get""
+  IL_0009:  stloc.0
+  IL_000a:  ldloc.0
+  IL_000b:  brfalse.s  IL_0019
+  IL_000d:  ldloc.0
+  IL_000e:  ldstr      ""Program""
+  IL_0013:  call       ""bool string.op_Equality(string, string)""
+  IL_0018:  ret
+  IL_0019:  ldc.i4.0
+  IL_001a:  ret
+}");
+        }
     }
 }
