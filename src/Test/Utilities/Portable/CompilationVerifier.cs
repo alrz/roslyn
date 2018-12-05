@@ -81,74 +81,7 @@ namespace Microsoft.CodeAnalysis.Test.Utilities
 
         public string Dump(string methodName = null)
         {
-            using (var testEnvironment = RuntimeEnvironmentFactory.Create(_dependencies))
-            {
-                string mainModuleFullName = Emit(testEnvironment, manifestResources: null, EmitOptions.Default);
-                IList<ModuleData> moduleDatas = testEnvironment.GetAllModuleData();
-                var mainModule = moduleDatas.Single(md => md.FullName == mainModuleFullName);
-                RuntimeEnvironmentUtilities.DumpAssemblyData(moduleDatas, out var dumpDir);
-
-                string extension = mainModule.Kind == OutputKind.ConsoleApplication ? ".exe" : ".dll";
-                string modulePath = Path.Combine(dumpDir, mainModule.SimpleName + extension);
-
-                var decompiler = new ICSharpCode.Decompiler.CSharp.CSharpDecompiler(modulePath,
-                    new ICSharpCode.Decompiler.DecompilerSettings() { AsyncAwait = false });
-
-                if (methodName != null)
-                {
-                    var map = new Dictionary<string, ICSharpCode.Decompiler.TypeSystem.IMethod>();
-                    listMethods(decompiler.TypeSystem.MainModule.RootNamespace, map);
-
-                    if (map.TryGetValue(methodName, out var method))
-                    {
-                        return decompiler.DecompileAsString(method.MetadataToken);
-                    }
-                    else
-                    {
-                        throw new Exception($"Didn't find method '{methodName}'. Available/distinguishable methods are: \r\n{string.Join("\r\n", map.Keys)}");
-                    }
-                }
-
-                return decompiler.DecompileWholeModuleAsString();
-            }
-
-            void listMethods(ICSharpCode.Decompiler.TypeSystem.INamespace @namespace, Dictionary<string, ICSharpCode.Decompiler.TypeSystem.IMethod> result)
-            {
-                foreach (var nestedNS in @namespace.ChildNamespaces)
-                {
-                    if (nestedNS.FullName != "System" &&
-                        nestedNS.FullName != "Microsoft")
-                    {
-                        listMethods(nestedNS, result);
-                    }
-                }
-
-                foreach (var type in @namespace.Types)
-                {
-                    listMethodsInType(type, result);
-                }
-            }
-
-            void listMethodsInType(ICSharpCode.Decompiler.TypeSystem.ITypeDefinition type, Dictionary<string, ICSharpCode.Decompiler.TypeSystem.IMethod> result)
-            {
-                foreach (var nestedType in type.NestedTypes)
-                {
-                    listMethodsInType(nestedType, result);
-                }
-
-                foreach (var method in type.Methods)
-                {
-                    if (result.ContainsKey(method.FullName))
-                    {
-                        // There is a bug with FullName on methods in generic types
-                        result.Remove(method.FullName);
-                    }
-                    else
-                    {
-                        result.Add(method.FullName, method);
-                    }
-                }
-            }
+            return null;
         }
 
         public void Emit(string expectedOutput, int? expectedReturnCode, string[] args, IEnumerable<ResourceDescription> manifestResources, EmitOptions emitOptions, Verification peVerify, SignatureDescription[] expectedSignatures)
