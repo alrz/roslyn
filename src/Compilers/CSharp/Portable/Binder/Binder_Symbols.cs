@@ -818,10 +818,14 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                 return isVerbatimIdentifier ? LookupOptions.VerbatimNameAttributeTypeOnly : LookupOptions.AttributeTypeOnly;
             }
-            else
+
+            var options = LookupOptions.NamespacesOrTypesOnly;
+            if (SyntaxFacts.IsTypeOfObjectCreationExpression(node))
             {
-                return LookupOptions.NamespacesOrTypesOnly;
+                options |= LookupOptions.AllNamedTypesOnArityZero;
             }
+
+            return options;
         }
 
         private static Symbol UnwrapAliasNoDiagnostics(Symbol symbol, ConsList<Symbol> basesBeingResolved = null)
@@ -1717,6 +1721,17 @@ namespace Microsoft.CodeAnalysis.CSharp
                         Debug.Assert(originalSymbols[best.Index].Name != originalSymbols[secondBest.Index].Name ||
                                      originalSymbols[best.Index] != originalSymbols[secondBest.Index],
                             "Why was the lookup result viable if it contained non-equal symbols with the same name?");
+
+                        if ((options | LookupOptions.AllNamedTypesOnArityZero) != 0 &&
+                            first.Kind == SymbolKind.NamedType &&
+                            second.Kind == SymbolKind.NamedType)
+                        {
+                            // PROTOTYPE
+                            var firstArity = first.GetArity();
+                            int secondArity = second.GetArity();
+                            if (firstArity == 0 ^ secondArity == 0)
+                                return firstArity == 0 ? first : second;
+                        }
 
                         reportError = true;
 

@@ -484,5 +484,42 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             return (declaration.Body ?? (SyntaxNode)declaration.ExpressionBody) != null;
         }
+
+        internal static bool IsTypeOfObjectCreationExpression(SyntaxNode node)
+        {
+            var parent = node.Parent;
+            if (parent == null || !IsName(node.Kind()))
+            {
+                return false;
+            }
+
+            switch (parent)
+            {
+                case ObjectCreationExpressionSyntax objectCreationExpression:
+                    return objectCreationExpression.Type == node;
+
+                case QualifiedNameSyntax qualifiedName when qualifiedName.Right == node:
+                case AliasQualifiedNameSyntax aliasQualifiedName when aliasQualifiedName.Name == node:
+                    return IsTypeOfObjectCreationExpression(parent);
+            }
+
+            return false;
+        }
+
+        internal static bool IsSimpleName(SyntaxNode node)
+        {
+            switch (node.Kind())
+            {
+                case SyntaxKind.IdentifierName:
+                    return true;
+                default:
+                case SyntaxKind.GenericName:
+                    return false;
+                case SyntaxKind.QualifiedName:
+                    return IsSimpleName(((QualifiedNameSyntax)node).Right);
+                case SyntaxKind.AliasQualifiedName:
+                    return IsSimpleName(((AliasQualifiedNameSyntax)node).Name);
+            }
+        }
     }
 }

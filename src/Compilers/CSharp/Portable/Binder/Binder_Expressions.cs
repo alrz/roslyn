@@ -3957,7 +3957,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                     return MakeBadExpressionForObjectCreation(node, type, analyzedArguments, diagnostics);
                 }
 
-                return BindClassCreationExpression(node, typeName, node.Type, type, analyzedArguments, diagnostics, node.Initializer, initializerType);
+                return BindClassCreationExpression(node, typeName, node.Type, type, analyzedArguments, diagnostics, node.Initializer, initializerType,
+                    inferTypeArgumentsOfContainingType: SyntaxFacts.IsSimpleName(node.Type));
             }
             finally
             {
@@ -4721,9 +4722,9 @@ namespace Microsoft.CodeAnalysis.CSharp
             AnalyzedArguments analyzedArguments,
             DiagnosticBag diagnostics,
             InitializerExpressionSyntax initializerSyntaxOpt = null,
-            TypeSymbol initializerTypeOpt = null)
+            TypeSymbol initializerTypeOpt = null,
+            bool inferTypeArgumentsOfContainingType = false)
         {
-
             BoundExpression result = null;
             bool hasErrors = type.IsErrorType();
             if (type.IsAbstract)
@@ -4787,10 +4788,12 @@ namespace Microsoft.CodeAnalysis.CSharp
                 diagnostics,
                 out memberResolutionResult,
                 out candidateConstructors,
-                allowProtectedConstructorsOfBaseType: false))
+                allowProtectedConstructorsOfBaseType: false,
+                inferTypeArgumentsOfContainingType))
             {
                 var method = memberResolutionResult.Member;
 
+                type = method.ContainingType;
                 bool hasError = false;
 
                 // What if some of the arguments are implicit?  Dev10 reports unsafe errors
@@ -5116,7 +5119,8 @@ namespace Microsoft.CodeAnalysis.CSharp
             DiagnosticBag diagnostics,
             out MemberResolutionResult<MethodSymbol> memberResolutionResult,
             out ImmutableArray<MethodSymbol> candidateConstructors,
-            bool allowProtectedConstructorsOfBaseType) // Last to make named arguments more convenient.
+            bool allowProtectedConstructorsOfBaseType,
+            bool inferTypeArgumentsOfContainingType = false)
         {
             // Get accessible constructors for performing overload resolution.
             ImmutableArray<MethodSymbol> allInstanceConstructors;
@@ -5134,7 +5138,8 @@ namespace Microsoft.CodeAnalysis.CSharp
             if (candidateConstructors.Any())
             {
                 // We have at least one accessible candidate constructor, perform overload resolution with accessible candidateConstructors.
-                this.OverloadResolution.ObjectCreationOverloadResolution(candidateConstructors, analyzedArguments, result, ref useSiteDiagnostics);
+                this.OverloadResolution.ObjectCreationOverloadResolution(candidateConstructors, analyzedArguments, result, ref useSiteDiagnostics,
+                    inferTypeArgumentsOfContainingType: inferTypeArgumentsOfContainingType);
 
                 if (result.Succeeded)
                 {
@@ -5149,7 +5154,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                 // We might have a best match constructor which is inaccessible.
                 // Try overload resolution with all instance constructors to generate correct diagnostics and semantic info for this case.
                 OverloadResolutionResult<MethodSymbol> inaccessibleResult = OverloadResolutionResult<MethodSymbol>.GetInstance();
-                this.OverloadResolution.ObjectCreationOverloadResolution(allInstanceConstructors, analyzedArguments, inaccessibleResult, ref useSiteDiagnostics);
+                this.OverloadResolution.ObjectCreationOverloadResolution(allInstanceConstructors, analyzedArguments, inaccessibleResult, ref useSiteDiagnostics,
+                    inferTypeArgumentsOfContainingType: false);
 
                 if (inaccessibleResult.Succeeded)
                 {

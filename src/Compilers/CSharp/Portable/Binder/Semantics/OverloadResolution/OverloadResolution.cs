@@ -91,18 +91,23 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         // Perform overload resolution on the given method group, with the given arguments and
         // names. The names can be null if no names were supplied to any arguments.
-        public void ObjectCreationOverloadResolution(ImmutableArray<MethodSymbol> constructors, AnalyzedArguments arguments, OverloadResolutionResult<MethodSymbol> result, ref HashSet<DiagnosticInfo> useSiteDiagnostics)
+        public void ObjectCreationOverloadResolution(
+            ImmutableArray<MethodSymbol> constructors,
+            AnalyzedArguments arguments,
+            OverloadResolutionResult<MethodSymbol> result,
+            ref HashSet<DiagnosticInfo> useSiteDiagnostics,
+            bool inferTypeArgumentsOfContainingType = false)
         {
             var results = result.ResultsBuilder;
 
             // First, attempt overload resolution not getting complete results.
-            PerformObjectCreationOverloadResolution(results, constructors, arguments, false, ref useSiteDiagnostics);
+            PerformObjectCreationOverloadResolution(results, constructors, arguments, completeResults: false, ref useSiteDiagnostics, inferTypeArgumentsOfContainingType);
 
             if (!OverloadResolutionResultIsValid(results, arguments.HasDynamicArgument))
             {
                 // We didn't get a single good result. Get full results of overload resolution and return those.
                 result.Clear();
-                PerformObjectCreationOverloadResolution(results, constructors, arguments, true, ref useSiteDiagnostics);
+                PerformObjectCreationOverloadResolution(results, constructors, arguments, completeResults: true, ref useSiteDiagnostics, inferTypeArgumentsOfContainingType);
             }
         }
 
@@ -483,7 +488,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         }
 
         private void AddConstructorToCandidateSet(MethodSymbol constructor, ArrayBuilder<MemberResolutionResult<MethodSymbol>> results,
-            AnalyzedArguments arguments, bool completeResults, ref HashSet<DiagnosticInfo> useSiteDiagnostics)
+            AnalyzedArguments arguments, bool completeResults, ref HashSet<DiagnosticInfo> useSiteDiagnostics, bool inferTypeArgumentsOfContainingType)
         {
             // Filter out constructors with unsupported metadata.
             if (constructor.HasUnsupportedMetadata)
@@ -496,7 +501,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 return;
             }
 
-            var normalResult = IsConstructorApplicableInNormalForm(constructor, arguments, completeResults, ref useSiteDiagnostics);
+            var normalResult = IsConstructorApplicableInNormalForm(ref constructor, arguments, completeResults, ref useSiteDiagnostics, inferTypeArgumentsOfContainingType);
             var result = normalResult;
             if (!normalResult.IsValid)
             {
@@ -518,10 +523,11 @@ namespace Microsoft.CodeAnalysis.CSharp
         }
 
         private MemberAnalysisResult IsConstructorApplicableInNormalForm(
-            MethodSymbol constructor,
+            ref MethodSymbol constructor,
             AnalyzedArguments arguments,
             bool completeResults,
-            ref HashSet<DiagnosticInfo> useSiteDiagnostics)
+            ref HashSet<DiagnosticInfo> useSiteDiagnostics,
+            bool inferTypeArgumentsOfContainingType)
         {
             var argumentAnalysis = AnalyzeArguments(constructor, arguments, isMethodGroupConversion: false, expanded: false); // Constructors are never involved in method group conversion.
             if (!argumentAnalysis.IsValid)
@@ -544,6 +550,56 @@ namespace Microsoft.CodeAnalysis.CSharp
                 allowRefOmittedArguments: false);
 
             return IsApplicable(
+                ref constructor,
+                arguments,
+                completeResults,
+                ref useSiteDiagnostics,
+                argumentAnalysis,
+                effectiveParameters,
+                inferTypeArgumentsOfContainingType);
+        }
+
+        private MemberAnalysisResult IsApplicable(
+            ref MethodSymbol constructor,
+            AnalyzedArguments arguments,
+            bool completeResults,
+            ref HashSet<DiagnosticInfo> useSiteDiagnostics,
+            ArgumentAnalysisResult argumentAnalysis,
+            EffectiveParameters effectiveParameters,
+            bool inferTypeArgumentsOfContainingType)
+        {
+            if (inferTypeArgumentsOfContainingType)
+            {
+                NamedTypeSymbol containingType = constructor.ContainingType;
+                if (containingType.Arity > 0)
+                {
+                    // Try to infer type arguments on the containing type from arguments
+                    ImmutableArray<TypeSymbolWithAnnotations> typeArguments =
+                        InferConstructorTypeArguments(
+                            constructor,
+                            containingType.TypeParameters,
+                            arguments.Arguments.ToImmutable(),
+                            effectiveParameters,
+                            out MemberAnalysisResult inferenceError,
+                            ref useSiteDiagnostics);
+
+                    if (typeArguments.IsDefault)
+                    {
+                        return inferenceError;
+                    }
+
+                    constructor = constructor.AsMember(containingType.Construct(typeArguments));
+                    effectiveParameters = GetEffectiveParametersInNormalForm(
+                        constructor,
+                        arguments.Arguments.Count,
+                        argumentAnalysis.ArgsToParamsOpt,
+                        arguments.RefKinds,
+                        isMethodGroupConversion: false,
+                        allowRefOmittedArguments: false);
+                }
+            }
+
+            return IsApplicable(
                 constructor,
                 effectiveParameters,
                 arguments,
@@ -553,6 +609,35 @@ namespace Microsoft.CodeAnalysis.CSharp
                 ignoreOpenTypes: false,
                 completeResults: completeResults,
                 useSiteDiagnostics: ref useSiteDiagnostics);
+        }
+
+        private ImmutableArray<TypeSymbolWithAnnotations> InferConstructorTypeArguments(
+            MethodSymbol constructor,
+            ImmutableArray<TypeParameterSymbol> originalTypeParameters,
+            ImmutableArray<BoundExpression> arguments,
+            EffectiveParameters effectiveParameters,
+            out MemberAnalysisResult error,
+            ref HashSet<DiagnosticInfo> useSiteDiagnostics)
+        {
+            var inferenceResult = MethodTypeInferrer.Infer(
+                _binder,
+                _binder.Conversions,
+                originalTypeParameters,
+                constructor.ContainingType,
+                effectiveParameters.ParameterTypes,
+                effectiveParameters.ParameterRefKinds,
+                arguments,
+                hadNullabilityMismatch: out _,
+                ref useSiteDiagnostics);
+
+            if (inferenceResult.Success)
+            {
+                error = default;
+                return inferenceResult.InferredTypeArguments;
+            }
+
+            error = MemberAnalysisResult.TypeInferenceFailed();
+            return default;
         }
 
         private MemberAnalysisResult IsConstructorApplicableInExpandedForm(
@@ -1173,7 +1258,8 @@ namespace Microsoft.CodeAnalysis.CSharp
             ImmutableArray<MethodSymbol> constructors,
             AnalyzedArguments arguments,
             bool completeResults,
-            ref HashSet<DiagnosticInfo> useSiteDiagnostics)
+            ref HashSet<DiagnosticInfo> useSiteDiagnostics,
+            bool inferTypeArgumentsOfContainingType)
         {
             // SPEC: The instance constructor to invoke is determined using the overload resolution 
             // SPEC: rules of 7.5.3. The set of candidate instance constructors consists of all 
@@ -1183,7 +1269,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             foreach (MethodSymbol constructor in constructors)
             {
-                AddConstructorToCandidateSet(constructor, results, arguments, completeResults, ref useSiteDiagnostics);
+                AddConstructorToCandidateSet(constructor, results, arguments, completeResults, ref useSiteDiagnostics, inferTypeArgumentsOfContainingType);
             }
 
             ReportUseSiteDiagnostics(results, ref useSiteDiagnostics);
