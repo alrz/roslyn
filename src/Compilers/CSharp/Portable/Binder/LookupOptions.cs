@@ -88,7 +88,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         VerbatimNameAttributeTypeOnly = (1 << 12) | AttributeTypeOnly,
 
         /// <summary>
-        /// Consider named types of any arity when arity zero is specified. It is specifically desired for nameof in such situations: nameof(System.Collections.Generic.List)
+        /// Consider named types of any arity when arity zero is specified.
         /// </summary>
         AllNamedTypesOnArityZero = 1 << 13,
 
