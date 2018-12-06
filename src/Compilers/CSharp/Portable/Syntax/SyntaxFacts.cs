@@ -487,38 +487,45 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         internal static bool IsTypeOfObjectCreationExpression(SyntaxNode node)
         {
-            var parent = node.Parent;
-            if (parent == null || !IsName(node.Kind()))
+            while (true)
             {
+                var parent = node.Parent;
+                if (parent == null || !IsName(node.Kind()))
+                {
+                    return false;
+                }
+
+                switch (parent.Kind())
+                {
+                    case ObjectCreationExpression:
+                        return ((ObjectCreationExpressionSyntax)parent).Type == node;
+                    case QualifiedName when ((QualifiedNameSyntax)parent).Right == node:
+                    case AliasQualifiedName when ((AliasQualifiedNameSyntax)parent).Name == node:
+                        node = parent;
+                        continue;
+                }
+
                 return false;
             }
-
-            switch (parent)
-            {
-                case ObjectCreationExpressionSyntax objectCreationExpression:
-                    return objectCreationExpression.Type == node;
-
-                case QualifiedNameSyntax qualifiedName when qualifiedName.Right == node:
-                case AliasQualifiedNameSyntax aliasQualifiedName when aliasQualifiedName.Name == node:
-                    return IsTypeOfObjectCreationExpression(parent);
-            }
-
-            return false;
         }
 
         internal static bool IsSimpleName(SyntaxNode node)
         {
-            switch (node.Kind())
+            while (true)
             {
-                case SyntaxKind.IdentifierName:
-                    return true;
-                default:
-                case SyntaxKind.GenericName:
-                    return false;
-                case SyntaxKind.QualifiedName:
-                    return IsSimpleName(((QualifiedNameSyntax)node).Right);
-                case SyntaxKind.AliasQualifiedName:
-                    return IsSimpleName(((AliasQualifiedNameSyntax)node).Name);
+                switch (node.Kind())
+                {
+                    case IdentifierName:
+                        return true;
+                    case QualifiedName:
+                        node = ((QualifiedNameSyntax)node).Right;
+                        continue;
+                    case AliasQualifiedName:
+                        node = ((AliasQualifiedNameSyntax)node).Name;
+                        continue;
+                }
+
+                return false;
             }
         }
     }
