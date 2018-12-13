@@ -124,5 +124,33 @@ class C<T>
             var compilation = CreateCompilation(source);
             compilation.VerifyDiagnostics();
         }
+
+        [Fact]
+        public void MethodGroup_01()
+        {
+            var source = @"
+using System;
+class Program
+{
+    public static void Main()
+    {
+        Program.Test(Program.IsEven);
+    }
+
+    public static bool IsEven(int x)
+    {
+        return true;
+    }
+
+    public static void Test<T>(Func<T, bool> predicate)
+    {
+        Console.Write(predicate(default(T)));
+    }
+}";
+
+            var compilation = CreateCompilation(source, options: TestOptions.DebugExe);
+            compilation.VerifyDiagnostics();
+            CompileAndVerify(compilation, expectedOutput: "True");
+        }
     }
 }

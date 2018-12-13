@@ -543,9 +543,9 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             var source = argument.Type;
 
-            if (argument.Kind == BoundKind.UnboundLambda)
+            if (argument.Kind == BoundKind.UnboundLambda || argument.Kind == BoundKind.MethodGroup)
             {
-                ExplicitParameterTypeInference(argument, target, ref useSiteDiagnostics);
+                ExplicitParameterTypeInference(binder, argument, target, ref useSiteDiagnostics);
             }
             else if (argument.Kind != BoundKind.TupleLiteral ||
                 !MakeExplicitParameterTypeInferences(binder, (BoundTupleLiteral)argument, target, kind, ref useSiteDiagnostics))
@@ -1327,7 +1327,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         //
         // Explicit parameter type inferences
         //
-        private void ExplicitParameterTypeInference(BoundExpression source, TypeSymbolWithAnnotations target, ref HashSet<DiagnosticInfo> useSiteDiagnostics)
+        private void ExplicitParameterTypeInference(Binder binder, BoundExpression source, TypeSymbolWithAnnotations target, ref HashSet<DiagnosticInfo> useSiteDiagnostics)
         {
             Debug.Assert(source != null);
             Debug.Assert(!target.IsNull);
@@ -1339,14 +1339,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             // SPEC: parameter types V1...Vk then for each Ui an exact inference is made
             // SPEC: from Ui to the corresponding Vi.
 
-            if (source.Kind != BoundKind.UnboundLambda)
-            {
-                return;
-            }
-
-            UnboundLambda anonymousFunction = (UnboundLambda)source;
-
-            if (!anonymousFunction.HasExplicitlyTypedParameterList)
+            if (source.Kind != BoundKind.UnboundLambda && source.Kind != BoundKind.MethodGroup)
             {
                 return;
             }
@@ -1363,22 +1356,65 @@ namespace Microsoft.CodeAnalysis.CSharp
                 return;
             }
 
-            int size = delegateParameters.Length;
-            if (anonymousFunction.ParameterCount < size)
+            if (source is UnboundLambda anonymousFunction)
             {
-                size = anonymousFunction.ParameterCount;
+                if (!anonymousFunction.HasExplicitlyTypedParameterList)
+                {
+                    return;
+                }
+
+                // SPEC ISSUE: What should we do if there is an out/ref mismatch between an
+                // SPEC ISSUE: anonymous function parameter and a delegate parameter?
+                // SPEC ISSUE: The result will not be applicable no matter what, but should
+                // SPEC ISSUE: we make any inferences?  This is going to be an error
+                // SPEC ISSUE: ultimately, but it might make a difference for intellisense or
+                // SPEC ISSUE: other analysis.
+
+                int size = Math.Min(delegateParameters.Length, anonymousFunction.ParameterCount);
+                for (int i = 0; i < size; ++i)
+                {
+                    ExactInference(anonymousFunction.ParameterType(i), delegateParameters[i].Type, ref useSiteDiagnostics);
+                }
             }
-
-            // SPEC ISSUE: What should we do if there is an out/ref mismatch between an
-            // SPEC ISSUE: anonymous function parameter and a delegate parameter?
-            // SPEC ISSUE: The result will not be applicable no matter what, but should
-            // SPEC ISSUE: we make any inferences?  This is going to be an error
-            // SPEC ISSUE: ultimately, but it might make a difference for intellisense or
-            // SPEC ISSUE: other analysis.
-
-            for (int i = 0; i < size; ++i)
+            else if (source is BoundMethodGroup methodGroup)
             {
-                ExactInference(anonymousFunction.ParameterType(i), delegateParameters[i].Type, ref useSiteDiagnostics);
+                if (delegateParameters.Length == 0)
+                {
+                    return;
+                }
+
+                var analyzedArguments = AnalyzedArguments.GetInstance();
+                Conversions.GetDelegateArguments(source.Syntax, analyzedArguments, delegateParameters, binder.Compilation);
+
+                var delegateInvokeMethod = delegateType.DelegateInvokeMethod;
+                var resolution = binder.ResolveMethodGroup(methodGroup, analyzedArguments, useSiteDiagnostics: ref useSiteDiagnostics,
+                    isMethodGroupConversion: true, returnRefKind: delegateInvokeMethod.RefKind,
+                    returnType: null);
+
+                if (!resolution.IsEmpty)
+                {
+                    var result = resolution.OverloadResolutionResult;
+                    if (result.Succeeded)
+                    {
+                        MethodSymbol member = result.BestResult.Member;
+                        var memberParameterTypes = member.ParameterTypes;
+                        int size = Math.Min(delegateParameters.Length, member.ParameterCount);
+                        for (int i = 0; i < size; ++i)
+                        {
+                            var memberParameterType = memberParameterTypes[i];
+                            var delegateParameterType = delegateParameters[i].Type;
+                            if (memberParameterType.IsSameAs(delegateParameterType))
+                            {
+                                continue;
+                            }
+
+                            ExactInference(memberParameterType, delegateParameterType, ref useSiteDiagnostics);
+                        }
+                    }
+                }
+
+                analyzedArguments.Free();
+                resolution.Free();
             }
         }
 

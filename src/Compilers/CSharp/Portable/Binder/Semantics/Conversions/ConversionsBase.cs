@@ -896,6 +896,14 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                 case BoundKind.ThrowExpression:
                     return Conversion.ImplicitThrow;
+
+                case BoundKind.Parameter:
+                    if (sourceExpression.WasCompilerGenerated &&
+                        sourceExpression.Type.TypeKind == TypeKind.TypeParameter)
+                    {
+                        return Conversion.Identity;
+                    }
+                    break;
             }
 
             return Conversion.NoConversion;
