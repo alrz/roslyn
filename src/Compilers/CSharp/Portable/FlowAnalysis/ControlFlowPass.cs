@@ -12,7 +12,7 @@ namespace Microsoft.CodeAnalysis.CSharp
     internal class ControlFlowPass : AbstractFlowPass<ControlFlowPass.LocalState>
     {
         private readonly PooledDictionary<LabelSymbol, (BoundBlock block, int spanStart)> _labelsDefined = PooledDictionary<LabelSymbol, (BoundBlock, int)>.GetInstance();
-        private readonly PooledDictionary<LabelSymbol, Location> _labelsUsed = PooledDictionary<LabelSymbol, Location>.GetInstance();
+        private readonly PooledDictionary<LabelSymbol, ArrayBuilder<Location>> _labelsUsed = PooledDictionary<LabelSymbol, ArrayBuilder<Location>>.GetInstance();
 
         protected bool _convertInsufficientExecutionStackExceptionToCancelledByStackGuardException = false; // By default, just let the original exception to bubble up.
 
@@ -22,6 +22,10 @@ namespace Microsoft.CodeAnalysis.CSharp
         protected override void Free()
         {
             _labelsDefined.Free();
+            foreach (var locations in _labelsUsed.Values)
+            {
+                locations.Free();
+            }
             _labelsUsed.Free();
             _lastUsingDeclarations.Free();
             base.Free();
@@ -301,11 +305,16 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             _labelsDefined[node.Label] = (_currentBlock, node.Syntax.SpanStart);
             if (_lastUsingDeclarations.TryGetValue(_currentBlock, out int lastUsingDeclarationSpanStart) &&
-                lastUsingDeclarationSpanStart < node.Syntax.SpanStart && 
-                _labelsUsed.TryGetValue(node.Label, out Location lastLocation) && 
-                lastUsingDeclarationSpanStart > lastLocation.SourceSpan.Start)
+                lastUsingDeclarationSpanStart < node.Syntax.SpanStart &&
+                _labelsUsed.TryGetValue(node.Label, out ArrayBuilder<Location> locations))
             {
-                Diagnostics.Add(ErrorCode.ERR_GoToForwardJumpOverUsingVar, lastLocation);
+                foreach (var location in locations)
+                {
+                    if (lastUsingDeclarationSpanStart > location.SourceSpan.Start)
+                    {
+                        Diagnostics.Add(ErrorCode.ERR_GoToForwardJumpOverUsingVar, location);
+                    }
+                }
             }
 
             base.VisitLabel(node);
@@ -327,7 +336,12 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         public override BoundNode VisitGotoStatement(BoundGotoStatement node)
         {
-            _labelsUsed[node.Label] = node.Syntax.Location;
+            if (!_labelsUsed.TryGetValue(node.Label, out ArrayBuilder<Location> locations))
+            {
+                locations = _labelsUsed[node.Label] = ArrayBuilder<Location>.GetInstance();
+            }
+
+             locations.Add(node.Syntax.Location);
 
             if (_labelsDefined.TryGetValue(node.Label, out (BoundBlock block, int spanStart) labelInfo) && 
                 _lastUsingDeclarations.TryGetValue(labelInfo.block, out int lastUsingDeclarationSpanStart) &&
