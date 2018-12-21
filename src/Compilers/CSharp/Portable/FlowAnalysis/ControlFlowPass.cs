@@ -11,18 +11,19 @@ namespace Microsoft.CodeAnalysis.CSharp
 {
     internal class ControlFlowPass : AbstractFlowPass<ControlFlowPass.LocalState>
     {
-        private readonly PooledDictionary<LabelSymbol, BoundBlock> _labelsDefined = PooledDictionary<LabelSymbol, BoundBlock>.GetInstance();
-        private readonly PooledHashSet<LabelSymbol> _labelsUsed = PooledHashSet<LabelSymbol>.GetInstance();
+        private readonly PooledDictionary<LabelSymbol, (BoundBlock block, int spanStart)> _labelsDefined = PooledDictionary<LabelSymbol, (BoundBlock, int)>.GetInstance();
+        private readonly PooledDictionary<LabelSymbol, Location> _labelsUsed = PooledDictionary<LabelSymbol, Location>.GetInstance();
+
         protected bool _convertInsufficientExecutionStackExceptionToCancelledByStackGuardException = false; // By default, just let the original exception to bubble up.
 
-        private readonly ArrayBuilder<(LocalSymbol symbol, BoundBlock block)> _usingDeclarations = ArrayBuilder<(LocalSymbol, BoundBlock)>.GetInstance();
+        private readonly PooledDictionary<BoundBlock, int> _lastUsingDeclarations = PooledDictionary<BoundBlock, int>.GetInstance();
         private BoundBlock _currentBlock = null;
 
         protected override void Free()
         {
             _labelsDefined.Free();
             _labelsUsed.Free();
-            _usingDeclarations.Free();
+            _lastUsingDeclarations.Free();
             base.Free();
         }
 
@@ -120,7 +121,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             var result = base.Scan(ref badRegion);
             foreach (var label in _labelsDefined.Keys)
             {
-                if (!_labelsUsed.Contains(label))
+                if (!_labelsUsed.ContainsKey(label))
                 {
                     Diagnostics.Add(ErrorCode.WRN_UnreferencedLabel, label.Locations[0]);
                 }
@@ -298,7 +299,15 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         protected override void VisitLabel(BoundLabeledStatement node)
         {
-            _labelsDefined[node.Label] = _currentBlock;
+            _labelsDefined[node.Label] = (_currentBlock, node.Syntax.SpanStart);
+            if (_lastUsingDeclarations.TryGetValue(_currentBlock, out int lastUsingDeclarationSpanStart) &&
+                lastUsingDeclarationSpanStart < node.Syntax.SpanStart && 
+                _labelsUsed.TryGetValue(node.Label, out Location lastLocation) && 
+                lastUsingDeclarationSpanStart > lastLocation.SourceSpan.Start)
+            {
+                Diagnostics.Add(ErrorCode.ERR_GoToForwardJumpOverUsingVar, lastLocation);
+            }
+
             base.VisitLabel(node);
         }
 
@@ -310,36 +319,21 @@ namespace Microsoft.CodeAnalysis.CSharp
             return null;
         }
 
+        public override BoundNode VisitUsingLocalDeclarations(BoundUsingLocalDeclarations node)
+        {
+            _lastUsingDeclarations[_currentBlock] = node.Syntax.SpanStart;
+            return base.VisitUsingLocalDeclarations(node);
+        }
+
         public override BoundNode VisitGotoStatement(BoundGotoStatement node)
         {
-            _labelsUsed.Add(node.Label);
+            _labelsUsed[node.Label] = node.Syntax.Location;
 
-            // check for illegal jumps across using declarations
-            var sourceLocation = node.Syntax.Location;
-            var sourceStart = sourceLocation.SourceSpan.Start;
-            var targetStart = node.Label.Locations[0].SourceSpan.Start;
-
-            foreach (var usingDecl in _usingDeclarations)
+            if (_labelsDefined.TryGetValue(node.Label, out (BoundBlock block, int spanStart) labelInfo) && 
+                _lastUsingDeclarations.TryGetValue(labelInfo.block, out int lastUsingDeclarationSpanStart) &&
+                lastUsingDeclarationSpanStart > labelInfo.spanStart)
             {
-                var usingStart = usingDecl.symbol.Locations[0].SourceSpan.Start;
-                if (sourceStart < usingStart && targetStart > usingStart)
-                {
-                    // No forward jumps
-                    Diagnostics.Add(ErrorCode.ERR_GoToForwardJumpOverUsingVar, sourceLocation);
-                    break;
-                }
-                else if(sourceStart > usingStart && targetStart < usingStart)
-                {
-                    // Backwards jump, so we must have already seen the label
-                    Debug.Assert(_labelsDefined.ContainsKey(node.Label)); 
-
-                    // Error if label and using are part of the same block
-                    if (_labelsDefined[node.Label] == usingDecl.block)
-                    {
-                        Diagnostics.Add(ErrorCode.ERR_GoToBackwardJumpOverUsingVar, sourceLocation);
-                        break;
-                    }
-                }
+                Diagnostics.Add(ErrorCode.ERR_GoToBackwardJumpOverUsingVar, node.Syntax.Location);
             }
 
             return base.VisitGotoStatement(node);
@@ -384,18 +378,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             var parentBlock = _currentBlock;
             _currentBlock = node;
-            var initialUsingCount = _usingDeclarations.Count;
-            foreach(var local in node.Locals)
-            {
-                if (local.IsUsing)
-                {
-                    _usingDeclarations.Add((local, node));
-                }
-            }
-
             var result = base.VisitBlock(node);
-
-            _usingDeclarations.Clip(initialUsingCount);
             _currentBlock = parentBlock;
             return result;
         }
