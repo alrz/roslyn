@@ -55,6 +55,60 @@ class C
         }
 
         [Fact]
+        public void DisallowGoToForwardAcrossUsingDeclarationsMultipleGoTo()
+        {
+            var source = @"
+using System;
+class C
+{
+    void M(bool b1, bool b2)
+    {
+        if (b1)
+            goto label1;
+        if (b2)
+            goto label1;
+        using var x = (IDisposable)null;
+
+        label1:
+        return;
+    }
+}
+";
+            CreateCompilation(source).VerifyDiagnostics(
+                // (8,13): error CS8641: A goto cannot jump to a location after a using declaration.
+                //             goto label1;
+                Diagnostic(ErrorCode.ERR_GoToForwardJumpOverUsingVar, "goto label1;").WithLocation(8, 13),
+                // (10,13): error CS8641: A goto cannot jump to a location after a using declaration.
+                //             goto label1;
+                Diagnostic(ErrorCode.ERR_GoToForwardJumpOverUsingVar, "goto label1;").WithLocation(10, 13));
+        }
+
+        [Fact]
+        public void DisallowGoToForwardAcrossUsingDeclarationsMultipleUsing()
+        {
+            var source = @"
+using System;
+class C
+{
+    static void Main()
+    {
+        goto L1;
+        using var x = (IDisposable)null;
+L1:
+        using var y = (IDisposable)null;
+    }
+}
+";
+            CreateCompilation(source).VerifyDiagnostics(
+                // (7,9): error CS8641: A goto cannot jump to a location after a using declaration.
+                //         goto L1;
+                Diagnostic(ErrorCode.ERR_GoToForwardJumpOverUsingVar, "goto L1;").WithLocation(7, 9),
+                // (8,9): warning CS0162: Unreachable code detected
+                //         using var x = (IDisposable)null;
+                Diagnostic(ErrorCode.WRN_UnreachableCode, "using").WithLocation(8, 9));
+        }
+
+        [Fact]
         public void DisallowGoToForwardAcrossUsingDeclarationsFromLowerBlock()
         {
             var source = @"
