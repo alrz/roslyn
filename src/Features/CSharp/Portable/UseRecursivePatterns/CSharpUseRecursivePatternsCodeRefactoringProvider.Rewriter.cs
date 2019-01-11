@@ -11,29 +11,26 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
 
     internal sealed partial class CSharpUseRecursivePatternsCodeRefactoringProvider
     {
-        private sealed class Rewriter : Visitor<SyntaxNode>
+        private sealed class Rewriter : Visitor<SyntaxNode, bool>
         {
-            private bool _isPattern = false;
+            private readonly static Rewriter s_instance = new Rewriter();
 
             private Rewriter() { }
 
             public static ExpressionSyntax Rewrite(AnalyzedNode analyzedNode)
             {
-                return (ExpressionSyntax)new Rewriter().Visit(analyzedNode);
+                return (ExpressionSyntax)s_instance.Visit(analyzedNode, false);
             }
 
-            public override SyntaxNode VisitPatternMatch(PatternMatch node)
+            public override SyntaxNode VisitPatternMatch(PatternMatch node, bool isPattern)
             {
-                if (_isPattern)
+                if (isPattern)
                 {
-                    return Subpattern(NameColon((IdentifierNameSyntax)node.Expression), AsPattern(Visit(node.Pattern)));
+                    return Subpattern(NameColon((IdentifierNameSyntax)node.Expression), AsPattern(Visit(node.Pattern, true)));
                 }
                 else
                 {
-                    _isPattern = true;
-                    var result = IsPatternExpression(node.Expression, AsPattern(Visit(node.Pattern)));
-                    _isPattern = false;
-                    return result;
+                    return IsPatternExpression(node.Expression, AsPattern(Visit(node.Pattern, true)));
                 }
             }
 
@@ -70,14 +67,14 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
                         identifier = n.Identifier;
                         break;
                     default:
-                        nodes.Add((SubpatternSyntax)Visit(node));
+                        nodes.Add((SubpatternSyntax)Visit(node, true));
                         break;
                 }
             }
 
-            public override SyntaxNode VisitConjuction(Conjuction node)
+            public override SyntaxNode VisitConjuction(Conjuction node, bool isPattern)
             {
-                if (_isPattern)
+                if (isPattern)
                 {
                     var nodes = ArrayBuilder<SubpatternSyntax>.GetInstance();
                     TypeSyntax type = null;
@@ -93,32 +90,32 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
                 else
                 {
                     return BinaryExpression(SyntaxKind.LogicalAndExpression,
-                        (ExpressionSyntax)Visit(node.Left),
-                        (ExpressionSyntax)Visit(node.Right));
+                        (ExpressionSyntax)Visit(node.Left, false),
+                        (ExpressionSyntax)Visit(node.Right, false));
                 }
             }
 
-            public override SyntaxNode VisitConstantPattern(ConstantPattern node)
+            public override SyntaxNode VisitConstantPattern(ConstantPattern node, bool isPattern)
             {
                 return ConstantPattern(node.Expression);
             }
 
-            public override SyntaxNode VisitTypePattern(TypePattern node)
+            public override SyntaxNode VisitTypePattern(TypePattern node, bool isPattern)
             {
                 return DeclarationPattern(node.Type, DiscardDesignation());
             }
 
-            public override SyntaxNode VisitSourcePattern(SourcePattern node)
+            public override SyntaxNode VisitSourcePattern(SourcePattern node, bool isPattern)
             {
                 throw ExceptionUtilities.Unreachable;
             }
 
-            public override SyntaxNode VisitNotNullPattern(NotNullPattern node)
+            public override SyntaxNode VisitNotNullPattern(NotNullPattern node, bool isPattern)
             {
                 return RecursivePattern(null, null, PropertyPatternClause(SeparatedList<SubpatternSyntax>()), null);
             }
 
-            public override SyntaxNode VisitVarPattern(VarPattern node)
+            public override SyntaxNode VisitVarPattern(VarPattern node, bool isPattern)
             {
                 throw new NotImplementedException();
             }

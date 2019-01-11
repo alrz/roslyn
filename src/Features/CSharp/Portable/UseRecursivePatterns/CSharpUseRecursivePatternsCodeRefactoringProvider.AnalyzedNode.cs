@@ -12,6 +12,8 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
         private abstract class AnalyzedNode : Visitor<AnalyzedNode>
         {
             public abstract T Accept<T>(Visitor<T> visitor);
+            public abstract T Accept<T, TArgument>(Visitor<T, TArgument> visitor, TArgument argument);
+
             public abstract override string ToString();
 
             protected static AnalyzedNode Visit(Conjuction left, Conjuction right) { throw new NotImplementedException(); }
@@ -86,29 +88,26 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
 
             public sealed override AnalyzedNode VisitSourcePattern(SourcePattern node) => throw ExceptionUtilities.Unreachable;
 
-            private sealed class Finder : Visitor<bool>
+            private sealed class Finder : Visitor<bool, IdentifierNameSyntax>
             {
-                private readonly IdentifierNameSyntax _expression;
-
-                private Finder(IdentifierNameSyntax expression)
-                    => _expression = expression;
+                private readonly static Finder s_instance = new Finder();
 
                 public static bool Find(ExpressionSyntax expression, AnalyzedNode node)
-                    => expression is IdentifierNameSyntax id && new Finder(id).Visit(node);
+                    => expression is IdentifierNameSyntax id && s_instance.Visit(node, id);
 
-                public override bool VisitConjuction(Conjuction node)
-                    => Visit(node.Left) || Visit(node.Right);
+                public override bool VisitConjuction(Conjuction node, IdentifierNameSyntax argument)
+                    => Visit(node.Left, argument) || Visit(node.Right, argument);
 
-                public override bool VisitPatternMatch(PatternMatch node)
-                    => SyntaxFactory.AreEquivalent(_expression, node.Expression) || Visit(node.Pattern);
+                public override bool VisitPatternMatch(PatternMatch node, IdentifierNameSyntax argument)
+                    => SyntaxFactory.AreEquivalent(argument, node.Expression) || Visit(node.Pattern, argument);
 
-                public override bool VisitVarPattern(VarPattern node)
-                    => SyntaxFactory.AreEquivalent(_expression.Identifier, node.Identifier);
+                public override bool VisitVarPattern(VarPattern node, IdentifierNameSyntax argument)
+                    => SyntaxFactory.AreEquivalent(argument.Identifier, node.Identifier);
 
-                public override bool VisitConstantPattern(ConstantPattern node) => false;
-                public override bool VisitNotNullPattern(NotNullPattern node) => false;
-                public override bool VisitSourcePattern(SourcePattern node) => false;
-                public override bool VisitTypePattern(TypePattern node) => false;
+                public override bool VisitConstantPattern(ConstantPattern node, IdentifierNameSyntax argument) => false;
+                public override bool VisitNotNullPattern(NotNullPattern node, IdentifierNameSyntax argument) => false;
+                public override bool VisitSourcePattern(SourcePattern node, IdentifierNameSyntax argument) => false;
+                public override bool VisitTypePattern(TypePattern node, IdentifierNameSyntax argument) => false;
             }
         }
 
@@ -126,6 +125,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             }
 
             public override T Accept<T>(Visitor<T> visitor) => visitor.VisitConjuction(this);
+            public override T Accept<T, TArgument>(Visitor<T, TArgument> visitor, TArgument argument) => visitor.VisitConjuction(this, argument);
             public override string ToString() => $"{Left} AND {Right}";
 
             public override AnalyzedNode VisitConstantPattern(ConstantPattern node) => Visit(this, node);
@@ -150,6 +150,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             }
 
             public override T Accept<T>(Visitor<T> visitor) => visitor.VisitPatternMatch(this);
+            public override T Accept<T, TArgument>(Visitor<T, TArgument> visitor, TArgument argument) => visitor.VisitPatternMatch(this, argument);
             public override string ToString() => $"{Expression} is ({Pattern})";
 
             public override AnalyzedNode VisitConstantPattern(ConstantPattern node) => Visit(this, node);
@@ -171,6 +172,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             }
 
             public override T Accept<T>(Visitor<T> visitor) => visitor.VisitConstantPattern(this);
+            public override T Accept<T, TArgument>(Visitor<T, TArgument> visitor, TArgument argument) => visitor.VisitConstantPattern(this, argument);
             public override string ToString() => Expression.ToString();
 
             public override AnalyzedNode VisitConstantPattern(ConstantPattern node) => Visit(this, node);
@@ -184,6 +186,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
         private sealed class NotNullPattern : AnalyzedNode
         {
             public override T Accept<T>(Visitor<T> visitor) => visitor.VisitNotNullPattern(this);
+            public override T Accept<T, TArgument>(Visitor<T, TArgument> visitor, TArgument argument) => visitor.VisitNotNullPattern(this, argument);
             public override string ToString() => "{}";
 
             private NotNullPattern() { }
@@ -209,6 +212,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             }
 
             public override T Accept<T>(Visitor<T> visitor) => visitor.VisitTypePattern(this);
+            public override T Accept<T, TArgument>(Visitor<T, TArgument> visitor, TArgument argument) => visitor.VisitTypePattern(this, argument);
             public override string ToString() => Type.ToString();
 
             public override AnalyzedNode VisitConstantPattern(ConstantPattern node) => Visit(node, this);
@@ -230,6 +234,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             }
 
             public override T Accept<T>(Visitor<T> visitor) => visitor.VisitSourcePattern(this);
+            public override T Accept<T, TArgument>(Visitor<T, TArgument> visitor, TArgument argument) => visitor.VisitSourcePattern(this, argument);
             public override string ToString() => Pattern.ToString();
 
             public override AnalyzedNode VisitConstantPattern(ConstantPattern node) => throw ExceptionUtilities.Unreachable;
@@ -251,6 +256,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             }
 
             public override T Accept<T>(Visitor<T> visitor) => visitor.VisitVarPattern(this);
+            public override T Accept<T, TArgument>(Visitor<T, TArgument> visitor, TArgument argument) => visitor.VisitVarPattern(this, argument);
             public override string ToString() => $"var {Identifier}";
 
             public override AnalyzedNode VisitConstantPattern(ConstantPattern node) => Visit(node, this);

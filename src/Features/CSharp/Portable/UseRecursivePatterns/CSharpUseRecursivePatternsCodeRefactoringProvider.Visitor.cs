@@ -16,5 +16,18 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             public abstract T VisitNotNullPattern(NotNullPattern node);
             public abstract T VisitVarPattern(VarPattern node);
         }
+
+        private abstract class Visitor<T, TArgument>
+        {
+            public T Visit(AnalyzedNode node, TArgument argument) => node != null ? node.Accept(this, argument) : default;
+
+            public abstract T VisitPatternMatch(PatternMatch node, TArgument argument);
+            public abstract T VisitConjuction(Conjuction node, TArgument argument);
+            public abstract T VisitConstantPattern(ConstantPattern node, TArgument argument);
+            public abstract T VisitTypePattern(TypePattern node, TArgument argument);
+            public abstract T VisitSourcePattern(SourcePattern node, TArgument argument);
+            public abstract T VisitNotNullPattern(NotNullPattern node, TArgument argument);
+            public abstract T VisitVarPattern(VarPattern node, TArgument argument);
+        }
     }
 }
