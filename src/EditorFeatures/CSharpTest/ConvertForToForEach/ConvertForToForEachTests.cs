@@ -31,14 +31,14 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.ConvertForToForEach
         {
             await TestInRegularAndScript1Async(
 @"using System;
-
+using System.Linq;
 class C
 {
     void Test(string[] array)
     {
         [||]for (int i = 0; i < array.Length; i++)
         {
-            Console.WriteLine(array[i]);
+            Console.WriteLine(array.ElementAt(i));
         }
     }
 }",

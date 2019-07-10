@@ -186,7 +186,8 @@ namespace Microsoft.CodeAnalysis.ConvertForToForEach
                         // list[i]
 
                         if (!syntaxFacts.IsSimpleArgument(current.Parent) ||
-                            !syntaxFacts.IsElementAccessExpression(current.Parent.Parent.Parent))
+                            !syntaxFacts.IsElementAccessExpression(current.Parent.Parent.Parent) ||
+                            !(semanticModel.GetSymbolInfo(current.Parent.Parent.Parent).Symbol is { MetadataName: "ElementAt", DeclaredAccessibility: Accessibility.Public }))
                         {
                             // used in something other than accessing into a collection.
                             // can't convert this for-loop.
