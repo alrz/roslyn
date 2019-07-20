@@ -3048,11 +3048,6 @@
         <target state="translated">无法将类型“{0}”隐式转换为“{1}”。存在一个显式转换(是否缺少强制转换?)</target>
         <note />
       </trans-unit>
-      <trans-unit id="ERR_PartialMisplaced">
-        <source>The 'partial' modifier can only appear immediately before 'class', 'struct', 'interface', or 'void'</source>
-        <target state="translated">"partial" 修饰符的后面只能紧跟 "class"、"struct"、"interface" 或 "void"</target>
-        <note />
-      </trans-unit>
       <trans-unit id="ERR_ImportedCircularBase">
         <source>Imported type '{0}' is invalid. It contains a circular base class dependency.</source>
         <target state="translated">导入的类型“{0}”无效。它包含循环的基类依赖项。</target>
@@ -9727,6 +9722,11 @@ To remove the warning, you can use /reference instead (set the Embed Interop Typ
       <trans-unit id="ERR_MultipleIAsyncEnumOfT">
         <source>Asynchronous foreach statement cannot operate on variables of type '{0}' because it implements multiple instantiations of '{1}'; try casting to a specific interface instantiation</source>
         <target state="translated">异步 foreach 语句实现“{1}”的多个实例化，因此不能在“{0}”类型的变量上运行；请尝试强制转换到特定的接口实例化</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="IDS_FeatureRefPartialModOrdering">
+        <source>ref and partial modifier ordering</source>
+        <target state="new">ref and partial modifier ordering</target>
         <note />
       </trans-unit>
     </body>
