@@ -1359,12 +1359,15 @@ tryAgain:
             {
                 SyntaxToken lastMod = EatToken();
                 bool anyAdditionalModifiers = false;
+                bool treatAsModifier = false;
                 // Skip over additional modifiers
                 if (IsPossibleModifier())
                 {
                     anyAdditionalModifiers = true;
                     do
                     {
+                        if (!treatAsModifier && !IsContextualModifier(this.CurrentToken))
+                            treatAsModifier = true;
                         lastMod = EatToken();
                     }
                     while (IsPossibleModifier());
@@ -1400,7 +1403,9 @@ tryAgain:
                     }
                 }
 
-                return ScanPartialFlags.NotModifier;
+                return treatAsModifier
+                    ? ScanPartialFlags.TreatAsModifier
+                    : ScanPartialFlags.NotModifier;
             }
             finally
             {
