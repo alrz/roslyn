@@ -94,8 +94,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
         [Fact]
         public void TestOneUntypedFailure()
         {
-            TestConditional("true ? GetInt() : null", null,
-                Diagnostic(ErrorCode.ERR_InvalidQM, "true ? GetInt() : null").WithArguments("int", "<null>"));
+            TestConditional("true ? GetInt() : null", "System.Int32?");
             TestConditional("false ? GetString : (System.Func<int>)null", null, TestOptions.WithoutImprovedOverloadCandidates,
                 Diagnostic(ErrorCode.ERR_BadRetType, "GetString").WithArguments("C.GetString()", "string"));
             TestConditional("false ? GetString : (System.Func<int>)null", null,
@@ -152,8 +151,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
             TestConditional("true? 0 : color.Blue", "color");
             TestConditional("true? 5 : color.Blue", null,
                 Diagnostic(ErrorCode.ERR_InvalidQM, "true? 5 : color.Blue").WithArguments("int", "color"));
-            TestConditional("true? null : color.Blue", null,
-                Diagnostic(ErrorCode.ERR_InvalidQM, "true? null : color.Blue").WithArguments("<null>", "color"));
+            TestConditional("true? null : color.Blue", "color?");
         }
 
         [Fact]

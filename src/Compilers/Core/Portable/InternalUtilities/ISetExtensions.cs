@@ -2,11 +2,18 @@
 
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Net.WebSockets;
 
 namespace Roslyn.Utilities
 {
     internal static class ISetExtensions
     {
+        public static bool AddIfNotNull<T>(this ISet<T> set, T v)
+            where T : class
+        {
+            return v != null && set.Add(v);
+        }
+
         public static bool AddAll<T>(this ISet<T> set, IEnumerable<T> values)
         {
             var result = false;

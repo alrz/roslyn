@@ -119,6 +119,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         private readonly HashSet<TypeWithAnnotations>[] _exactBounds;
         private readonly HashSet<TypeWithAnnotations>[] _upperBounds;
         private readonly HashSet<TypeWithAnnotations>[] _lowerBounds;
+        private readonly bool[] _nullBounds;
         private Dependency[,] _dependencies; // Initialized lazily
         private bool _dependenciesDirty;
 
@@ -275,8 +276,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         // SPEC: the bounds is of some type T. Initially each type parameter is unfixed
         // SPEC: with an empty set of bounds.
 
-        private MethodTypeInferrer(
-            ConversionsBase conversions,
+        private MethodTypeInferrer(ConversionsBase conversions,
             ImmutableArray<TypeParameterSymbol> methodTypeParameters,
             NamedTypeSymbol constructedContainingTypeOfMethod,
             ImmutableArray<TypeWithAnnotations> formalParameterTypes,
@@ -295,6 +295,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             _exactBounds = new HashSet<TypeWithAnnotations>[methodTypeParameters.Length];
             _upperBounds = new HashSet<TypeWithAnnotations>[methodTypeParameters.Length];
             _lowerBounds = new HashSet<TypeWithAnnotations>[methodTypeParameters.Length];
+            _nullBounds = new bool[methodTypeParameters.Length];
             _dependencies = null;
             _dependenciesDirty = false;
         }
@@ -468,20 +469,27 @@ namespace Microsoft.CodeAnalysis.CSharp
             var methodTypeParameter = (TypeParameterSymbol)methodTypeParameterWithAnnotations.Type;
             int methodTypeParameterIndex = methodTypeParameter.Ordinal;
 
-            if (collectedBounds[methodTypeParameterIndex] == null)
-            {
-                collectedBounds[methodTypeParameterIndex] = new HashSet<TypeWithAnnotations>(TypeWithAnnotations.EqualsComparer.ConsiderEverythingComparer);
-            }
+            var bounds = collectedBounds[methodTypeParameterIndex] ??= new HashSet<TypeWithAnnotations>(TypeWithAnnotations.EqualsComparer.ConsiderEverythingComparer);
+            bounds.Add(addedBound);
+        }
 
-            collectedBounds[methodTypeParameterIndex].Add(addedBound);
+        private void AddNullBound(TypeWithAnnotations methodTypeParameterWithAnnotations)
+        {
+            Debug.Assert(IsUnfixedTypeParameter(methodTypeParameterWithAnnotations));
+
+            var methodTypeParameter = (TypeParameterSymbol)methodTypeParameterWithAnnotations.Type;
+            int methodTypeParameterIndex = methodTypeParameter.Ordinal;
+
+            _nullBounds[methodTypeParameterIndex] = true;
         }
 
         private bool HasBound(int methodTypeParameterIndex)
         {
             Debug.Assert(ValidIndex(methodTypeParameterIndex));
             return _lowerBounds[methodTypeParameterIndex] != null ||
-                _upperBounds[methodTypeParameterIndex] != null ||
-                _exactBounds[methodTypeParameterIndex] != null;
+                   _upperBounds[methodTypeParameterIndex] != null ||
+                   _exactBounds[methodTypeParameterIndex] != null ||
+                   _nullBounds[methodTypeParameterIndex];
         }
 
         private NamedTypeSymbol GetFixedDelegate(NamedTypeSymbol delegateType)
@@ -564,15 +572,26 @@ namespace Microsoft.CodeAnalysis.CSharp
             if (argument.Kind == BoundKind.UnboundLambda)
             {
                 ExplicitParameterTypeInference(argument, target, ref useSiteDiagnostics);
+                return;
             }
-            else if (argument.Kind != BoundKind.TupleLiteral ||
-                !MakeExplicitParameterTypeInferences(binder, (BoundTupleLiteral)argument, target, kind, ref useSiteDiagnostics))
+
+
+            if (argument.Kind == BoundKind.TupleLiteral &&
+                MakeExplicitParameterTypeInferences(binder, (BoundTupleLiteral)argument, target, kind, ref useSiteDiagnostics))
             {
-                // Either the argument is not a tuple literal, or we were unable to do the inference from its elements, let's try to infer from argument type
-                if (IsReallyAType(argument.Type))
-                {
-                    ExactOrBoundsInference(kind, _extensions.GetTypeWithAnnotations(argument), target, ref useSiteDiagnostics);
-                }
+                return;
+            }
+
+            if (argument.IsLiteralNull())
+            {
+                NullBoundTypeParameterInference(target);
+                return;
+            }
+
+            // Either the argument is not a tuple literal, or we were unable to do the inference from its elements, let's try to infer from argument type
+            if (IsReallyAType(argument.Type))
+            {
+                ExactOrBoundsInference(kind, _extensions.GetTypeWithAnnotations(argument), target, ref useSiteDiagnostics);
             }
         }
 
@@ -734,7 +753,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private void MakeOutputTypeInferences(Binder binder, BoundExpression argument, TypeWithAnnotations formalType, ref HashSet<DiagnosticInfo> useSiteDiagnostics)
         {
-            if (argument.Kind == BoundKind.TupleLiteral && (object)argument.Type == null)
+            if (argument.Kind == BoundKind.TupleLiteral && argument.Type is null)
             {
                 MakeOutputTypeInferences(binder, (BoundTupleLiteral)argument, formalType, ref useSiteDiagnostics);
             }
@@ -742,10 +761,10 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 if (HasUnfixedParamInOutputType(argument, formalType.Type) && !HasUnfixedParamInInputType(argument, formalType.Type))
                 {
-                    //UNDONE: if (argument->isTYPEORNAMESPACEERROR() && argumentType->IsErrorType())
-                    //UNDONE: {
-                    //UNDONE:     argumentType = GetTypeManager().GetErrorSym();
-                    //UNDONE: }
+                    // UNDONE: if (argument->isTYPEORNAMESPACEERROR() && argumentType->IsErrorType())
+                    // UNDONE: {
+                    // UNDONE:     argumentType = GetTypeManager().GetErrorSym();
+                    // UNDONE: }
                     OutputTypeInference(binder, argument, formalType, ref useSiteDiagnostics);
                 }
             }
@@ -1210,6 +1229,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 return;
             }
+
             // SPEC: * Otherwise, if E is an expression with type U then a lower-bound
             // SPEC:   inference is made from U to T.
             var sourceType = _extensions.GetTypeWithAnnotations(expression);
@@ -1220,6 +1240,18 @@ namespace Microsoft.CodeAnalysis.CSharp
             // SPEC: * Otherwise, no inferences are made.
         }
 
+        private bool NullBoundTypeParameterInference(TypeWithAnnotations target)
+        {
+            //Debug.Assert(!target.HasType);
+
+            if (IsUnfixedTypeParameter(target))
+            {
+                AddNullBound(target);
+                return true;
+            }
+            return false;
+
+        }
         private bool InferredReturnTypeInference(BoundExpression source, TypeWithAnnotations target, ref HashSet<DiagnosticInfo> useSiteDiagnostics)
         {
             Debug.Assert(source != null);
@@ -1244,7 +1276,11 @@ namespace Microsoft.CodeAnalysis.CSharp
                 return false;
             }
 
-            var inferredReturnType = InferReturnType(source, delegateType, ref useSiteDiagnostics);
+            var inferredReturnType = InferReturnType(source, delegateType, ref useSiteDiagnostics, out var seenNullLiterals);
+            if (seenNullLiterals)
+            {
+                NullBoundTypeParameterInference(returnType);
+            }
             if (!inferredReturnType.HasType)
             {
                 return false;
@@ -1512,10 +1548,24 @@ namespace Microsoft.CodeAnalysis.CSharp
             Debug.Assert(source.HasType);
             Debug.Assert(target.HasType);
 
-            if (source.IsNullableType() && target.IsNullableType())
+            switch (source.IsNullableType(), target.IsNullableType())
             {
-                ExactOrBoundsInference(kind, ((NamedTypeSymbol)source.Type).TypeArgumentsWithAnnotationsNoUseSiteDiagnostics[0], ((NamedTypeSymbol)target.Type).TypeArgumentsWithAnnotationsNoUseSiteDiagnostics[0], ref useSiteDiagnostics);
-                return true;
+                case (true, false) when _conversions.AllowNullableEnhancedCommonType():
+                    if (!NullBoundTypeParameterInference(target))
+                    {
+                        return false;
+                    }
+                    ExactOrBoundsInference(kind,
+                        source.Type.GetNullableUnderlyingTypeWithAnnotations(),
+                        target,
+                        ref useSiteDiagnostics);
+                    return true;
+                case (true, true):
+                    ExactOrBoundsInference(kind,
+                        source.Type.GetNullableUnderlyingTypeWithAnnotations(),
+                        target.Type.GetNullableUnderlyingTypeWithAnnotations(),
+                        ref useSiteDiagnostics);
+                    return true;
             }
 
             if (isNullableOnly(source) && isNullableOnly(target))
@@ -2319,8 +2369,9 @@ namespace Microsoft.CodeAnalysis.CSharp
             var exact = _exactBounds[iParam];
             var lower = _lowerBounds[iParam];
             var upper = _upperBounds[iParam];
+            var @null = _nullBounds[iParam];
 
-            var best = Fix(exact, lower, upper, ref useSiteDiagnostics, _conversions);
+            var best = Fix(exact, lower, upper, @null, ref useSiteDiagnostics, _conversions);
             if (!best.HasType)
             {
                 return false;
@@ -2332,7 +2383,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 // If the first attempt succeeded, the result should be the same as
                 // the second attempt, although perhaps with different nullability.
                 HashSet<DiagnosticInfo> ignoredDiagnostics = null;
-                var withoutNullability = Fix(exact, lower, upper, ref ignoredDiagnostics, _conversions.WithNullability(false));
+                var withoutNullability = Fix(exact, lower, upper, @null, ref ignoredDiagnostics, _conversions.WithNullability(false));
                 // https://github.com/dotnet/roslyn/issues/27961 Results may differ by tuple names or dynamic.
                 // See NullableReferenceTypesTests.TypeInference_TupleNameDifferences_01 for example.
                 Debug.Assert(best.Type.Equals(withoutNullability.Type, TypeCompareKind.IgnoreDynamicAndTupleNames | TypeCompareKind.IgnoreNullableModifiersForReferenceTypes));
@@ -2348,6 +2399,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             HashSet<TypeWithAnnotations> exact,
             HashSet<TypeWithAnnotations> lower,
             HashSet<TypeWithAnnotations> upper,
+            bool hasNullBound,
             ref HashSet<DiagnosticInfo> useSiteDiagnostics,
             ConversionsBase conversions)
         {
@@ -2436,7 +2488,9 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                 if (!best.HasType)
                 {
-                    best = candidate;
+                    best = hasNullBound && candidate.Type.IsNonNullableValueType()
+                        ? TypeWithAnnotations.Create(makeNullableType(candidate))
+                        : candidate;
                 }
                 else
                 {
@@ -2453,6 +2507,9 @@ OuterBreak:
             initialCandidates.Free();
 
             return best;
+
+            TypeSymbol makeNullableType(TypeWithAnnotations candidate)
+                => conversions.CorLibrary.GetDeclaredSpecialType(SpecialType.System_Nullable_T).Construct(ImmutableArray.Create(candidate));
         }
 
         internal static TypeWithAnnotations Merge(TypeWithAnnotations first, TypeWithAnnotations second, VarianceKind variance, ConversionsBase conversions)
@@ -2552,8 +2609,11 @@ OuterBreak:
         //
         // Inferred return type
         //
-        private TypeWithAnnotations InferReturnType(BoundExpression source, NamedTypeSymbol target, ref HashSet<DiagnosticInfo> useSiteDiagnostics)
+        private TypeWithAnnotations InferReturnType(BoundExpression source, NamedTypeSymbol target,
+            ref HashSet<DiagnosticInfo> useSiteDiagnostics, out bool seenNullLiterals)
         {
+            seenNullLiterals = false;
+
             Debug.Assert((object)target != null);
             Debug.Assert(target.IsDelegateType());
             Debug.Assert((object)target.DelegateInvokeMethod != null && !target.DelegateInvokeMethod.HasUseSiteError,
@@ -2633,7 +2693,7 @@ OuterBreak:
             // the anonymous function is explicitly typed.  Make an inference from the
             // delegate parameters to the return type.
 
-            return anonymousFunction.InferReturnType(_conversions, fixedDelegate, ref useSiteDiagnostics);
+            return anonymousFunction.InferReturnType(_conversions, fixedDelegate, out seenNullLiterals, ref useSiteDiagnostics);
         }
 
         /// <summary>

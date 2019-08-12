@@ -57,6 +57,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             // All non-null types are candidates for best type inference.
             IEqualityComparer<TypeSymbol> comparer = conversions.IncludeNullability ? TypeSymbol.EqualsConsiderEverything : TypeSymbol.EqualsIgnoringNullableComparer;
             HashSet<TypeSymbol> candidateTypes = new HashSet<TypeSymbol>(comparer);
+            bool seenNullLiterals = false;
             foreach (BoundExpression expr in exprs)
             {
                 TypeSymbol type = expr.Type;
@@ -70,12 +71,16 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                     candidateTypes.Add(type);
                 }
+                else if (expr.IsLiteralNull())
+                {
+                    seenNullLiterals = true;
+                }
             }
 
             // Perform best type inference on candidate types.
             var builder = ArrayBuilder<TypeSymbol>.GetInstance(candidateTypes.Count);
             builder.AddRange(candidateTypes);
-            var result = GetBestType(builder, conversions, ref useSiteDiagnostics);
+            var result = GetBestType(builder, conversions, seenNullLiterals, ref useSiteDiagnostics);
             builder.Free();
             return result;
         }
@@ -91,6 +96,8 @@ namespace Microsoft.CodeAnalysis.CSharp
             out bool hadMultipleCandidates,
             ref HashSet<DiagnosticInfo> useSiteDiagnostics)
         {
+            hadMultipleCandidates = false;
+
             // SPEC:    The second and third operands, x and y, of the ?: operator control the type of the conditional expression. 
             // SPEC:    •	If x has type X and y has type Y then
             // SPEC:        o	If an implicit conversion (§6.1) exists from X to Y, but not from Y to X, then Y is the type of the conditional expression.
@@ -104,41 +111,66 @@ namespace Microsoft.CodeAnalysis.CSharp
             try
             {
                 var conversionsWithoutNullability = conversions.WithNullability(false);
-                TypeSymbol type1 = expr1.Type;
 
+                TypeSymbol type1 = expr1.Type;
+                TypeSymbol type2 = expr2.Type;
+
+                bool expr1IsLiteralNull = expr1.IsLiteralNull();
+                bool expr2IsLiteralNull = expr2.IsLiteralNull();
+
+                bool sawOne = false;
                 if ((object)type1 != null)
                 {
                     if (type1.IsErrorType())
                     {
-                        hadMultipleCandidates = false;
                         return type1;
                     }
 
                     if (conversionsWithoutNullability.ClassifyImplicitConversionFromExpression(expr2, type1, ref useSiteDiagnostics).Exists)
                     {
+                        sawOne = true;
                         candidateTypes.Add(type1);
                     }
-                }
+                    else if (expr2IsLiteralNull ||
+                             (object)type2 != null &&
+                             type1.IsNullableType() &&
+                             !type2.IsNullableType() &&
+                             conversionsWithoutNullability.ClassifyImplicitConversionFromType(type1.GetNullableUnderlyingType(), type2, ref useSiteDiagnostics).Exists)
+                    {
+                        candidateTypes.Add(type1);
+                        candidateTypes.Add(type2);
+                    }
 
-                TypeSymbol type2 = expr2.Type;
+                }
 
                 if ((object)type2 != null)
                 {
                     if (type2.IsErrorType())
                     {
-                        hadMultipleCandidates = false;
                         return type2;
                     }
 
                     if (conversionsWithoutNullability.ClassifyImplicitConversionFromExpression(expr1, type2, ref useSiteDiagnostics).Exists)
                     {
+                        if (sawOne)
+                        {
+                            hadMultipleCandidates = true;
+                        }
                         candidateTypes.Add(type2);
                     }
+                    else if (expr1IsLiteralNull ||
+                             (object)type1 != null &&
+                             type2.IsNullableType() &&
+                             !type1.IsNullableType() &&
+                             conversionsWithoutNullability.ClassifyImplicitConversionFromType(type2.GetNullableUnderlyingType(), type1, ref useSiteDiagnostics).Exists)
+                    {
+                        candidateTypes.Add(type1);
+                        candidateTypes.Add(type2);
+                    }
+
                 }
 
-                hadMultipleCandidates = candidateTypes.Count > 1;
-
-                return GetBestType(candidateTypes, conversions, ref useSiteDiagnostics);
+                return GetBestType(candidateTypes, conversions, expr1IsLiteralNull || expr2IsLiteralNull, ref useSiteDiagnostics);
             }
             finally
             {
@@ -147,6 +179,28 @@ namespace Microsoft.CodeAnalysis.CSharp
         }
 
         internal static TypeSymbol GetBestType(
+            ArrayBuilder<TypeSymbol> types,
+            ConversionsBase conversions,
+            bool seenNullLiterals,
+            ref HashSet<DiagnosticInfo> useSiteDiagnostics)
+        {
+            var best = GetBestTypeCore(types, conversions, ref useSiteDiagnostics);
+            if (seenNullLiterals &&
+                conversions.AllowNullableEnhancedCommonType() &&
+                best?.IsNonNullableValueType() == true)
+            {
+                return MakeNullableType(best, conversions);
+            }
+
+            return best;
+        }
+
+        private static TypeSymbol MakeNullableType(TypeSymbol best, ConversionsBase conversions)
+        {
+            return conversions.CorLibrary.GetDeclaredSpecialType(SpecialType.System_Nullable_T).Construct(ImmutableArray.Create(best));
+        }
+
+        private static TypeSymbol GetBestTypeCore(
             ArrayBuilder<TypeSymbol> types,
             ConversionsBase conversions,
             ref HashSet<DiagnosticInfo> useSiteDiagnostics)
@@ -233,42 +287,48 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
 
             var conversionsWithoutNullability = conversions.WithNullability(false);
-            var t1tot2 = conversionsWithoutNullability.ClassifyImplicitConversionFromType(type1, type2, ref useSiteDiagnostics).Exists;
-            var t2tot1 = conversionsWithoutNullability.ClassifyImplicitConversionFromType(type2, type1, ref useSiteDiagnostics).Exists;
-
-            if (t1tot2 && t2tot1)
+            switch (
+                conversionsWithoutNullability.ClassifyImplicitConversionFromType(type1, type2, ref useSiteDiagnostics).Exists,
+                conversionsWithoutNullability.ClassifyImplicitConversionFromType(type2, type1, ref useSiteDiagnostics).Exists)
             {
-                if (type1.IsDynamic())
-                {
-                    return type1;
-                }
+                case (true, true):
+                    if (type1.IsDynamic())
+                    {
+                        return type1;
+                    }
 
-                if (type2.IsDynamic())
-                {
+                    if (type2.IsDynamic())
+                    {
+                        return type2;
+                    }
+
+                    if (type1.Equals(type2,
+                        TypeCompareKind.IgnoreDynamicAndTupleNames |
+                        TypeCompareKind.IgnoreNullableModifiersForReferenceTypes))
+                    {
+                        return MethodTypeInferrer.Merge(
+                            TypeWithAnnotations.Create(type1),
+                            TypeWithAnnotations.Create(type2),
+                            VarianceKind.Out,
+                            conversions).Type;
+                    }
+                    return null;
+                case (true, false):
                     return type2;
-                }
-
-                if (type1.Equals(type2, TypeCompareKind.IgnoreDynamicAndTupleNames | TypeCompareKind.IgnoreNullableModifiersForReferenceTypes))
-                {
-                    return MethodTypeInferrer.Merge(
-                        TypeWithAnnotations.Create(type1),
-                        TypeWithAnnotations.Create(type2),
-                        VarianceKind.Out,
-                        conversions).Type;
-                }
-
-                return null;
+                case (false, true):
+                    return type1;
             }
 
-            if (t1tot2)
+            switch (type1.IsNullableType(), type2.IsNullableType())
             {
-                return type2;
+                case (true, false)
+                    when conversionsWithoutNullability.ClassifyImplicitConversionFromType(type1.GetNullableUnderlyingType(), type2, ref useSiteDiagnostics).Exists:
+                    return MakeNullableType(type2, conversions);
+                case (false, true)
+                    when conversionsWithoutNullability.ClassifyImplicitConversionFromType(type2.GetNullableUnderlyingType(), type1, ref useSiteDiagnostics).Exists:
+                    return MakeNullableType(type1, conversions);
             }
 
-            if (t2tot1)
-            {
-                return type1;
-            }
 
             return null;
         }

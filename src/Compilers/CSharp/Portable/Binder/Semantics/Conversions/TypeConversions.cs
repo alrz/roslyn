@@ -48,5 +48,11 @@ namespace Microsoft.CodeAnalysis.CSharp
             // Conversions involving interpolated strings require a Binder.
             throw ExceptionUtilities.Unreachable;
         }
+
+        public override bool AllowNullableEnhancedCommonType()
+        {
+            // TODO where this should go?
+            throw ExceptionUtilities.Unreachable;
+        }
     }
 }

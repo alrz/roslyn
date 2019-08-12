@@ -30,6 +30,8 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private CSharpCompilation Compilation { get { return _binder.Compilation; } }
 
+        public override bool AllowNullableEnhancedCommonType() => Compilation.LanguageVersion.AllowNullableEnhancedCommonType();
+
         protected override ConversionsBase WithNullabilityCore(bool includeNullability)
         {
             Debug.Assert(IncludeNullability != includeNullability);

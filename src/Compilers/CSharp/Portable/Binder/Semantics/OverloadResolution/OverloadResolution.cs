@@ -2672,7 +2672,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                             return true;
                         }
 
-                        var x = lambda.InferReturnType(Conversions, d1, ref useSiteDiagnostics);
+                        var x = lambda.InferReturnType(Conversions, d1, out _, ref useSiteDiagnostics);
                         if (!x.HasType)
                         {
                             return true;

@@ -385,5 +385,11 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             return self >= MessageID.IDS_FeatureImprovedOverloadCandidates.RequiredVersion();
         }
+
+        internal static bool AllowNullableEnhancedCommonType(this LanguageVersion self)
+        {
+            // TODO
+            return true;
+        }
     }
 }

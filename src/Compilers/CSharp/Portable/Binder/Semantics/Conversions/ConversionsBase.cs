@@ -67,6 +67,8 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         protected abstract Conversion GetInterpolatedStringConversion(BoundInterpolatedString source, TypeSymbol destination, ref HashSet<DiagnosticInfo> useSiteDiagnostics);
 
+        public abstract bool AllowNullableEnhancedCommonType();
+
         internal AssemblySymbol CorLibrary { get { return corLibrary; } }
 
         /// <summary>

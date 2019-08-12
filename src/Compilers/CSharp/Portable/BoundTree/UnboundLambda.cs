@@ -34,13 +34,15 @@ namespace Microsoft.CodeAnalysis.CSharp
     internal struct InferredLambdaReturnType
     {
         internal readonly bool FromSingleType;
+        internal readonly bool SeenNullLiterals;
         internal readonly RefKind RefKind;
         internal readonly TypeWithAnnotations TypeWithAnnotations;
         internal readonly ImmutableArray<DiagnosticInfo> UseSiteDiagnostics;
 
-        internal InferredLambdaReturnType(bool fromSingleType, RefKind refKind, TypeWithAnnotations typeWithAnnotations, ImmutableArray<DiagnosticInfo> useSiteDiagnostics)
+        internal InferredLambdaReturnType(bool fromSingleType, bool seenNullLiteral, RefKind refKind, TypeWithAnnotations typeWithAnnotations, ImmutableArray<DiagnosticInfo> useSiteDiagnostics)
         {
             FromSingleType = fromSingleType;
+            SeenNullLiterals = seenNullLiteral;
             RefKind = refKind;
             TypeWithAnnotations = typeWithAnnotations;
             UseSiteDiagnostics = useSiteDiagnostics;
@@ -140,6 +142,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             var types = ArrayBuilder<(BoundExpression, TypeWithAnnotations)>.GetInstance();
             bool hasReturnWithoutArgument = false;
             RefKind refKind = RefKind.None;
+            bool seenNullLiteral = false;
             foreach (var (returnStatement, type) in returnTypes)
             {
                 RefKind rk = returnStatement.RefKind;
@@ -154,24 +157,28 @@ namespace Microsoft.CodeAnalysis.CSharp
                 }
                 else
                 {
+                    if (returnStatement.ExpressionOpt.IsLiteralNull())
+                    {
+                        seenNullLiteral = true;
+                    }
+
                     types.Add((returnStatement.ExpressionOpt, type));
                 }
             }
 
             HashSet<DiagnosticInfo> useSiteDiagnostics = null;
-            var bestType = CalculateReturnType(compilation, conversions, delegateType, types, isAsync, node, ref useSiteDiagnostics);
+            var bestType = CalculateReturnType(compilation, conversions, delegateType, types, isAsync, node, ref useSiteDiagnostics, seenNullLiteral);
             int numberOfDistinctReturns = types.Count + (hasReturnWithoutArgument ? 1 : 0);
-            return new InferredLambdaReturnType(numberOfDistinctReturns < 2, refKind, bestType, useSiteDiagnostics.AsImmutableOrEmpty());
+            return new InferredLambdaReturnType(numberOfDistinctReturns < 2, seenNullLiteral, refKind, bestType, useSiteDiagnostics.AsImmutableOrEmpty());
         }
 
-        private static TypeWithAnnotations CalculateReturnType(
-            CSharpCompilation compilation,
+        private static TypeWithAnnotations CalculateReturnType(CSharpCompilation compilation,
             ConversionsBase conversions,
             TypeSymbol delegateType,
             ArrayBuilder<(BoundExpression, TypeWithAnnotations resultType)> returns,
             bool isAsync,
             BoundNode node,
-            ref HashSet<DiagnosticInfo> useSiteDiagnostics)
+            ref HashSet<DiagnosticInfo> useSiteDiagnostics, bool seenNullLiteral)
         {
             TypeWithAnnotations bestResultType;
             int n = returns.Count;
@@ -196,7 +203,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                         {
                             typesOnly.Add(resultType.Type);
                         }
-                        var bestType = BestTypeInferrer.GetBestType(typesOnly, conversions, ref useSiteDiagnostics);
+                        var bestType = BestTypeInferrer.GetBestType(typesOnly, conversions, seenNullLiteral, ref useSiteDiagnostics);
                         bestResultType = bestType is null ? default : TypeWithAnnotations.Create(bestType);
                         typesOnly.Free();
                     }
@@ -343,8 +350,12 @@ namespace Microsoft.CodeAnalysis.CSharp
         public bool HasSignature { get { return Data.HasSignature; } }
         public bool HasExplicitlyTypedParameterList { get { return Data.HasExplicitlyTypedParameterList; } }
         public int ParameterCount { get { return Data.ParameterCount; } }
-        public TypeWithAnnotations InferReturnType(ConversionsBase conversions, NamedTypeSymbol delegateType, ref HashSet<DiagnosticInfo> useSiteDiagnostics)
-            => BindForReturnTypeInference(delegateType).GetInferredReturnType(conversions, _nullableState?.Clone(), ref useSiteDiagnostics);
+        public TypeWithAnnotations InferReturnType(ConversionsBase conversions, NamedTypeSymbol delegateType, out bool seenNullLiterals, ref HashSet<DiagnosticInfo> useSiteDiagnostics)
+        {
+            BoundLambda lambda = BindForReturnTypeInference(delegateType);
+            seenNullLiterals = lambda.InferredReturnType.SeenNullLiterals;
+            return lambda.GetInferredReturnType(conversions, _nullableState?.Clone(), ref useSiteDiagnostics);
+        }
 
         public RefKind RefKind(int index) { return Data.RefKind(index); }
         public void GenerateAnonymousFunctionConversionError(DiagnosticBag diagnostics, TypeSymbol targetType) { Data.GenerateAnonymousFunctionConversionError(diagnostics, targetType); }
