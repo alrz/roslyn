@@ -73,7 +73,7 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.CodeActions.ConvertIfTo
         [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsConvertIfToSwitch)]
         public async Task TestMissingOnSubsequentBlock()
         {
-            await TestMissingInRegularAndScriptAsync(
+            await TestInRegularAndScriptAsync(
 @"class C
 {
     int M(int i)
@@ -82,7 +82,7 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.CodeActions.ConvertIfTo
         { if (i == 6) return 1; }
         return 2;
     }
-}");
+}", "");
         }
 
         [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsConvertIfToSwitch)]
@@ -146,6 +146,158 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.CodeActions.ConvertIfTo
                 return 1;
             default:
                 return 0;
+        }
+    }
+}");
+        }
+
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsConvertIfToSwitch)]
+        public async Task TestElseBlock_03()
+        {
+            await TestInRegularAndScriptAsync(
+@"class C
+{
+    int M(int i)
+    {
+        [||]if (i == 3)
+        {
+            return 0;
+        }
+        else
+        {
+            if (i == 6) return 1;
+            M(0);
+        }
+    }
+}",
+@"class C
+{
+    int M(int i)
+    {
+        switch (i)
+        {
+            case 3:
+                return 0;
+            case 6:
+                return 1;
+            default:
+                M(0);
+                break;
+        }
+    }
+}");
+        }
+
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsConvertIfToSwitch)]
+        public async Task TestElseBlock_04()
+        {
+            await TestInRegularAndScriptAsync(
+@"class C
+{
+    int M(int i)
+    {
+        [||]if (i == 3)
+        {
+            return 0;
+        }
+        else
+        {
+            if (i == 6) M(0);
+            return 0;
+        }
+    }
+}",
+@"class C
+{
+    int M(int i)
+    {
+        switch (i)
+        {
+            case 3:
+                return 0;
+            case 6:
+                M(0);
+                break;
+            default:
+                if (i == 6) M(0);
+                return 0;
+        }
+    }
+}");
+        }
+
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsConvertIfToSwitch)]
+        public async Task TestElseBlock_05()
+        {
+            await TestInRegularAndScriptAsync(
+@"class C
+{
+    int M(int i)
+    {
+        [||]if (i == 3)
+        {
+            return 0;
+        }
+        else
+        {
+            if (i == 6) return 0;
+            M(0);
+        }
+    }
+}",
+@"class C
+{
+    int M(int i)
+    {
+        switch (i)
+        {
+            case 3:
+                return 0;
+            case 6:
+                return 0;
+            default:
+                M(0);
+                break;
+        }
+    }
+}");
+        }
+
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsConvertIfToSwitch)]
+        public async Task TestElseBlock_06()
+        {
+            await TestInRegularAndScriptAsync(
+@"class C
+{
+    int M(int i)
+    {
+        [||]if (i == 3)
+        {
+            return 0;
+        }
+        else
+        {
+            if (i == 6) return 0;
+            M(0);
+            M(1);
+        }
+    }
+}",
+@"class C
+{
+    int M(int i)
+    {
+        switch (i)
+        {
+            case 3:
+                return 0;
+            case 6:
+                return 0;
+            default:
+                if (i == 6) return 0;
+                M(0);
+                M(1);
+                break;
         }
     }
 }");
