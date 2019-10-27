@@ -72,7 +72,7 @@ namespace Microsoft.CodeAnalysis.ConvertIfToSwitch
             public (ImmutableArray<AnalyzedSwitchSection>, SyntaxNode TargetExpression) AnalyzeIfStatementSequence(ReadOnlySpan<IOperation> operations)
             {
                 var sections = ArrayBuilder<AnalyzedSwitchSection>.GetInstance();
-                if (!ParseIfStatementSequence(operations, sections, out var defaultBodyOpt))
+                if (ParseIfStatementSequence(operations, sections, out var defaultBodyOpt) == SequenceResult.Failure)
                 {
                     sections.Free();
                     return default;
@@ -87,6 +87,21 @@ namespace Microsoft.CodeAnalysis.ConvertIfToSwitch
                 return (sections.ToImmutableAndFree(), _switchTargetExpression);
             }
 
+            private enum SequenceResult
+            {
+                /// <summary>
+                /// None of statements are valid.
+                /// </summary>
+                Failure,
+                /// <summary>
+                /// Some of statements are valid.
+                /// </summary>
+                Partial,
+                /// <summary>
+                /// All of statements are valid.
+                /// </summary>
+                Complete
+            }
             // Tree to parse:
             //
             //    <if-statement-sequence>
@@ -94,37 +109,49 @@ namespace Microsoft.CodeAnalysis.ConvertIfToSwitch
             //        : if (<section-expr>) { <unreachable-end-point> }, ( return | throw )
             //        | <if-statement>
             //
-            private bool ParseIfStatementSequence(ReadOnlySpan<IOperation> operations, ArrayBuilder<AnalyzedSwitchSection> sections, out IOperation? defaultBodyOpt)
+            private SequenceResult ParseIfStatementSequence(ReadOnlySpan<IOperation> operations, ArrayBuilder<AnalyzedSwitchSection> sections, out IOperation? defaultBodyOpt)
             {
-                if (operations.Length > 1 &&
-                    operations[0] is IConditionalOperation { WhenFalse: null } op &&
+                if (operations.Length == 0)
+                {
+                    defaultBodyOpt = null;
+                    return SequenceResult.Failure;
+                }
+
+                if (!ParseIfStatement(operations[0], sections, out defaultBodyOpt))
+                {
+                    return SequenceResult.Failure;
+                }
+
+                if (operations.Length == 1)
+                {
+                    return SequenceResult.Complete;
+                }
+
+                if (operations[0] is IConditionalOperation { WhenFalse: null } op &&
                     HasUnreachableEndPoint(op.WhenTrue))
                 {
-                    if (!ParseIfStatement(op, sections, out defaultBodyOpt))
-                    {
-                        return false;
-                    }
-
-                    if (!ParseIfStatementSequence(operations.Slice(1), sections, out defaultBodyOpt))
-                    {
-                        var nextStatement = operations[1];
-                        if (nextStatement is IReturnOperation { ReturnedValue: { } } ||
-                            nextStatement is IThrowOperation { Exception: { } })
-                        {
-                            defaultBodyOpt = nextStatement;
-                        }
-                    }
-
-                    return true;
+                    return ParseIfStatementSequenceContinue(operations.Slice(1), sections, out defaultBodyOpt);
                 }
 
-                if (operations.Length > 0)
+                return SequenceResult.Partial;
+            }
+
+            private SequenceResult ParseIfStatementSequenceContinue(ReadOnlySpan<IOperation> operations, ArrayBuilder<AnalyzedSwitchSection> sections, out IOperation defaultBodyOpt)
+            {
+                Debug.Assert(operations.Length > 0);
+                switch (ParseIfStatementSequence(operations, sections, out defaultBodyOpt))
                 {
-                    return ParseIfStatement(operations[0], sections, out defaultBodyOpt);
+                    case SequenceResult.Complete:
+                        return SequenceResult.Complete;
+                    case SequenceResult.Failure:
+                        defaultBodyOpt = operations[0];
+                        return operations.Length == 1
+                            ? SequenceResult.Complete
+                            : SequenceResult.Partial;
+                    default:
+                        defaultBodyOpt = null;
+                        return SequenceResult.Partial;
                 }
-
-                defaultBodyOpt = null;
-                return false;
             }
 
             // Tree to parse:
@@ -167,7 +194,7 @@ namespace Microsoft.CodeAnalysis.ConvertIfToSwitch
             private bool ParseIfStatementOrBlock(IOperation op, ArrayBuilder<AnalyzedSwitchSection> sections, out IOperation? defaultBodyOpt)
             {
                 return op is IBlockOperation block
-                    ? ParseIfStatementSequence(block.Operations.AsSpan(), sections, out defaultBodyOpt)
+                    ? ParseIfStatementSequence(block.Operations.AsSpan(), sections, out defaultBodyOpt) == SequenceResult.Complete
                     : ParseIfStatement(op, sections, out defaultBodyOpt);
             }
 
