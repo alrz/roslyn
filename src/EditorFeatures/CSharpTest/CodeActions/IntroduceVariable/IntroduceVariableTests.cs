@@ -31,9 +31,9 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.CodeRefactorings.Introd
         // specify all options explicitly to override defaults.
         private IDictionary<OptionKey, object> ImplicitTypingEverywhere() =>
             OptionsSet(
-                SingleOption(CSharpCodeStyleOptions.UseImplicitTypeWherePossible, onWithInfo),
-                SingleOption(CSharpCodeStyleOptions.UseImplicitTypeWhereApparent, onWithInfo),
-                SingleOption(CSharpCodeStyleOptions.UseImplicitTypeForIntrinsicTypes, onWithInfo));
+                SingleOption(CSharpCodeStyleOptions.VarElsewhere, onWithInfo),
+                SingleOption(CSharpCodeStyleOptions.VarWhenTypeIsApparent, onWithInfo),
+                SingleOption(CSharpCodeStyleOptions.VarForBuiltInTypes, onWithInfo));
 
         internal IDictionary<OptionKey, object> OptionSet(OptionKey option, object value)
         {
@@ -103,15 +103,25 @@ class C
         }
 
         [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsIntroduceVariable)]
+        [WorkItem(35525, "https://github.com/dotnet/roslyn/issues/35525")]
         public async Task TestEmptySpan4()
         {
-            await TestMissingAsync(
+            await TestInRegularAndScriptAsync(
 @"using System;
 class C
 {
     void M(Action action)
     {
         M(() => { var x [||]= y; });
+    }
+}",
+@"using System;
+class C
+{
+    void M(Action action)
+    {
+        Action {|Rename:p|} = () => { var x[||] = y; };
+        M(p);
     }
 }");
         }
@@ -1431,12 +1441,20 @@ index: 1);
         [WorkItem(10743, "DevDiv_Projects/Roslyn")]
         public async Task TestAnonymousTypeBody()
         {
-            await TestMissingInRegularAndScriptAsync(
-@"class C
+            await TestInRegularAndScriptAsync(
+@"class Program
 {
-    void M()
+    void Main()
     {
         var a = new [|{ A = 0 }|];
+    }
+}",
+@"class Program
+{
+    void Main()
+    {
+        var {|Rename:p|} = new { A = 0 };
+        var a = p;
     }
 }");
         }
@@ -2479,10 +2497,10 @@ class Program
 {
     static void Main(string[] args)
     {
-        Func<int, Func<int, int>> f = x =>
+        Func<int, Func<int, int>> f = x => y =>
         {
             var {|Rename:v|} = x + 1;
-            return y => v;
+            return v;
         };
     }
 }",
@@ -2539,8 +2557,11 @@ class Program
 {
     static void Main(string[] args)
     {
-        Func<int, int> {|Rename:p|} = y => y + 1;
-        Func<int, Func<int, int>> f = x => p;
+        Func<int, Func<int, int>> f = x =>
+        {
+            Func<int, int> {|Rename:p|} = y => y + 1;
+            return p;
+        };
     }
 }");
         }
@@ -3099,6 +3120,72 @@ class C
 ", options: ImplicitTypingEverywhere(), index: 1);
         }
 
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsIntroduceVariable)]
+        public Task TestIntroduceLocal_NullableType_FlowStateNonNull()
+        => TestInRegularAndScriptAsync(@"
+#nullable enable
+
+class C
+{
+    void M()
+    {
+        string? s = string.Empty;
+        M2([|s|]);
+    }
+
+    void M2(string? s)
+    {
+    }
+}", @"
+#nullable enable
+
+class C
+{
+    void M()
+    {
+        string? s = string.Empty;
+        string {|Rename:s1|} = s;
+        M2(s1);
+    }
+
+    void M2(string? s)
+    {
+    }
+}");
+
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsIntroduceVariable)]
+        public Task TestIntroduceLocal_NullableType_FlowStateNull()
+        => TestInRegularAndScriptAsync(@"
+#nullable enable
+
+class C
+{
+    void M()
+    {
+        string? s = null;
+        M2([|s|]);
+    }
+
+    void M2(string? s)
+    {
+    }
+}", @"
+#nullable enable
+
+class C
+{
+    void M()
+    {
+        string? s = null;
+        string? {|Rename:s1|} = s;
+        M2(s1);
+    }
+
+    void M2(string? s)
+    {
+    }
+}");
+
         [WorkItem(1065661, "http://vstfdevdiv:8080/DevDiv2/DevDiv/_workitems/edit/1065661")]
         [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsIntroduceVariable)]
         public async Task TestIntroduceVariableTextDoesntSpanLines1()
@@ -3335,6 +3422,41 @@ class T
 }";
 
             await TestInRegularAndScriptAsync(code, expected, index: 2);
+        }
+
+        [WorkItem(31012, "https://github.com/dotnet/roslyn/issues/31012")]
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsIntroduceVariable)]
+        public async Task TestIntroduceLocalInArgumentList()
+        {
+            var code =
+                @"using System;
+public interface IResolver { int Resolve(); }
+public class Test
+{
+    private void register(Func<IResolver, object> a) { }
+    private void test(Func<int, object> factory)
+        => register(x => factory(
+            [|x.Resolve()|]
+        ));
+}";
+
+            var expected =
+                @"using System;
+public interface IResolver { int Resolve(); }
+public class Test
+{
+    private void register(Func<IResolver, object> a) { }
+    private void test(Func<int, object> factory)
+        => register(x =>
+        {
+            int {|Rename:arg|} = x.Resolve();
+            return factory(
+     arg
+ );
+        });
+}";
+
+            await TestInRegularAndScriptAsync(code, expected, index: 0);
         }
 
         [WorkItem(24807, "https://github.com/dotnet/roslyn/issues/24807")]
@@ -4342,11 +4464,11 @@ class TestClass
     @"using System;
 class TestClass
 {
-    Func<int, int> Y()
+    Func<int, int> Y() => f =>
     {
         const int {|Rename:V|} = 9;
-        return f => f * V;
-    }
+        return f * V;
+    };
 }";
 
             await TestInRegularAndScriptAsync(code, expected, index: 2);
@@ -4396,11 +4518,11 @@ class TestClass
     @"using System;
 class TestClass
 {
-    Func<int, int> Y()
+    Func<int, int> Y() => (f) =>
     {
         const int {|Rename:V|} = 9;
-        return (f) => f * V;
-    }
+        return f * V;
+    };
 }";
 
             await TestInRegularAndScriptAsync(code, expected, index: 2);
@@ -5419,14 +5541,23 @@ class C
 
         [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsIntroduceVariable)]
         [WorkItem(10123, "https://github.com/dotnet/roslyn/issues/10123")]
+        [WorkItem(35525, "https://github.com/dotnet/roslyn/issues/35525")]
         public async Task TestSimpleParamterName_SmallSelection()
         {
-            await TestMissingAsync(
+            await TestInRegularAndScriptAsync(
 @"class C
 {
     void M(int parameter)
     {
         System.Console.Write([|par|]ameter);
+    }
+}",
+@"class C
+{
+    void M(int parameter)
+    {
+        int {|Rename:parameter1|} = parameter;
+        System.Console.Write(parameter1);
     }
 }");
         }
@@ -5487,7 +5618,9 @@ class C
         [WorkItem(10123, "https://github.com/dotnet/roslyn/issues/10123")]
         public async Task TestFieldName_QualifiedWithType_TinySelection1()
         {
-            await TestMissingAsync(
+            // While one might argue that offering the refactoring in this case is not strictly correct the selection expression is
+            // unambiguous and there will be no other refactorings offered. Thus the cost of offering it very virtually non-existent.
+            await TestInRegularAndScriptAsync(
 @"
 class C
 {
@@ -5495,6 +5628,16 @@ class C
     void M()
     {
         System.Console.Write(C[|.|]a);
+    }
+}",
+@"
+class C
+{
+    static int a;
+    void M()
+    {
+        int {|Rename:a1|} = C.a;
+        System.Console.Write(a1);
     }
 }");
         }
@@ -5618,9 +5761,10 @@ class C
 
         [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsIntroduceVariable)]
         [WorkItem(25990, "https://github.com/dotnet/roslyn/issues/25990")]
+        [WorkItem(35525, "https://github.com/dotnet/roslyn/issues/35525")]
         public async Task TestWithLineBreak_WithSingleLineComments()
         {
-            await TestMissingAsync(
+            await TestInRegularAndScriptAsync(
 @"class C
 {
     void M()
@@ -5629,7 +5773,19 @@ class C
             5 * 2 |]
             ;
     }
-}");
+}",
+@"class C
+{
+    private const int {|Rename:V|} = 5 * 2;
+
+    void M()
+    {
+        int x = /*comment1*/
+            V
+            ;
+    }
+}"
+);
         }
 
         [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsIntroduceVariable)]
@@ -5735,7 +5891,7 @@ class C
 }",
 @"class C
 {
-    private const int {|Rename:V|} = 2;
+    private const int {|Rename:V|} = (2);
 
     void Goo()
     {

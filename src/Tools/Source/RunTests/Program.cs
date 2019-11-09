@@ -20,6 +20,11 @@ namespace RunTests
 {
     internal sealed partial class Program
     {
+        private static readonly ImmutableHashSet<string> PrimaryProcessNames = ImmutableHashSet.Create(
+            StringComparer.OrdinalIgnoreCase,
+            "devenv",
+            "xunit.console.x86");
+
         internal const int ExitSuccess = 0;
         internal const int ExitFailure = 1;
 
@@ -102,7 +107,7 @@ namespace RunTests
 
             ConsoleUtil.WriteLine($"Data Storage: {testExecutor.DataStorage.Name}");
             ConsoleUtil.WriteLine($"Proc dump location: {options.ProcDumpDirectory}");
-            ConsoleUtil.WriteLine($"Running {options.Assemblies.Count()} test assemblies in {assemblyInfoList.Count} partitions");
+            ConsoleUtil.WriteLine($"Running {options.Assemblies.Count} test assemblies in {assemblyInfoList.Count} partitions");
 
             var result = await testRunner.RunAllAsync(assemblyInfoList, cancellationToken).ConfigureAwait(true);
             var elapsed = DateTime.Now - start;
@@ -156,7 +161,7 @@ namespace RunTests
 
         private static void WriteLogFile(Options options)
         {
-            var logFilePath = Path.Combine(options.OutputDirectory, "runtests.log");
+            var logFilePath = Path.Combine(options.LogFilesOutputDirectory, "runtests.log");
             try
             {
                 using (var writer = new StreamWriter(logFilePath, append: false))
@@ -198,11 +203,11 @@ namespace RunTests
                     var processOutput = await processInfo.Result;
 
                     // The exit code for procdump doesn't obey standard windows rules.  It will return non-zero
-                    // for succesful cases (possibly returning the count of dumps that were written).  Best 
+                    // for successful cases (possibly returning the count of dumps that were written).  Best 
                     // backup is to test for the dump file being present.
                     if (File.Exists(dumpFilePath))
                     {
-                        ConsoleUtil.WriteLine("succeeded");
+                        ConsoleUtil.WriteLine($"succeeded ({new FileInfo(dumpFilePath).Length} bytes)");
                     }
                     else
                     {
@@ -223,10 +228,12 @@ namespace RunTests
             var procDumpInfo = GetProcDumpInfo(options);
             if (procDumpInfo != null)
             {
-                var dumpDir = procDumpInfo.Value.DumpDirectory;
                 var counter = 0;
                 foreach (var proc in ProcessUtil.GetProcessTree(Process.GetCurrentProcess()).OrderBy(x => x.ProcessName))
                 {
+                    var dumpDir = PrimaryProcessNames.Contains(proc.ProcessName)
+                        ? procDumpInfo.Value.DumpDirectory
+                        : procDumpInfo.Value.SecondaryDumpDirectory;
                     var dumpFilePath = Path.Combine(dumpDir, $"{proc.ProcessName}-{counter}.dmp");
                     await DumpProcess(proc, procDumpInfo.Value.ProcDumpFilePath, dumpFilePath);
                     counter++;
@@ -244,7 +251,7 @@ namespace RunTests
         {
             if (!string.IsNullOrEmpty(options.ProcDumpDirectory))
             {
-                return new ProcDumpInfo(Path.Combine(options.ProcDumpDirectory, "procdump.exe"), options.OutputDirectory);
+                return new ProcDumpInfo(Path.Combine(options.ProcDumpDirectory, "procdump.exe"), options.LogFilesOutputDirectory, options.LogFilesSecondaryOutputDirectory);
             }
 
             return null;
@@ -293,7 +300,7 @@ namespace RunTests
                 // bottleneck.  Can adjust as we get real data.
                 if (name == "Microsoft.CodeAnalysis.CSharp.Emit.UnitTests.dll" ||
                     name == "Microsoft.CodeAnalysis.EditorFeatures.UnitTests.dll" ||
-                    name == "Roslyn.Services.Editor.UnitTests2.dll" ||
+                    name == "Microsoft.CodeAnalysis.EditorFeatures2.UnitTests.dll" ||
                     name == "Microsoft.VisualStudio.LanguageServices.UnitTests.dll" ||
                     name == "Microsoft.CodeAnalysis.CSharp.EditorFeatures.UnitTests.dll" ||
                     name == "Microsoft.CodeAnalysis.VisualBasic.EditorFeatures.UnitTests.dll")
@@ -352,7 +359,7 @@ namespace RunTests
             var testExecutionOptions = new TestExecutionOptions(
                 xunitPath: options.XunitPath,
                 procDumpInfo: options.UseProcDump ? GetProcDumpInfo(options) : null,
-                outputDirectory: options.OutputDirectory,
+                outputDirectory: options.TestResultXmlOutputDirectory,
                 trait: options.Trait,
                 noTrait: options.NoTrait,
                 useHtml: options.UseHtml,

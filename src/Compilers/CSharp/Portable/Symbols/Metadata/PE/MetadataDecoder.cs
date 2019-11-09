@@ -206,10 +206,10 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE
                     return false;
 
                 case SymbolKind.ArrayType:
-                    return IsOrClosedOverATypeFromAssemblies(((ArrayTypeSymbol)symbol).ElementType.TypeSymbol, assemblies);
+                    return IsOrClosedOverATypeFromAssemblies(((ArrayTypeSymbol)symbol).ElementType, assemblies);
 
                 case SymbolKind.PointerType:
-                    return IsOrClosedOverATypeFromAssemblies(((PointerTypeSymbol)symbol).PointedAtType.TypeSymbol, assemblies);
+                    return IsOrClosedOverATypeFromAssemblies(((PointerTypeSymbol)symbol).PointedAtType, assemblies);
 
                 case SymbolKind.DynamicType:
                     return false;
@@ -239,12 +239,12 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE
                             return IsOrClosedOverATypeFromAssemblies(namedType.TupleUnderlyingType, assemblies);
                         }
 
-                        var arguments = namedType.TypeArgumentsNoUseSiteDiagnostics;
+                        var arguments = namedType.TypeArgumentsWithAnnotationsNoUseSiteDiagnostics;
                         int count = arguments.Length;
 
                         for (i = 0; i < count; i++)
                         {
-                            if (IsOrClosedOverATypeFromAssemblies(arguments[i].TypeSymbol, assemblies))
+                            if (IsOrClosedOverATypeFromAssemblies(arguments[i].Type, assemblies))
                             {
                                 return true;
                             }
@@ -522,7 +522,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE
                 HashSet<DiagnosticInfo> useSiteDiagnostics = null;
                 if (!TypeSymbol.Equals(scope, targetTypeSymbol, TypeCompareKind.ConsiderEverything2) &&
                     !(targetTypeSymbol.IsInterfaceType()
-                        ? scope.AllInterfacesNoUseSiteDiagnostics.IndexOf((NamedTypeSymbol)targetTypeSymbol, 0, TypeSymbol.EqualsCLRSignatureComparer) != -1
+                        ? scope.AllInterfacesNoUseSiteDiagnostics.IndexOf((NamedTypeSymbol)targetTypeSymbol, 0, SymbolEqualityComparer.CLRSignature) != -1
                         : scope.IsDerivedFrom(targetTypeSymbol, TypeCompareKind.CLRSignatureCompareOptions, useSiteDiagnostics: ref useSiteDiagnostics)))
                 {
                     return null;

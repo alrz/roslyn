@@ -68,7 +68,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Emit
                 moduleBeingBuilt,
                 emittingPdb: true,
                 diagnostics: diagnostics,
-                filterOpt: changes.RequiresCompilation,
+                filterOpt: s => changes.RequiresCompilation(s.GetISymbol()),
                 cancellationToken: cancellationToken))
             {
                 // Map the definitions from the previous compilation to the current compilation.
@@ -119,7 +119,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Emit
                 return previousGeneration;
             }
 
-            var currentSynthesizedMembers = moduleBeingBuilt.GetSynthesizedMembers();
+            var currentSynthesizedMembers = moduleBeingBuilt.GetAllSynthesizedMembers();
 
             // Mapping from previous compilation to the current.
             var anonymousTypeMap = moduleBeingBuilt.GetAnonymousTypeMap();

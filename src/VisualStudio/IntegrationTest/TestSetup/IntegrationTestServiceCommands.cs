@@ -3,12 +3,16 @@
 using System;
 using System.ComponentModel.Design;
 using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using System.Runtime.Remoting;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting.Channels.Ipc;
 using System.Runtime.Serialization.Formatters;
+using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.IntegrationTest.Utilities;
 using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Utilities;
 
 namespace Microsoft.VisualStudio.IntegrationTest.Setup
 {
@@ -74,6 +78,13 @@ namespace Microsoft.VisualStudio.IntegrationTest.Setup
             Instance = new IntegrationTestServiceCommands(package);
         }
 
+        /// <summary>
+        /// Supports deserialization of types passed to APIs injected into the Visual Studio process by
+        /// <see cref="IntegrationService.Execute"/>.
+        /// </summary>
+        private static Assembly CurrentDomainAssemblyResolve(object sender, ResolveEventArgs args)
+            => AppDomain.CurrentDomain.GetAssemblies().SingleOrDefault(assembly => assembly.FullName == args.Name);
+
         public void Dispose()
             => StopServiceCallback(this, EventArgs.Empty);
 
@@ -84,6 +95,10 @@ namespace Microsoft.VisualStudio.IntegrationTest.Setup
         {
             if (_startMenuCmd.Enabled)
             {
+                AppDomain.CurrentDomain.AssemblyResolve += CurrentDomainAssemblyResolve;
+
+                IntegrationTestTraceListener.Install();
+
                 _service = new IntegrationService();
 
                 _serviceChannel = new IpcServerChannel(
@@ -97,6 +112,10 @@ namespace Microsoft.VisualStudio.IntegrationTest.Setup
 
                 _serviceChannel.StartListening(null);
 
+                var componentModel = ServiceProvider.GetService<SComponentModel, IComponentModel>();
+                var asyncCompletionTracker = componentModel.GetService<AsyncCompletionTracker>();
+                asyncCompletionTracker.StartListening();
+
                 SwapAvailableCommands(_startMenuCmd, _stopMenuCmd);
             }
         }
@@ -106,6 +125,8 @@ namespace Microsoft.VisualStudio.IntegrationTest.Setup
         {
             if (_stopMenuCmd.Enabled)
             {
+                AppDomain.CurrentDomain.AssemblyResolve -= CurrentDomainAssemblyResolve;
+
                 if (_serviceChannel != null)
                 {
                     _serviceChannel.StopListening(null);
@@ -114,6 +135,10 @@ namespace Microsoft.VisualStudio.IntegrationTest.Setup
 
                 _marshalledService = null;
                 _service = null;
+
+                var componentModel = ServiceProvider.GetService<SComponentModel, IComponentModel>();
+                var asyncCompletionTracker = componentModel.GetService<AsyncCompletionTracker>();
+                asyncCompletionTracker.StopListening();
 
                 SwapAvailableCommands(_stopMenuCmd, _startMenuCmd);
             }

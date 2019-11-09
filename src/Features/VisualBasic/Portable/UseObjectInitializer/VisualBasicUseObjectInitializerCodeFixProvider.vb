@@ -19,6 +19,10 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.UseObjectInitializer
             AssignmentStatementSyntax,
             VariableDeclaratorSyntax)
 
+        <ImportingConstructor>
+        Public Sub New()
+        End Sub
+
         Protected Overrides Function GetNewStatement(
                 statement As StatementSyntax, objectCreation As ObjectCreationExpressionSyntax,
                 matches As ImmutableArray(Of Match(Of ExpressionSyntax, StatementSyntax, MemberAccessExpressionSyntax, AssignmentStatementSyntax))) As StatementSyntax
@@ -60,7 +64,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.UseObjectInitializer
                 Dim match = matches(i)
 
                 Dim rightValue = match.Initializer
-                If i < matches.Count - 1 Then
+                If i < matches.Length - 1 Then
                     rightValue = rightValue.WithoutTrailingTrivia()
                 End If
 

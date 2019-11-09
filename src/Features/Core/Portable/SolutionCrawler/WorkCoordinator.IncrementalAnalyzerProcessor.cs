@@ -43,8 +43,12 @@ namespace Microsoft.CodeAnalysis.SolutionCrawler
                 public IncrementalAnalyzerProcessor(
                     IAsynchronousOperationListener listener,
                     IEnumerable<Lazy<IIncrementalAnalyzerProvider, IncrementalAnalyzerProviderMetadata>> analyzerProviders,
+                    bool initializeLazily,
                     Registration registration,
-                    int highBackOffTimeSpanInMs, int normalBackOffTimeSpanInMs, int lowBackOffTimeSpanInMs, CancellationToken shutdownToken)
+                    int highBackOffTimeSpanInMs,
+                    int normalBackOffTimeSpanInMs,
+                    int lowBackOffTimeSpanInMs,
+                    CancellationToken shutdownToken)
                 {
                     _logAggregator = new LogAggregator();
 
@@ -59,6 +63,13 @@ namespace Microsoft.CodeAnalysis.SolutionCrawler
                     // create analyzers lazily.
                     var lazyActiveFileAnalyzers = new Lazy<ImmutableArray<IIncrementalAnalyzer>>(() => GetIncrementalAnalyzers(_registration, analyzersGetter, onlyHighPriorityAnalyzer: true));
                     var lazyAllAnalyzers = new Lazy<ImmutableArray<IIncrementalAnalyzer>>(() => GetIncrementalAnalyzers(_registration, analyzersGetter, onlyHighPriorityAnalyzer: false));
+
+                    if (!initializeLazily)
+                    {
+                        // realize all analyzer right away
+                        _ = lazyActiveFileAnalyzers.Value;
+                        _ = lazyAllAnalyzers.Value;
+                    }
 
                     // event and worker queues
                     _documentTracker = _registration.GetService<IDocumentTrackingService>();
@@ -92,6 +103,8 @@ namespace Microsoft.CodeAnalysis.SolutionCrawler
                     _highPriorityProcessor.Enqueue(item);
                     _normalPriorityProcessor.Enqueue(item);
                     _lowPriorityProcessor.Enqueue(item);
+
+                    ReportPendingWorkItemCount();
                 }
 
                 public void AddAnalyzer(IIncrementalAnalyzer analyzer, bool highPriorityForActiveFile)
@@ -144,7 +157,13 @@ namespace Microsoft.CodeAnalysis.SolutionCrawler
                     _logAggregator = new LogAggregator();
                 }
 
-                private static async Task ProcessDocumentAnalyzersAsync(
+                private void ReportPendingWorkItemCount()
+                {
+                    var pendingItemCount = _highPriorityProcessor.WorkItemCount + _normalPriorityProcessor.WorkItemCount + _lowPriorityProcessor.WorkItemCount;
+                    _registration.ProgressReporter.UpdatePendingItemCount(pendingItemCount);
+                }
+
+                private async Task ProcessDocumentAnalyzersAsync(
                     Document document, ImmutableArray<IIncrementalAnalyzer> analyzers, WorkItem workItem, CancellationToken cancellationToken)
                 {
                     // process all analyzers for each categories in this order - syntax, body, document
@@ -165,9 +184,15 @@ namespace Microsoft.CodeAnalysis.SolutionCrawler
                     }
                 }
 
-                private static async Task RunAnalyzersAsync<T>(ImmutableArray<IIncrementalAnalyzer> analyzers, T value,
-                    Func<IIncrementalAnalyzer, T, CancellationToken, Task> runnerAsync, CancellationToken cancellationToken)
+                private async Task RunAnalyzersAsync<T>(
+                    ImmutableArray<IIncrementalAnalyzer> analyzers,
+                    T value,
+                    Func<IIncrementalAnalyzer, T, CancellationToken, Task> runnerAsync,
+                    CancellationToken cancellationToken)
                 {
+                    using var evaluating = _registration.ProgressReporter.GetEvaluatingScope();
+
+                    ReportPendingWorkItemCount();
                     foreach (var analyzer in analyzers)
                     {
                         if (cancellationToken.IsCancellationRequested)
@@ -189,7 +214,7 @@ namespace Microsoft.CodeAnalysis.SolutionCrawler
                     }
                 }
 
-                private static async Task RunBodyAnalyzersAsync(ImmutableArray<IIncrementalAnalyzer> analyzers, WorkItem workItem, Document document, CancellationToken cancellationToken)
+                private async Task RunBodyAnalyzersAsync(ImmutableArray<IIncrementalAnalyzer> analyzers, WorkItem workItem, Document document, CancellationToken cancellationToken)
                 {
                     try
                     {

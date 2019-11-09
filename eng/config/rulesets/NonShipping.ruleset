@@ -21,6 +21,9 @@
 
     <!-- Properties should not return arrays - not useful for tests -->
     <Rule Id="CA1819" Action="None" />
+
+    <!-- Use Length/Count property instead of Count() when available - lot of violations for tests -->
+    <Rule Id="CA1829" Action="None" />
   </Rules>
 
   <Rules AnalyzerId="Microsoft.CodeAnalysis.Analyzers" RuleNamespace="Microsoft.CodeAnalysis.Analyzers">
@@ -31,6 +34,12 @@
 
     <!-- DiagnosticId must be unique across analyzers - suppress for non-shipping/test projects -->
     <Rule Id="RS1019" Action="None" />
+
+    <!-- Configure generated code analysis - suppress for non-shipping/test projects -->
+    <Rule Id="RS1025" Action="None" />
+
+    <!-- Enable concurrent execution - suppress for non-shipping/test projects -->
+    <Rule Id="RS1026" Action="None" />
 
     <!-- Do not use generic CodeAction.Create to create CodeAction - not useful for tests -->
     <Rule Id="RS0005" Action="None" />

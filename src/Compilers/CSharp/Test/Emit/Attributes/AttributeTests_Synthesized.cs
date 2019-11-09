@@ -58,7 +58,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
         private void VerifyCompilationRelaxationsAttribute(CSharpAttributeData attribute, bool isSynthesized)
         {
             Assert.Equal("System.Runtime.CompilerServices.CompilationRelaxationsAttribute", attribute.AttributeClass.ToTestDisplayString());
-            Assert.Equal("System.Int32", attribute.AttributeConstructor.Parameters.Single().Type.ToTestDisplayString());
+            Assert.Equal("System.Int32", attribute.AttributeConstructor.Parameters.Single().TypeWithAnnotations.ToTestDisplayString());
             Assert.Empty(attribute.CommonNamedArguments);
 
             int expectedArgValue = isSynthesized ? (int)CompilationRelaxations.NoStringInterning : 0;
@@ -86,7 +86,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
         private void VerifyDebuggableAttribute(CSharpAttributeData attribute, OptimizationLevel optimizations, bool isSynthesized)
         {
             Assert.Equal("System.Diagnostics.DebuggableAttribute", attribute.AttributeClass.ToTestDisplayString());
-            Assert.Equal("System.Diagnostics.DebuggableAttribute.DebuggingModes", attribute.AttributeConstructor.Parameters.Single().Type.ToTestDisplayString());
+            Assert.Equal("System.Diagnostics.DebuggableAttribute.DebuggingModes", attribute.AttributeConstructor.Parameters.Single().TypeWithAnnotations.ToTestDisplayString());
             Assert.Empty(attribute.CommonNamedArguments);
 
             Assert.Equal(1, attribute.CommonConstructorArguments.Length);
@@ -1260,7 +1260,7 @@ class Test
 
                 var stateMachineAttribute = attributes.First();
                 Assert.Equal("AsyncStateMachineAttribute", stateMachineAttribute.AttributeClass.Name);
-                Assert.Equal(stateMachine, stateMachineAttribute.ConstructorArguments.Single().Value);
+                Assert.Equal(stateMachine, stateMachineAttribute.ConstructorArguments.Single().ValueInternal);
 
                 if (optimizationLevel == OptimizationLevel.Debug)
                 {
@@ -1304,7 +1304,7 @@ class Test
 
                 var stateMachineAttribute = attributes.First();
                 Assert.Equal("AsyncStateMachineAttribute", stateMachineAttribute.AttributeClass.Name);
-                Assert.Equal(stateMachine, stateMachineAttribute.ConstructorArguments.Single().Value);
+                Assert.Equal(stateMachine, stateMachineAttribute.ConstructorArguments.Single().ValueInternal);
 
                 if (optimizationLevel == OptimizationLevel.Debug)
                 {
@@ -1347,7 +1347,7 @@ public class Test<T>
 
                 var stateMachineAttribute = attributes.First();
                 Assert.Equal("AsyncStateMachineAttribute", stateMachineAttribute.AttributeClass.Name);
-                Assert.Equal(stateMachine.AsUnboundGenericType(), stateMachineAttribute.ConstructorArguments.Single().Value);
+                Assert.Equal(stateMachine.AsUnboundGenericType(), stateMachineAttribute.ConstructorArguments.Single().ValueInternal);
 
                 if (optimizationLevel == OptimizationLevel.Debug)
                 {
@@ -1428,7 +1428,7 @@ class Test
 
                 var iteratorAttribute = iteratorMethod.GetAttributes().Single();
                 Assert.Equal("IteratorStateMachineAttribute", iteratorAttribute.AttributeClass.Name);
-                Assert.Equal(stateMachine, iteratorAttribute.ConstructorArguments.Single().Value);
+                Assert.Equal(stateMachine, iteratorAttribute.ConstructorArguments.Single().ValueInternal);
             });
         }
 
@@ -1459,7 +1459,7 @@ public class Test<T>
 
                 var iteratorAttribute = iteratorMethod.GetAttributes().Single();
                 Assert.Equal("IteratorStateMachineAttribute", iteratorAttribute.AttributeClass.Name);
-                Assert.Equal(stateMachine.AsUnboundGenericType(), iteratorAttribute.ConstructorArguments.Single().Value);
+                Assert.Equal(stateMachine.AsUnboundGenericType(), iteratorAttribute.ConstructorArguments.Single().ValueInternal);
             });
         }
 
@@ -1543,7 +1543,7 @@ namespace System.Runtime.CompilerServices
 
             // Attribute cannot be synthesized because ctor has a use-site error (String type missing)
             var attribute = comp.TrySynthesizeAttribute(WellKnownMember.System_Diagnostics_DebuggerDisplayAttribute__ctor);
-            Assert.Equal(null, attribute);
+            Assert.Null(attribute);
 
             // Attribute cannot be synthesized because type in named argument has use-site error (String type missing)
             var attribute2 = comp.TrySynthesizeAttribute(
@@ -1551,7 +1551,7 @@ namespace System.Runtime.CompilerServices
                                 namedArguments: ImmutableArray.Create(new KeyValuePair<WellKnownMember, TypedConstant>(
                                                     WellKnownMember.System_Diagnostics_DebuggerDisplayAttribute__Type,
                                                     new TypedConstant(comp.GetSpecialType(SpecialType.System_String), TypedConstantKind.Primitive, "unused"))));
-            Assert.Equal(null, attribute2);
+            Assert.Null(attribute2);
         }
     }
 }

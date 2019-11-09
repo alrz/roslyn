@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Threading;
 using Microsoft.CodeAnalysis.CSharp.Emit;
 using Microsoft.CodeAnalysis.PooledObjects;
 
@@ -28,7 +29,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Retargeting
 
         private DiagnosticInfo _lazyUseSiteDiagnostic = CSDiagnosticInfo.EmptyErrorInfo; // Indicates unknown state. 
 
-        private TypeSymbolWithAnnotations _lazyType;
+        private TypeWithAnnotations.Boxed _lazyType;
 
         public RetargetingPropertySymbol(RetargetingModuleSymbol retargetingModule, PropertySymbol underlyingProperty)
             : base(underlyingProperty)
@@ -55,20 +56,20 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Retargeting
             }
         }
 
-        public override TypeSymbolWithAnnotations Type
+        public override TypeWithAnnotations TypeWithAnnotations
         {
             get
             {
-                if (_lazyType.IsNull)
+                if (_lazyType is null)
                 {
-                    var type = this.RetargetingTranslator.Retarget(_underlyingProperty.Type, RetargetOptions.RetargetPrimitiveTypesByTypeCode);
-                    if (type.TypeSymbol.TryAsDynamicIfNoPia(this.ContainingType, out TypeSymbol asDynamic))
+                    var type = this.RetargetingTranslator.Retarget(_underlyingProperty.TypeWithAnnotations, RetargetOptions.RetargetPrimitiveTypesByTypeCode);
+                    if (type.Type.TryAsDynamicIfNoPia(this.ContainingType, out TypeSymbol asDynamic))
                     {
-                        type = TypeSymbolWithAnnotations.Create(asDynamic);
+                        type = TypeWithAnnotations.Create(asDynamic);
                     }
-                    _lazyType = type;
+                    Interlocked.CompareExchange(ref _lazyType, new TypeWithAnnotations.Boxed(type), null);
                 }
-                return _lazyType;
+                return _lazyType.Value;
             }
         }
 

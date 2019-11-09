@@ -5,6 +5,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.CodeAnalysis.CSharp.Emit;
+using Microsoft.CodeAnalysis.Symbols;
 using Roslyn.Utilities;
 
 namespace Microsoft.CodeAnalysis.CSharp.Symbols
@@ -12,7 +13,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
     /// <summary>
     /// Represents a field in a class, struct or enum
     /// </summary>
-    internal abstract partial class FieldSymbol : Symbol, IFieldSymbol
+    internal abstract partial class FieldSymbol : Symbol, IFieldSymbolInternal
     {
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         // Changes to the public interface of this class should remain synchronized with the VB version.
@@ -46,9 +47,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         }
 
         /// <summary>
-        /// Gets the type of this field.
+        /// Gets the type of this field along with its annotations.
         /// </summary>
-        public TypeSymbolWithAnnotations Type
+        public TypeWithAnnotations TypeWithAnnotations
         {
             get
             {
@@ -56,7 +57,14 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             }
         }
 
-        internal abstract TypeSymbolWithAnnotations GetFieldType(ConsList<FieldSymbol> fieldsBeingBound);
+        public abstract FlowAnalysisAnnotations FlowAnalysisAnnotations { get; }
+
+        /// <summary>
+        /// Gets the type of this field.
+        /// </summary>
+        public TypeSymbol Type => TypeWithAnnotations.Type;
+
+        internal abstract TypeWithAnnotations GetFieldType(ConsList<FieldSymbol> fieldsBeingBound);
 
         /// <summary>
         /// If this field serves as a backing variable for an automatically generated
@@ -76,6 +84,11 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         /// Returns true if this field was declared as "volatile". 
         /// </summary>
         public abstract bool IsVolatile { get; }
+
+        /// <summary>
+        /// Returns true if this symbol requires an instance reference as the implicit receiver. This is false if the symbol is static.
+        /// </summary>
+        public virtual bool RequiresInstanceReceiver => !IsStatic;
 
         /// <summary>
         /// Returns true if this field was declared as "fixed".
@@ -325,7 +338,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             Debug.Assert(IsDefinition);
 
             // Check type, custom modifiers
-            if (DeriveUseSiteDiagnosticFromType(ref result, this.Type))
+            if (DeriveUseSiteDiagnosticFromType(ref result, this.TypeWithAnnotations))
             {
                 return true;
             }
@@ -335,7 +348,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             if (this.ContainingModule.HasUnifiedReferences)
             {
                 HashSet<TypeSymbol> unificationCheckedTypes = null;
-                if (this.Type.GetUnificationUseSiteDiagnosticRecursive(ref result, this, ref unificationCheckedTypes))
+                if (this.TypeWithAnnotations.GetUnificationUseSiteDiagnosticRecursive(ref result, this, ref unificationCheckedTypes))
                 {
                     return true;
                 }
@@ -425,6 +438,14 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         }
 
         /// <summary>
+        /// Returns true if a given field is a tuple element
+        /// </summary>
+        internal bool IsTupleElement()
+        {
+            return this.CorrespondingTupleField is object;
+        }
+
+        /// <summary>
         /// If this is a field representing a tuple element,
         /// returns the index of the element (zero-based).
         /// Otherwise returns -1
@@ -437,53 +458,11 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             }
         }
 
-        #region IFieldSymbol Members
+        bool IFieldSymbolInternal.IsVolatile => this.IsVolatile;
 
-        ISymbol IFieldSymbol.AssociatedSymbol
+        protected override ISymbol CreateISymbol()
         {
-            get
-            {
-                return this.AssociatedSymbol;
-            }
+            return new PublicModel.FieldSymbol(this);
         }
-
-        ITypeSymbol IFieldSymbol.Type
-        {
-            get
-            {
-                return this.Type.TypeSymbol;
-            }
-        }
-
-        ImmutableArray<CustomModifier> IFieldSymbol.CustomModifiers
-        {
-            get { return this.Type.CustomModifiers; }
-        }
-
-        IFieldSymbol IFieldSymbol.OriginalDefinition
-        {
-            get { return this.OriginalDefinition; }
-        }
-
-        IFieldSymbol IFieldSymbol.CorrespondingTupleField
-        {
-            get { return this.CorrespondingTupleField; }
-        }
-
-        #endregion
-
-        #region ISymbol Members
-
-        public override void Accept(SymbolVisitor visitor)
-        {
-            visitor.VisitField(this);
-        }
-
-        public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor)
-        {
-            return visitor.VisitField(this);
-        }
-
-        #endregion
     }
 }

@@ -8,11 +8,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeGeneration;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Extensions;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Host;
 using Microsoft.CodeAnalysis.LanguageServices;
+using Microsoft.CodeAnalysis.PooledObjects;
 using Microsoft.CodeAnalysis.Shared.Extensions;
 using Roslyn.Utilities;
 
@@ -33,12 +33,6 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGeneration
 
         protected override IComparer<SyntaxNode> GetMemberComparer()
             => CSharpDeclarationComparer.WithoutNamesInstance;
-
-        protected override AbstractImportsAdder CreateImportsAdder(
-            Document document)
-        {
-            return new UsingDirectivesAdder(document);
-        }
 
         protected override IList<bool> GetAvailableInsertionIndices(SyntaxNode destination, CancellationToken cancellationToken)
         {
@@ -272,43 +266,33 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGeneration
         }
 
         public override TDeclarationNode AddParameters<TDeclarationNode>(
-            TDeclarationNode destinationMember,
+            TDeclarationNode destination,
             IEnumerable<IParameterSymbol> parameters,
             CodeGenerationOptions options,
             CancellationToken cancellationToken)
         {
-            var memberDeclaration = destinationMember as MemberDeclarationSyntax;
-            if (memberDeclaration == null)
-            {
-                return destinationMember;
-            }
+            var currentParameterList = CSharpSyntaxGenerator.GetParameterList(destination);
 
-            var currentParameterList = memberDeclaration.GetParameterList();
             if (currentParameterList == null)
             {
-                return destinationMember;
+                return destination;
             }
 
-            int currentParamsCount = currentParameterList.Parameters.Count;
-            bool seenOptional = currentParamsCount > 0 && currentParameterList.Parameters[currentParamsCount - 1].Default != null;
-            bool isFirstParam = currentParamsCount == 0;
+            var currentParamsCount = currentParameterList.Parameters.Count;
+            var seenOptional = currentParamsCount > 0 && currentParameterList.Parameters[currentParamsCount - 1].Default != null;
+            var isFirstParam = currentParamsCount == 0;
+            var newParams = ArrayBuilder<SyntaxNode>.GetInstance();
 
-            var parameterNodesAndTokens = currentParameterList.Parameters.GetWithSeparators().ToList();
             foreach (var parameter in parameters)
             {
-                if (parameterNodesAndTokens.Count > 0 && parameterNodesAndTokens.Last().Kind() != SyntaxKind.CommaToken)
-                {
-                    parameterNodesAndTokens.Add(SyntaxFactory.Token(SyntaxKind.CommaToken));
-                }
-
                 var parameterSyntax = ParameterGenerator.GetParameter(parameter, options, isExplicit: false, isFirstParam: isFirstParam, seenOptional: seenOptional);
-                parameterNodesAndTokens.Add(parameterSyntax);
+
                 isFirstParam = false;
                 seenOptional = seenOptional || parameterSyntax.Default != null;
+                newParams.Add(parameterSyntax);
             }
 
-            var finalParameterList = currentParameterList.WithParameters(SyntaxFactory.SeparatedList<ParameterSyntax>(parameterNodesAndTokens));
-            var finalMember = memberDeclaration.WithParameterList(finalParameterList);
+            var finalMember = CSharpSyntaxGenerator.Instance.AddParameters(destination, newParams.ToImmutableAndFree());
 
             return Cast<TDeclarationNode>(finalMember);
         }
@@ -327,25 +311,15 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGeneration
 
             var attributeSyntaxList = AttributeGenerator.GenerateAttributeLists(attributes.ToImmutableArray(), options, target).ToArray();
 
-            switch (destination)
+            return destination switch
             {
-                case MemberDeclarationSyntax member:
-                    // Handle all members including types.
-                    return Cast<TDeclarationNode>(member.AddAttributeLists(attributeSyntaxList));
-                case AccessorDeclarationSyntax accessor:
-                    // Handle accessors
-                    return Cast<TDeclarationNode>(accessor.AddAttributeLists(attributeSyntaxList));
-                case CompilationUnitSyntax compilationUnit:
-                    // Handle global attributes
-                    return Cast<TDeclarationNode>(compilationUnit.AddAttributeLists(attributeSyntaxList));
-                case ParameterSyntax parameter:
-                    // Handle parameters
-                    return Cast<TDeclarationNode>(parameter.AddAttributeLists(attributeSyntaxList));
-                case TypeParameterSyntax typeParameter:
-                    return Cast<TDeclarationNode>(typeParameter.AddAttributeLists(attributeSyntaxList));
-            }
-
-            return destination;
+                MemberDeclarationSyntax member => Cast<TDeclarationNode>(member.AddAttributeLists(attributeSyntaxList)),
+                AccessorDeclarationSyntax accessor => Cast<TDeclarationNode>(accessor.AddAttributeLists(attributeSyntaxList)),
+                CompilationUnitSyntax compilationUnit => Cast<TDeclarationNode>(compilationUnit.AddAttributeLists(attributeSyntaxList)),
+                ParameterSyntax parameter => Cast<TDeclarationNode>(parameter.AddAttributeLists(attributeSyntaxList)),
+                TypeParameterSyntax typeParameter => Cast<TDeclarationNode>(typeParameter.AddAttributeLists(attributeSyntaxList)),
+                _ => destination,
+            };
         }
 
         protected override TDeclarationNode AddMembers<TDeclarationNode>(TDeclarationNode destination, IEnumerable<SyntaxNode> members)
@@ -636,56 +610,48 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGeneration
             return NamespaceGenerator.GenerateNamespaceDeclaration(this, @namespace, options, cancellationToken);
         }
 
-        private static TDeclarationNode UpdateDeclarationModifiers<TDeclarationNode>(TDeclarationNode declaration, Func<SyntaxTokenList, SyntaxTokenList> computeNewModifiersList, CodeGenerationOptions options, CancellationToken cancellationToken)
-        {
-            switch (declaration)
+        private static TDeclarationNode UpdateDeclarationModifiers<TDeclarationNode>(TDeclarationNode declaration, Func<SyntaxTokenList, SyntaxTokenList> computeNewModifiersList, CodeGenerationOptions options)
+            => declaration switch
             {
-                case BaseTypeDeclarationSyntax typeDeclaration:
-                    // Handle type declarations.
-                    return Cast<TDeclarationNode>(typeDeclaration.WithModifiers(computeNewModifiersList(typeDeclaration.Modifiers)));
-                case BaseFieldDeclarationSyntax fieldDeclaration:
-                    // Handle field declarations.
-                    return Cast<TDeclarationNode>(fieldDeclaration.WithModifiers(computeNewModifiersList(fieldDeclaration.Modifiers)));
-                case BaseMethodDeclarationSyntax methodDeclaration:
-                    // Handle method declarations.
-                    return Cast<TDeclarationNode>(methodDeclaration.WithModifiers(computeNewModifiersList(methodDeclaration.Modifiers)));
-                case BasePropertyDeclarationSyntax propertyDeclaration:
-                    // Handle properties.
-                    return Cast<TDeclarationNode>(propertyDeclaration.WithModifiers(computeNewModifiersList(propertyDeclaration.Modifiers)));
-            }
-
-            return declaration;
-        }
+                BaseTypeDeclarationSyntax typeDeclaration => Cast<TDeclarationNode>(typeDeclaration.WithModifiers(computeNewModifiersList(typeDeclaration.Modifiers))),
+                BaseFieldDeclarationSyntax fieldDeclaration => Cast<TDeclarationNode>(fieldDeclaration.WithModifiers(computeNewModifiersList(fieldDeclaration.Modifiers))),
+                BaseMethodDeclarationSyntax methodDeclaration => Cast<TDeclarationNode>(methodDeclaration.WithModifiers(computeNewModifiersList(methodDeclaration.Modifiers))),
+                BasePropertyDeclarationSyntax propertyDeclaration => Cast<TDeclarationNode>(propertyDeclaration.WithModifiers(computeNewModifiersList(propertyDeclaration.Modifiers))),
+                _ => declaration,
+            };
 
         public override TDeclarationNode UpdateDeclarationModifiers<TDeclarationNode>(TDeclarationNode declaration, IEnumerable<SyntaxToken> newModifiers, CodeGenerationOptions options, CancellationToken cancellationToken)
         {
             SyntaxTokenList computeNewModifiersList(SyntaxTokenList modifiersList) => newModifiers.ToSyntaxTokenList();
-            return UpdateDeclarationModifiers(declaration, computeNewModifiersList, options, cancellationToken);
+            return UpdateDeclarationModifiers(declaration, computeNewModifiersList, options);
         }
 
         public override TDeclarationNode UpdateDeclarationAccessibility<TDeclarationNode>(TDeclarationNode declaration, Accessibility newAccessibility, CodeGenerationOptions options, CancellationToken cancellationToken)
         {
             SyntaxTokenList computeNewModifiersList(SyntaxTokenList modifiersList) => UpdateDeclarationAccessibility(modifiersList, newAccessibility, options);
-            return UpdateDeclarationModifiers(declaration, computeNewModifiersList, options, cancellationToken);
+            return UpdateDeclarationModifiers(declaration, computeNewModifiersList, options);
         }
 
         private static SyntaxTokenList UpdateDeclarationAccessibility(SyntaxTokenList modifiersList, Accessibility newAccessibility, CodeGenerationOptions options)
         {
-            var newModifierTokens = new List<SyntaxToken>();
+            var newModifierTokens = ArrayBuilder<SyntaxToken>.GetInstance();
             CSharpCodeGenerationHelpers.AddAccessibilityModifiers(newAccessibility, newModifierTokens, options, Accessibility.NotApplicable);
             if (newModifierTokens.Count == 0)
             {
                 return modifiersList;
             }
 
-            return GetUpdatedDeclarationAccessibilityModifiers(newModifierTokens, modifiersList, (SyntaxToken modifier) => SyntaxFacts.IsAccessibilityModifier(modifier.Kind()))
+            // TODO: Move more APIs to use pooled ArrayBuilder
+            // https://github.com/dotnet/roslyn/issues/34960
+            var list = newModifierTokens.ToList();
+            newModifierTokens.Free();
+            return GetUpdatedDeclarationAccessibilityModifiers(list, modifiersList, (SyntaxToken modifier) => SyntaxFacts.IsAccessibilityModifier(modifier.Kind()))
                 .ToSyntaxTokenList();
         }
 
         public override TDeclarationNode UpdateDeclarationType<TDeclarationNode>(TDeclarationNode declaration, ITypeSymbol newType, CodeGenerationOptions options, CancellationToken cancellationToken)
         {
-            var syntaxNode = declaration as CSharpSyntaxNode;
-            if (syntaxNode == null)
+            if (!(declaration is CSharpSyntaxNode syntaxNode))
             {
                 return declaration;
             }

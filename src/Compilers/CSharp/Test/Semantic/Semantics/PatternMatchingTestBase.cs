@@ -31,6 +31,16 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
             return tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Where(p => p.Parent.Kind() == SyntaxKind.DeclarationPattern || p.Parent.Kind() == SyntaxKind.VarPattern);
         }
 
+        protected IEnumerable<VariableDeclaratorSyntax> GetVariableDeclarations(SyntaxTree tree, string v)
+        {
+            return GetVariableDeclarations(tree).Where(d => d.Identifier.ValueText == v);
+        }
+
+        protected IEnumerable<VariableDeclaratorSyntax> GetVariableDeclarations(SyntaxTree tree)
+        {
+            return tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>();
+        }
+
         protected static IEnumerable<DiscardDesignationSyntax> GetDiscardDesignations(SyntaxTree tree)
         {
             return tree.GetRoot().DescendantNodes().OfType<DiscardDesignationSyntax>();
@@ -65,7 +75,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
             var symbol = model.GetDeclaredSymbol(designation);
             Assert.Equal(designation.Identifier.ValueText, symbol.Name);
             Assert.Equal(designation, symbol.DeclaringSyntaxReferences.Single().GetSyntax());
-            Assert.Equal(LocalDeclarationKind.PatternVariable, ((LocalSymbol)symbol).DeclarationKind);
+            Assert.Equal(LocalDeclarationKind.PatternVariable, symbol.GetSymbol<LocalSymbol>().DeclarationKind);
             Assert.Same(symbol, model.GetDeclaredSymbol((SyntaxNode)designation));
 
             var other = model.LookupSymbols(designation.SpanStart, name: designation.Identifier.ValueText).Single();
@@ -88,8 +98,8 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
                         Assert.True(SyntaxFacts.IsInNamespaceOrTypeContext(typeSyntax));
                         Assert.True(SyntaxFacts.IsInTypeOnlyContext(typeSyntax));
 
-                        var local = ((SourceLocalSymbol)symbol);
-                        var type = local.Type.TypeSymbol;
+                        var local = ((ILocalSymbol)symbol);
+                        var type = local.Type;
                         if (type.IsErrorType())
                         {
                             Assert.Null(model.GetSymbolInfo(typeSyntax).Symbol);
@@ -112,7 +122,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
             }
         }
 
-        private static void AssertTypeInfo(SemanticModel model, TypeSyntax typeSyntax, TypeSymbol expectedType)
+        private static void AssertTypeInfo(SemanticModel model, TypeSyntax typeSyntax, ITypeSymbol expectedType)
         {
             TypeInfo typeInfo = model.GetTypeInfo(typeSyntax);
             Assert.Equal(expectedType, typeInfo.Type);
@@ -126,12 +136,12 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
             var symbol = model.GetDeclaredSymbol(designation);
             Assert.Equal(designation.Identifier.ValueText, symbol.Name);
             Assert.Equal(designation, symbol.DeclaringSyntaxReferences.Single().GetSyntax());
-            Assert.Equal(LocalDeclarationKind.PatternVariable, ((LocalSymbol)symbol).DeclarationKind);
+            Assert.Equal(LocalDeclarationKind.PatternVariable, symbol.GetSymbol<LocalSymbol>().DeclarationKind);
             Assert.Same(symbol, model.GetDeclaredSymbol((SyntaxNode)designation));
             Assert.NotEqual(symbol, model.LookupSymbols(designation.SpanStart, name: designation.Identifier.ValueText).Single());
             Assert.True(model.LookupNames(designation.SpanStart).Contains(designation.Identifier.ValueText));
 
-            var type = ((LocalSymbol)symbol).Type.TypeSymbol;
+            var type = ((ILocalSymbol)symbol).Type;
             switch (designation.Parent)
             {
                 case DeclarationPatternSyntax decl:
@@ -145,6 +155,17 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
                     Assert.True(parent is VarPatternSyntax);
                     break;
             }
+        }
+
+        protected static void VerifyModelForDuplicateVariableDeclarationInSameScope(SemanticModel model, VariableDeclaratorSyntax declarator)
+        {
+            var symbol = model.GetDeclaredSymbol(declarator);
+            Assert.Equal(declarator.Identifier.ValueText, symbol.Name);
+            Assert.Equal(declarator, symbol.DeclaringSyntaxReferences.Single().GetSyntax());
+            Assert.Equal(LocalDeclarationKind.RegularVariable, symbol.GetSymbol<LocalSymbol>().DeclarationKind);
+            Assert.Same(symbol, model.GetDeclaredSymbol((SyntaxNode)declarator));
+            Assert.NotEqual(symbol, model.LookupSymbols(declarator.SpanStart, name: declarator.Identifier.ValueText).Single());
+            Assert.True(model.LookupNames(declarator.SpanStart).Contains(declarator.Identifier.ValueText));
         }
 
         protected static void VerifyNotAPatternField(SemanticModel model, IdentifierNameSyntax reference)
@@ -163,7 +184,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
 
             if (symbol.Kind == SymbolKind.Local)
             {
-                Assert.NotEqual(LocalDeclarationKind.PatternVariable, ((LocalSymbol)symbol).DeclarationKind);
+                Assert.NotEqual(LocalDeclarationKind.PatternVariable, symbol.GetSymbol<LocalSymbol>().DeclarationKind);
             }
 
             var other = model.LookupSymbols(reference.SpanStart, name: reference.Identifier.ValueText).Single();
@@ -221,7 +242,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
 
             Assert.Contains(designation.Identifier.ValueText, names);
 
-            var local = (FieldSymbol)symbol;
+            var local = (IFieldSymbol)symbol;
             switch (designation.Parent)
             {
                 case DeclarationPatternSyntax decl:
@@ -230,7 +251,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
                     Assert.True(SyntaxFacts.IsInNamespaceOrTypeContext(typeSyntax));
                     Assert.True(SyntaxFacts.IsInTypeOnlyContext(typeSyntax));
 
-                    var type = local.Type.TypeSymbol;
+                    var type = local.Type;
                     if (typeSyntax.IsVar && type.IsErrorType())
                     {
                         Assert.Null(model.GetSymbolInfo(typeSyntax).Symbol);
@@ -271,7 +292,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
                 {
                     Assert.Same(symbol, referenceInfo.Symbol);
                     Assert.Same(symbol, symbols.Single());
-                    Assert.Equal(local.Type.TypeSymbol, model.GetTypeInfo(reference).Type);
+                    Assert.Equal(local.Type, model.GetTypeInfo(reference).Type);
                 }
 
                 Assert.True(model.LookupNames(reference.SpanStart).Contains(designation.Identifier.ValueText));
@@ -331,7 +352,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
             Assert.Null(model.GetTypeInfo(designation).Type);
             Assert.Null(model.GetDeclaredSymbol(designation));
 
-            var symbol = (Symbol)model.GetDeclaredSymbol(designation);
+            var symbol = (ISymbol)model.GetDeclaredSymbol(designation);
 
             if (designation.Parent is DeclarationPatternSyntax decl)
             {
@@ -341,7 +362,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
 
                 if ((object)symbol != null)
                 {
-                    var type = symbol.GetTypeOrReturnType().TypeSymbol;
+                    var type = symbol.GetTypeOrReturnType();
                     Assert.Equal(type, typeInfo.Type);
                     Assert.Equal(type, typeInfo.ConvertedType);
                 }
@@ -369,7 +390,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
                 Assert.Null(model.GetSymbolInfo(reference).Symbol);
                 Assert.False(model.LookupSymbols(reference.SpanStart, name: reference.Identifier.ValueText).Any());
                 Assert.DoesNotContain(reference.Identifier.ValueText, model.LookupNames(reference.SpanStart));
-                Assert.True(((TypeSymbol)model.GetTypeInfo(reference).Type).IsErrorType());
+                Assert.True(model.GetTypeInfo(reference).Type.IsErrorType());
             }
         }
 

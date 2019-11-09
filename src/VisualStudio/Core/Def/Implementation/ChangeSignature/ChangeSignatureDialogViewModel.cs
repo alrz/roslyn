@@ -25,10 +25,10 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ChangeSignature
         private readonly ISymbol _symbol;
 
         private readonly ParameterViewModel _thisParameter;
-        private List<ParameterViewModel> _parameterGroup1;
-        private List<ParameterViewModel> _parameterGroup2;
+        private readonly List<ParameterViewModel> _parameterGroup1;
+        private readonly List<ParameterViewModel> _parameterGroup2;
         private readonly ParameterViewModel _paramsParameter;
-        private HashSet<IParameterSymbol> _disabledParameters = new HashSet<IParameterSymbol>();
+        private readonly HashSet<IParameterSymbol> _disabledParameters = new HashSet<IParameterSymbol>();
         private ImmutableArray<SymbolDisplayPart> _declarationParts;
         private bool _previewChanges;
 
@@ -39,12 +39,8 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ChangeSignature
             _classificationFormatMap = classificationFormatMap;
             _classificationTypeMap = classificationTypeMap;
 
-            int startingSelectedIndex = 0;
-
             if (parameters.ThisParameter != null)
             {
-                startingSelectedIndex++;
-
                 _thisParameter = new ParameterViewModel(this, parameters.ThisParameter);
                 _disabledParameters.Add(parameters.ThisParameter);
             }
@@ -59,7 +55,9 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ChangeSignature
 
             _parameterGroup1 = parameters.ParametersWithoutDefaultValues.Select(p => new ParameterViewModel(this, p)).ToList();
             _parameterGroup2 = parameters.RemainingEditableParameters.Select(p => new ParameterViewModel(this, p)).ToList();
-            this.SelectedIndex = startingSelectedIndex;
+
+            var selectedIndex = parameters.SelectedIndex;
+            this.SelectedIndex = (parameters.ThisParameter != null && selectedIndex == 0) ? 1 : selectedIndex;
         }
 
         public int GetStartingSelectionIndex()
@@ -156,12 +154,16 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ChangeSignature
                 _originalParameterConfiguration.ThisParameter,
                 _parameterGroup1.Where(p => !p.IsRemoved).Select(p => p.ParameterSymbol).ToList(),
                 _parameterGroup2.Where(p => !p.IsRemoved).Select(p => p.ParameterSymbol).ToList(),
-                (_paramsParameter == null || _paramsParameter.IsRemoved) ? null : _paramsParameter.ParameterSymbol);
+                (_paramsParameter == null || _paramsParameter.IsRemoved) ? null : _paramsParameter.ParameterSymbol,
+                selectedIndex: -1);
         }
 
-        private static SymbolDisplayFormat s_symbolDeclarationDisplayFormat = new SymbolDisplayFormat(
+        private static readonly SymbolDisplayFormat s_symbolDeclarationDisplayFormat = new SymbolDisplayFormat(
             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
-            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers | SymbolDisplayMiscellaneousOptions.UseSpecialTypes,
+            miscellaneousOptions:
+                SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
+                SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+                SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier,
             extensionMethodStyle: SymbolDisplayExtensionMethodStyle.StaticMethod,
             memberOptions:
                 SymbolDisplayMemberOptions.IncludeType |
@@ -170,9 +172,12 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ChangeSignature
                 SymbolDisplayMemberOptions.IncludeModifiers |
                 SymbolDisplayMemberOptions.IncludeRef);
 
-        private static SymbolDisplayFormat s_parameterDisplayFormat = new SymbolDisplayFormat(
+        private static readonly SymbolDisplayFormat s_parameterDisplayFormat = new SymbolDisplayFormat(
             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
-            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers | SymbolDisplayMiscellaneousOptions.UseSpecialTypes,
+            miscellaneousOptions:
+                SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
+                SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+                SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier,
             parameterOptions:
                 SymbolDisplayParameterOptions.IncludeType |
                 SymbolDisplayParameterOptions.IncludeParamsRefOut |
@@ -219,7 +224,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ChangeSignature
             displayParts.AddRange(_declarationParts);
             displayParts.Add(new SymbolDisplayPart(SymbolDisplayPartKind.Punctuation, null, "("));
 
-            bool first = true;
+            var first = true;
             foreach (var parameter in AllParameters.Where(p => !p.IsRemoved))
             {
                 if (!first)
@@ -440,7 +445,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ChangeSignature
 
         public class ParameterViewModel
         {
-            private ChangeSignatureDialogViewModel _changeSignatureDialogViewModel;
+            private readonly ChangeSignatureDialogViewModel _changeSignatureDialogViewModel;
 
             public IParameterSymbol ParameterSymbol { get; }
 
@@ -484,7 +489,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ChangeSignature
                         }
 
                         if (_changeSignatureDialogViewModel._thisParameter != null &&
-                            ParameterSymbol == _changeSignatureDialogViewModel._thisParameter.ParameterSymbol)
+                            Equals(ParameterSymbol, _changeSignatureDialogViewModel._thisParameter.ParameterSymbol))
                         {
                             return @this ?? string.Empty;
                         }

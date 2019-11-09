@@ -4,6 +4,7 @@ Imports System.Runtime.InteropServices
 Imports System.Xml.Linq
 Imports Microsoft.CodeAnalysis
 Imports Microsoft.CodeAnalysis.CodeStyle
+Imports Microsoft.CodeAnalysis.Completion
 Imports Microsoft.CodeAnalysis.Editing
 Imports Microsoft.CodeAnalysis.Editor.Shared.Options
 Imports Microsoft.CodeAnalysis.ExtractMethod
@@ -197,16 +198,6 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.Options
             End Set
         End Property
 
-
-        Public Property Style_PreferThrowExpression As String
-            Get
-                Return GetXmlOption(CodeStyleOptions.PreferThrowExpression)
-            End Get
-            Set(value As String)
-                SetXmlOption(CodeStyleOptions.PreferThrowExpression, value)
-            End Set
-        End Property
-
         Public Property Style_PreferObjectInitializer As String
             Get
                 Return GetXmlOption(CodeStyleOptions.PreferObjectInitializer)
@@ -240,15 +231,6 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.Options
             End Get
             Set(value As String)
                 SetXmlOption(CodeStyleOptions.PreferNullPropagation, value)
-            End Set
-        End Property
-
-        Public Property Style_PreferInlinedVariableDeclaration As String
-            Get
-                Return GetXmlOption(CodeStyleOptions.PreferInlinedVariableDeclaration)
-            End Get
-            Set(value As String)
-                SetXmlOption(CodeStyleOptions.PreferInlinedVariableDeclaration, value)
             End Set
         End Property
 
@@ -312,6 +294,15 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.Options
             End Get
             Set(value As Boolean)
                 SetBooleanOption(SymbolSearchOptions.SuggestForTypesInNuGetPackages, value)
+            End Set
+        End Property
+
+        Public Property Option_ShowItemsFromUnimportedNamespaces As Integer
+            Get
+                Return GetBooleanOption(CompletionOptions.ShowItemsFromUnimportedNamespaces)
+            End Get
+            Set(value As Integer)
+                SetBooleanOption(CompletionOptions.ShowItemsFromUnimportedNamespaces, value)
             End Set
         End Property
 

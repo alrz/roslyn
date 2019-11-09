@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using Microsoft.CodeAnalysis.CodeGen;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Symbols;
 using Roslyn.Utilities;
 
 namespace Microsoft.CodeAnalysis.CSharp.Symbols
@@ -47,12 +48,17 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         }
 
         /// <summary>
-        /// Gets the type of this local.
+        /// Gets the type of this local along with its annotations.
         /// </summary>
-        public abstract TypeSymbolWithAnnotations Type
+        public abstract TypeWithAnnotations TypeWithAnnotations
         {
             get;
         }
+
+        /// <summary>
+        /// Gets the type of this local.
+        /// </summary>
+        public TypeSymbol Type => TypeWithAnnotations.Type;
 
         /// <summary>
         /// WARN WARN WARN: If you access this via the semantic model, things will break (since the initializer may not have been bound).
@@ -357,39 +363,10 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         /// </summary>
         internal virtual ErrorCode ForbiddenDiagnostic => ErrorCode.ERR_VariableUsedBeforeDeclaration;
 
-        #region ILocalSymbol Members
-
-        ITypeSymbol ILocalSymbol.Type
+        protected sealed override ISymbol CreateISymbol()
         {
-            get
-            {
-                return this.Type.TypeSymbol;
-            }
+            return new PublicModel.LocalSymbol(this);
         }
-
-        bool ILocalSymbol.IsFunctionValue
-        {
-            get
-            {
-                return false;
-            }
-        }
-
-        #endregion
-
-        #region ISymbol Members
-
-        public sealed override void Accept(SymbolVisitor visitor)
-        {
-            visitor.VisitLocal(this);
-        }
-
-        public sealed override TResult Accept<TResult>(SymbolVisitor<TResult> visitor)
-        {
-            return visitor.VisitLocal(this);
-        }
-
-        #endregion
 
         #region ILocalSymbolInternal Members
 

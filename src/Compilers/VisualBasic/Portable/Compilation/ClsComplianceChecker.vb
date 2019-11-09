@@ -802,7 +802,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
                         Debug.Assert(args.Length = 1, "We already checked the signature and HasErrors.")
 
                         ' Duplicates are reported elsewhere - we only care about the first (error-free) occurrence.
-                        Return DirectCast(args(0).Value, Boolean)
+                        Return DirectCast(args(0).ValueInternal, Boolean)
                     End If
                 End If
             Next
@@ -933,13 +933,13 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
                     Dim xArrayType As ArrayTypeSymbol = DirectCast(xType, ArrayTypeSymbol)
                     Dim yArrayType As ArrayTypeSymbol = DirectCast(yType, ArrayTypeSymbol)
                     sawArrayRankDifference = sawArrayRankDifference OrElse xArrayType.Rank <> yArrayType.Rank
-                    Dim elementTypesDiffer As Boolean = xArrayType.ElementType <> yArrayType.ElementType
+                    Dim elementTypesDiffer As Boolean = Not TypeSymbol.Equals(xArrayType.ElementType, yArrayType.ElementType, TypeCompareKind.ConsiderEverything)
                     If IsArrayOfArrays(xArrayType) AndAlso IsArrayOfArrays(yArrayType) Then ' NOTE: C# uses OrElse
                         sawArrayOfArraysDifference = sawArrayOfArraysDifference OrElse elementTypesDiffer
                     ElseIf elementTypesDiffer Then
                         Return False
                     End If
-                ElseIf xType <> yType Then
+                ElseIf Not TypeSymbol.Equals(xType, yType, TypeCompareKind.ConsiderEverything) Then
                     Return False
                 End If
             Next

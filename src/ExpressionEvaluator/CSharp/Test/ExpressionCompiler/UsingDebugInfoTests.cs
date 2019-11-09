@@ -227,8 +227,7 @@ namespace B
     }
 }
 ";
-            // https://github.com/dotnet/roslyn/issues/30030: C#8 projects require System.Attribute.
-            var aliasedRef = CreateEmptyCompilation("", assemblyName: "Lib", parseOptions: TestOptions.Regular7).EmitToImageReference(aliases: ImmutableArray.Create("A"));
+            var aliasedRef = CreateEmptyCompilation("", assemblyName: "Lib").EmitToImageReference(aliases: ImmutableArray.Create("A"));
             var comp = CreateCompilation(source, new[] { aliasedRef });
             WithRuntimeInstance(comp, runtime =>
             {
@@ -330,8 +329,7 @@ namespace D
     }
 }
 ";
-            // https://github.com/dotnet/roslyn/issues/30030: C#8 projects require System.Attribute.
-            var aliasedRef = CreateEmptyCompilation("", assemblyName: "Lib", parseOptions: TestOptions.Regular7).EmitToImageReference(aliases: ImmutableArray.Create("A"));
+            var aliasedRef = CreateEmptyCompilation("", assemblyName: "Lib").EmitToImageReference(aliases: ImmutableArray.Create("A"));
             var comp = CreateCompilation(source, new[] { aliasedRef });
 
             WithRuntimeInstance(comp, runtime =>
@@ -1143,7 +1141,7 @@ namespace N
                 resultProperties: out resultProperties,
                 error: out error,
                 includeSymbols: false);
-            Assert.Equal(error, "error CS0246: The type or namespace name 'B' could not be found (are you missing a using directive or an assembly reference?)");
+            Assert.Equal("error CS0246: The type or namespace name 'B' could not be found (are you missing a using directive or an assembly reference?)", error);
 
             // With symbols, type reference inside namespace.
             testData = Evaluate(

@@ -829,15 +829,15 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
                 Return iFaceSpecial = SpecialType.System_Collections_Generic_IEnumerable_T OrElse
                        iFaceSpecial = SpecialType.System_Collections_Generic_IList_T OrElse
                        iFaceSpecial = SpecialType.System_Collections_Generic_ICollection_T OrElse
-                       iFaceOriginal = idictSymbol OrElse
+                       TypeSymbol.Equals(iFaceOriginal, idictSymbol, TypeCompareKind.ConsiderEverything) OrElse
                        iFaceSpecial = SpecialType.System_Collections_Generic_IReadOnlyList_T OrElse
                        iFaceSpecial = SpecialType.System_Collections_Generic_IReadOnlyCollection_T OrElse
-                       iFaceOriginal = iroDictSymbol OrElse
+                       TypeSymbol.Equals(iFaceOriginal, iroDictSymbol, TypeCompareKind.ConsiderEverything) OrElse
                        iFaceSpecial = SpecialType.System_Collections_IEnumerable OrElse
-                       iFaceOriginal = iListSymbol OrElse
-                       iFaceOriginal = iCollectionSymbol OrElse
-                       iFaceOriginal = inccSymbol OrElse
-                       iFaceOriginal = inpcSymbol
+                       TypeSymbol.Equals(iFaceOriginal, iListSymbol, TypeCompareKind.ConsiderEverything) OrElse
+                       TypeSymbol.Equals(iFaceOriginal, iCollectionSymbol, TypeCompareKind.ConsiderEverything) OrElse
+                       TypeSymbol.Equals(iFaceOriginal, inccSymbol, TypeCompareKind.ConsiderEverything) OrElse
+                       TypeSymbol.Equals(iFaceOriginal, inpcSymbol, TypeCompareKind.ConsiderEverything)
             End Function
 
 
@@ -873,7 +873,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
                         LookupWithoutInheritance(submissionSymbols, submission.ScriptClass, name, arity, options, submissionClass, binder, useSiteDiagnostics)
                     End If
 
-                    ' TOOD (tomat): import aliases
+                    ' TODO (tomat): import aliases
 
                     If lookingForOverloadsOfKind Is Nothing Then
                         If Not submissionSymbols.IsGoodOrAmbiguous Then
@@ -1254,7 +1254,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
                 If symbol Is Nothing Then
                     ' Match the native compiler which reports ERR_XmlFeaturesNotAvailable in this case.
                     Dim useSiteError = ErrorFactory.ErrorInfo(ERRID.ERR_XmlFeaturesNotAvailable)
-                    singleResult = New SingleLookupResult(LookupResultKind.NotReferencable, binder.GetErrorSymbol(name, useSiteError), useSiteError)
+                    singleResult = New SingleLookupResult(LookupResultKind.NotReferencable, Binder.GetErrorSymbol(name, useSiteError), useSiteError)
                 Else
                     Dim reduced = New ReducedExtensionPropertySymbol(DirectCast(symbol, PropertySymbol))
                     singleResult = binder.CheckViability(reduced, arity, options, reduced.ContainingType, useSiteDiagnostics)
@@ -1328,21 +1328,21 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
             Private Shared Function IsDerivedInterface(
                         base As NamedTypeSymbol,
                         derived As NamedTypeSymbol,
-                        basesBeingResolved As ConsList(Of Symbol),
+                        basesBeingResolved As BasesBeingResolved,
                         <[In], Out> ByRef useSiteDiagnostics As HashSet(Of DiagnosticInfo)
             ) As Boolean
 
                 Debug.Assert(base.IsInterface)
                 Debug.Assert(derived.IsInterface)
 
-                If derived.OriginalDefinition = base.OriginalDefinition Then
+                If TypeSymbol.Equals(derived.OriginalDefinition, base.OriginalDefinition, TypeCompareKind.ConsiderEverything) Then
                     Return False
                 End If
 
                 ' if we are not resolving bases we can just go through AllInterfaces list
-                If basesBeingResolved Is Nothing Then
+                If basesBeingResolved.InheritsBeingResolvedOpt Is Nothing Then
                     For Each i In derived.AllInterfacesWithDefinitionUseSiteDiagnostics(useSiteDiagnostics)
-                        If i = base Then
+                        If TypeSymbol.Equals(i, base, TypeCompareKind.ConsiderEverything) Then
                             Return True
                         End If
                     Next
@@ -1357,12 +1357,12 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
             Private Shared Function IsDerivedInterface(
                         base As NamedTypeSymbol,
                         derived As NamedTypeSymbol,
-                        basesBeingResolved As ConsList(Of Symbol),
+                        basesBeingResolved As BasesBeingResolved,
                         verified As HashSet(Of Symbol),
                         <[In], Out> ByRef useSiteDiagnostics As HashSet(Of DiagnosticInfo)
             ) As Boolean
 
-                Debug.Assert(base <> derived, "should already be verified for equality")
+                Debug.Assert(Not TypeSymbol.Equals(base, derived, TypeCompareKind.ConsiderEverything), "should already be verified for equality")
                 Debug.Assert(base.IsInterface)
                 Debug.Assert(derived.IsInterface)
 
@@ -1373,7 +1373,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
 
                 If Not interfaces.IsDefaultOrEmpty Then
                     For Each i In interfaces
-                        If i = base Then
+                        If TypeSymbol.Equals(i, base, TypeCompareKind.ConsiderEverything) Then
                             Return True
                         End If
 
@@ -1481,7 +1481,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
             )
                 Debug.Assert(lookupResult.IsClear)
 
-                Dim basesBeingResolved As ConsList(Of Symbol) = binder.BasesBeingResolved()
+                Dim basesBeingResolved As BasesBeingResolved = binder.BasesBeingResolved()
 
                 Dim isEventsOnlySpecified As Boolean = (options And LookupOptions.EventsOnly) <> 0
 
@@ -1705,7 +1705,7 @@ ExitForFor:
             Private Shared Sub MergeInterfaceLookupResults(
                                         knownResult As LookupResult,
                                         newResult As LookupResult,
-                                        BasesBeingResolved As ConsList(Of Symbol),
+                                        BasesBeingResolved As BasesBeingResolved,
                                         leaveEventsOnly As Boolean?,
                                         <[In], Out> ByRef useSiteDiagnostics As HashSet(Of DiagnosticInfo)
             )
@@ -1746,7 +1746,7 @@ ExitForFor:
                         End If
 
                         ' container of the first new symbol should be container of all others
-                        Debug.Assert(newSymbolContainer = newSymbol.ContainingType)
+                        Debug.Assert(TypeSymbol.Equals(newSymbolContainer, newSymbol.ContainingType, TypeCompareKind.ConsiderEverything))
 
                         ' Are the known and new symbols of the right kinds to overload?
                         Dim cantOverloadEachOther = Not LookupResult.CanOverload(knownSymbol, newSymbol)
@@ -1781,7 +1781,7 @@ ExitForFor:
                                 ' we can do a quick check and remove them here
                                 For k = i + 1 To knownSymbols.Count - 1
                                     Dim otherKnown As Symbol = knownSymbols(k)
-                                    If otherKnown IsNot Nothing AndAlso otherKnown.ContainingType = knownSymbolContainer Then
+                                    If otherKnown IsNot Nothing AndAlso TypeSymbol.Equals(otherKnown.ContainingType, knownSymbolContainer, TypeCompareKind.ConsiderEverything) Then
                                         knownSymbols(k) = Nothing
                                     End If
                                 Next
@@ -1859,7 +1859,7 @@ ExitForFor:
 
                     Dim descendants As ImmutableHashSet(Of NamedTypeSymbol)
 
-                    If binder.BasesBeingResolved Is Nothing Then
+                    If binder.BasesBeingResolved.InheritsBeingResolvedOpt Is Nothing Then
                         descendants = Nothing
                     Else
                         ' We need to watch out for cycles in inheritance chain since they are not broken while bases are being resolved.
@@ -1943,7 +1943,7 @@ ExitForFor:
                 If containingMethod IsNot Nothing AndAlso
                    containingMethod.MethodKind = MethodKind.Constructor AndAlso
                    (container.TypeKind = TypeKind.Class OrElse container.TypeKind = TypeKind.Structure) AndAlso
-                   (containingMethod.ContainingType = container OrElse containingMethod.ContainingType.BaseTypeNoUseSiteDiagnostics = container) Then
+                   (TypeSymbol.Equals(containingMethod.ContainingType, container, TypeCompareKind.ConsiderEverything) OrElse TypeSymbol.Equals(containingMethod.ContainingType.BaseTypeNoUseSiteDiagnostics, container, TypeCompareKind.ConsiderEverything)) Then
                     nameSet.AddSymbol(Nothing, WellKnownMemberNames.InstanceConstructorName, 0)
                 End If
             End Sub

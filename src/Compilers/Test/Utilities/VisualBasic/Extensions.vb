@@ -5,6 +5,7 @@ Imports System.Reflection
 Imports System.Runtime.CompilerServices
 Imports System.Runtime.InteropServices
 Imports Microsoft.CodeAnalysis.PooledObjects
+Imports Microsoft.CodeAnalysis.Symbols
 Imports Xunit
 
 Friend Module Extensions
@@ -124,7 +125,7 @@ Friend Module Extensions
 
     <Extension>
     Friend Function GetAttribute(this As Symbol, c As NamedTypeSymbol) As VisualBasicAttributeData
-        Return this.GetAttributes().Where(Function(a) a.AttributeClass = c).First()
+        Return this.GetAttributes().Where(Function(a) TypeSymbol.Equals(a.AttributeClass, c, TypeCompareKind.ConsiderEverything)).First()
     End Function
 
     <Extension>
@@ -134,7 +135,7 @@ Friend Module Extensions
 
     <Extension>
     Friend Function GetAttributes(this As Symbol, c As NamedTypeSymbol) As IEnumerable(Of VisualBasicAttributeData)
-        Return this.GetAttributes().Where(Function(a) a.AttributeClass = c)
+        Return this.GetAttributes().Where(Function(a) TypeSymbol.Equals(a.AttributeClass, c, TypeCompareKind.ConsiderEverything))
     End Function
 
     <Extension>
@@ -322,5 +323,25 @@ Friend Module Extensions
     <Extension>
     Public Function ConstraintTypes(symbol As TypeParameterSymbol) As ImmutableArray(Of TypeSymbol)
         Return symbol.ConstraintTypesNoUseSiteDiagnostics
+    End Function
+
+    <Extension>
+    Friend Function Parameters(this As IMethodSymbolInternal) As ImmutableArray(Of ParameterSymbol)
+        Return DirectCast(this, MethodSymbol).Parameters
+    End Function
+
+    <Extension>
+    Friend Function ReturnType(this As IMethodSymbolInternal) As TypeSymbol
+        Return DirectCast(this, MethodSymbol).ReturnType
+    End Function
+
+    <Extension>
+    Friend Function ReturnsVoid(this As IMethodSymbolInternal) As Boolean
+        Return DirectCast(this, IMethodSymbol).ReturnsVoid
+    End Function
+
+    <Extension>
+    Friend Function RefKind(this As ParameterSymbol) As RefKind
+        Return DirectCast(this, IParameterSymbol).RefKind
     End Function
 End Module

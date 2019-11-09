@@ -17,6 +17,10 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.AddImport
     Friend Class VisualBasicAddImportFeatureService
         Inherits AbstractAddImportFeatureService(Of SimpleNameSyntax)
 
+        <ImportingConstructor>
+        Public Sub New()
+        End Sub
+
         Protected Overrides Function CanAddImport(node As SyntaxNode, cancellationToken As CancellationToken) As Boolean
             If node.GetAncestor(Of ImportsStatementSyntax)() IsNot Nothing Then
                 Return False
@@ -288,7 +292,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.AddImport
             Dim importService = document.GetLanguageService(Of IAddImportsService)
 
             Dim root = Await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(False)
-            Dim newRoot = importService.AddImport(compilation, root, contextNode, importsStatement, placeSystemNamespaceFirst)
+            Dim newRoot = importService.AddImport(compilation, root, contextNode, importsStatement, placeSystemNamespaceFirst, cancellationToken)
             newRoot = newRoot.WithAdditionalAnnotations(CaseCorrector.Annotation, Formatter.Annotation)
             Dim newDocument = document.WithSyntaxRoot(newRoot)
 

@@ -19,6 +19,11 @@ namespace Microsoft.CodeAnalysis.CSharp.GenerateMember.GenerateVariable
     internal partial class CSharpGenerateVariableService :
         AbstractGenerateVariableService<CSharpGenerateVariableService, SimpleNameSyntax, ExpressionSyntax>
     {
+        [ImportingConstructor]
+        public CSharpGenerateVariableService()
+        {
+        }
+
         protected override bool IsExplicitInterfaceGeneration(SyntaxNode node)
             => node is PropertyDeclarationSyntax;
 
@@ -117,7 +122,7 @@ namespace Microsoft.CodeAnalysis.CSharp.GenerateMember.GenerateVariable
 
             // In order to figure this out (without writing our own parser), we just try to parse out a
             // type name here.  If we get a generic name back, without any errors, then we'll assume the
-            // user realy is typing a generic name, and thus should not get recommendations to create a
+            // user really is typing a generic name, and thus should not get recommendations to create a
             // variable.
             var localText = localRoot.ToString();
             var startIndex = identifierName.Span.Start - localRoot.Span.Start;

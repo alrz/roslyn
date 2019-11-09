@@ -2,17 +2,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
-    <RoslynProjectType>Custom</RoslynProjectType>
 
     <IsPackable>true</IsPackable>
     <NuspecPackageId>Microsoft.Net.Compilers</NuspecPackageId>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <DevelopmentDependency>true</DevelopmentDependency>
     <PackageDescription>
-      .NET Compilers package.
-      Referencing this package will cause the project to be built using the specific version of the C# and Visual Basic compilers contained in the package, as opposed to any system installed version.
+      Note: This package is deprecated. Please use Microsoft.Net.Compilers.Toolset instead
 
-      This package can be used to compile code targeting any platform, but can only be run using the desktop .NET 4.7.2+ Full Framework.
+      .NET Compilers package.
+      Referencing this package will cause the project to be built using the C# and Visual Basic compilers contained in the package, as opposed to the version installed with MSBuild.
+
+      The tools in this package require .NET Framework 4.7.2+ 
+
       $(RoslynPackageDescriptionDetails)
     </PackageDescription>
     <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_GetFilesToPackage</TargetsForTfmSpecificContentInPackage>
@@ -26,23 +28,15 @@
     <ProjectReference Include="..\..\Compilers\Server\VBCSCompiler\VBCSCompiler.csproj" PrivateAssets="All"/>
   </ItemGroup>
 
-  <Target Name="_GetFilesToPackage" DependsOnTargets="InitializeCompilerArtifacts">
+  <Target Name="_GetFilesToPackage" DependsOnTargets="InitializeDesktopCompilerArtifacts">
     <ItemGroup>
-      <_File Include="@(CompilerArtifact)" TargetDir="tools"/>
-     
+      <_File Include="@(DesktopCompilerArtifact)" TargetDir="tools"/>
+      <_File Include="@(DesktopCompilerResourceArtifact)" TargetDir="tools"/>
       <_File Include="$(MSBuildProjectDirectory)\build\**\*.*" TargetDir="build" />
-     
-      <!-- Satellite assemblies -->
-      <_File Include="$(ArtifactsBinDir)Microsoft.CodeAnalysis\$(Configuration)\netstandard2.0\**\Microsoft.CodeAnalysis.resources.dll" TargetDir="tools" />
-      <_File Include="$(ArtifactsBinDir)Microsoft.CodeAnalysis.CSharp\$(Configuration)\netstandard2.0\**\Microsoft.CodeAnalysis.CSharp.resources.dll" TargetDir="tools" />
-      <_File Include="$(ArtifactsBinDir)Microsoft.CodeAnalysis.Scripting\$(Configuration)\netstandard2.0\**\Microsoft.CodeAnalysis.Scripting.resources.dll" TargetDir="tools" />
-      <_File Include="$(ArtifactsBinDir)Microsoft.CodeAnalysis.CSharp.Scripting\$(Configuration)\netstandard2.0\**\Microsoft.CodeAnalysis.CSharp.Scripting.resources.dll" TargetDir="tools" />
-      <_File Include="$(ArtifactsBinDir)Microsoft.CodeAnalysis.VisualBasic\$(Configuration)\netstandard2.0\**\Microsoft.CodeAnalysis.VisualBasic.resources.dll" TargetDir="tools" />
-      <_File Include="$(ArtifactsBinDir)Microsoft.Build.Tasks.CodeAnalysis\$(Configuration)\net472\**\Microsoft.Build.Tasks.CodeAnalysis.resources.dll" TargetDir="tools" />
 
       <TfmSpecificPackageFile Include="@(_File)" PackagePath="%(_File.TargetDir)/%(_File.RecursiveDir)%(_File.FileName)%(_File.Extension)" />
     </ItemGroup>
   </Target>
 
-  <Import Project="CompilerArtifacts.targets"/>
+  <Import Project="..\Microsoft.Net.Compilers.Toolset\DesktopCompilerArtifacts.targets"/>
 </Project>

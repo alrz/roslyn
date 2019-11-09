@@ -59,9 +59,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Completion.KeywordRecommenders
             var syntaxTree = context.SyntaxTree;
             return
                 IsRefParameterModifierContext(position, context) ||
-                syntaxTree.IsAnonymousMethodParameterModifierContext(position, context.LeftToken, cancellationToken) ||
+                syntaxTree.IsAnonymousMethodParameterModifierContext(position, context.LeftToken) ||
                 IsValidContextForType(context, cancellationToken) ||
-                syntaxTree.IsPossibleLambdaParameterModifierContext(position, context.LeftToken, cancellationToken) ||
+                syntaxTree.IsPossibleLambdaParameterModifierContext(position, context.LeftToken) ||
                 context.TargetToken.IsConstructorOrMethodParameterArgumentContext() ||
                 context.TargetToken.IsXmlCrefParameterModifierContext() ||
                 IsValidNewByRefContext(syntaxTree, position, context, cancellationToken);
@@ -91,7 +91,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Completion.KeywordRecommenders
         private bool IsValidNewByRefContext(SyntaxTree syntaxTree, int position, CSharpSyntaxContext context, CancellationToken cancellationToken)
         {
             return
-                IsValidRefExpressionContext(syntaxTree, position, context, cancellationToken) ||
+                IsValidRefExpressionContext(context) ||
                 context.IsDelegateReturnTypeContext ||
                 syntaxTree.IsGlobalMemberDeclarationContext(position, RefGlobalMemberModifiers, cancellationToken) ||
                 context.IsMemberDeclarationContext(
@@ -101,7 +101,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Completion.KeywordRecommenders
                     cancellationToken: cancellationToken);
         }
 
-        private static bool IsValidRefExpressionContext(SyntaxTree syntaxTree, int position, CSharpSyntaxContext context, CancellationToken cancellationToken)
+        private static bool IsValidRefExpressionContext(CSharpSyntaxContext context)
         {
             // {
             //     ref var x ...
@@ -167,7 +167,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Completion.KeywordRecommenders
         private static bool IsValidContextForType(CSharpSyntaxContext context, CancellationToken cancellationToken)
         {
             return context.IsTypeDeclarationContext(validModifiers: SyntaxKindSet.AllTypeModifiers,
-                validTypeDeclarations: SyntaxKindSet.ClassStructTypeDeclarations, canBePartial: true, cancellationToken);
+                validTypeDeclarations: SyntaxKindSet.ClassInterfaceStructTypeDeclarations, canBePartial: true, cancellationToken);
         }
     }
 }

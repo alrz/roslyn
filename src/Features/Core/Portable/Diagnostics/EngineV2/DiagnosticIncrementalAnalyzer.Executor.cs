@@ -182,7 +182,7 @@ namespace Microsoft.CodeAnalysis.Diagnostics.EngineV2
                         result = compilerResult.AnalysisResult;
 
                         // record telemetry data
-                        UpdateAnalyzerTelemetryData(compilerResult, project, cancellationToken);
+                        UpdateAnalyzerTelemetryData(compilerResult, project);
                     }
 
                     // check whether there is IDE specific project diagnostic analyzer
@@ -366,7 +366,7 @@ namespace Microsoft.CodeAnalysis.Diagnostics.EngineV2
             }
 
             private void UpdateAnalyzerTelemetryData(
-                DiagnosticAnalysisResultMap<DiagnosticAnalyzer, DiagnosticAnalysisResult> analysisResults, Project project, CancellationToken cancellationToken)
+                DiagnosticAnalysisResultMap<DiagnosticAnalyzer, DiagnosticAnalysisResult> analysisResults, Project project)
             {
                 foreach (var kv in analysisResults.TelemetryInfo)
                 {
@@ -374,7 +374,7 @@ namespace Microsoft.CodeAnalysis.Diagnostics.EngineV2
                 }
             }
 
-            private static bool FullAnalysisEnabled(Project project, bool forceAnalyzerRun)
+            internal static bool FullAnalysisEnabled(Project project, bool forceAnalyzerRun)
             {
                 if (forceAnalyzerRun)
                 {

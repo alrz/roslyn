@@ -315,7 +315,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
                         methodSym = DirectCast(methodResult.Candidate.UnderlyingSymbol, MethodSymbol)
                         Dim errorsReported As Boolean = False
 
-                        ReportDiagnosticsIfObsolete(diagnostics, methodSym, node)
+                        ReportDiagnosticsIfObsoleteOrNotSupportedByRuntime(diagnostics, methodSym, node)
 
                         ' Check that all formal parameters have attribute-compatible types and are public
                         For Each param In methodSym.Parameters
@@ -452,7 +452,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
                 Dim isReadOnly As Boolean = False
                 Dim hasErrors As Boolean = False
 
-                ReportDiagnosticsIfObsolete(diagnostics, sym, namedArg)
+                ReportDiagnosticsIfObsoleteOrNotSupportedByRuntime(diagnostics, sym, namedArg)
 
                 Select Case sym.Kind
                     Case SymbolKind.Field
@@ -520,7 +520,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
 
                 If propertySym IsNot Nothing Then
                     lValue = New BoundPropertyAccess(identifierName, propertySym, Nothing, PropertyAccessKind.Set, Not isReadOnly, Nothing, ImmutableArray(Of BoundExpression).Empty, defaultArguments:=BitVector.Null, hasErrors)
-                    Debug.Assert(lValue.Type = fieldOrPropType)
+                    Debug.Assert(TypeSymbol.Equals(lValue.Type, fieldOrPropType, TypeCompareKind.ConsiderEverything))
                 ElseIf fieldSym IsNot Nothing Then
                     lValue = New BoundFieldAccess(identifierName, Nothing, fieldSym, True, fieldOrPropType, hasErrors)
                 Else

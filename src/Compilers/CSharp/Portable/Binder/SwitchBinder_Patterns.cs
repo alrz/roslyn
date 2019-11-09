@@ -12,8 +12,6 @@ using Roslyn.Utilities;
 
 namespace Microsoft.CodeAnalysis.CSharp
 {
-    // We use a subclass of SwitchBinder for the pattern-matching switch statement until we have completed
-    // a totally compatible implementation of switch that also accepts pattern-matching constructs.
     internal partial class SwitchBinder : LocalScopeBinder
     {
         internal static SwitchBinder Create(Binder next, SwitchStatementSyntax switchSyntax)
@@ -215,7 +213,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 return boundLocal.LocalSymbol.IsUsing;
             }
-            else if (boundStatement is BoundMultipleLocalDeclarations boundMultiple && !boundMultiple.LocalDeclarations.IsDefaultOrEmpty)
+            else if (boundStatement is BoundMultipleLocalDeclarationsBase boundMultiple && !boundMultiple.LocalDeclarations.IsDefaultOrEmpty)
             {
                 return boundMultiple.LocalDeclarations[0].LocalSymbol.IsUsing;
             }
@@ -235,19 +233,20 @@ namespace Microsoft.CodeAnalysis.CSharp
                 case SyntaxKind.CaseSwitchLabel:
                     {
                         var caseLabelSyntax = (CaseSwitchLabelSyntax)node;
-                        BoundConstantPattern pattern = sectionBinder.BindConstantPattern(
-                            node, SwitchGoverningType, caseLabelSyntax.Value, node.HasErrors, diagnostics, out bool wasExpression);
-                        reportIfConstantNamedUnderscore(pattern, caseLabelSyntax.Value);
-                        pattern.WasCompilerGenerated = true; // we don't have a pattern syntax here
-                        bool hasErrors = pattern.HasErrors;
-                        SyntaxNode innerValueSyntax = caseLabelSyntax.Value.SkipParens();
-                        if (innerValueSyntax.Kind() == SyntaxKind.DefaultLiteralExpression)
+                        SyntaxNode innerExpression = caseLabelSyntax.Value.SkipParens();
+                        bool hasErrors = node.HasErrors;
+                        if (innerExpression.Kind() == SyntaxKind.DefaultLiteralExpression)
                         {
-                            diagnostics.Add(ErrorCode.ERR_DefaultInSwitch, innerValueSyntax.Location);
+                            diagnostics.Add(ErrorCode.ERR_DefaultPattern, innerExpression.Location);
                             hasErrors = true;
                         }
 
-                        return new BoundSwitchLabel(node, label, pattern, null, hasErrors);
+                        BoundConstantPattern pattern = sectionBinder.BindConstantPattern(
+                            node, SwitchGoverningType, caseLabelSyntax.Value, hasErrors, diagnostics, out bool wasExpression);
+                        reportIfConstantNamedUnderscore(pattern, caseLabelSyntax.Value);
+                        pattern.WasCompilerGenerated = true; // we don't have a pattern syntax here
+
+                        return new BoundSwitchLabel(node, label, pattern, null, pattern.HasErrors);
                     }
 
                 case SyntaxKind.DefaultSwitchLabel:

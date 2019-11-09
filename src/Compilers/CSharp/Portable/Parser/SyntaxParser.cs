@@ -439,6 +439,13 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             return ct;
         }
 
+        /// <summary>
+        /// Returns and consumes the current token if it has the requested <paramref name="kind"/>.
+        /// Otherwise, returns <see langword="null"/>.
+        /// </summary>
+        protected SyntaxToken TryEatToken(SyntaxKind kind)
+            => this.CurrentToken.Kind == kind ? this.EatToken() : null;
+
         private void MoveToNextToken()
         {
             _prevTokenTrailingTrivia = _currentToken.GetTrailingTrivia();
@@ -1042,6 +1049,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             get { return lexer.Directives; }
         }
 
+#nullable enable
         /// <remarks>
         /// NOTE: we are specifically diverging from dev11 to improve the user experience.
         /// Since treating the "async" keyword as an identifier in older language
@@ -1070,35 +1078,20 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                             new CSharpRequiredLanguageVersion(requiredVersion));
             }
 
-            if (IsFeatureEnabled(feature))
-            {
-                return node;
-            }
-
-            var featureName = feature.Localize();
-            var requiredFeature = feature.RequiredFeature();
-            if (requiredFeature != null)
+            var info = feature.GetFeatureAvailabilityDiagnosticInfo(this.Options);
+            if (info != null)
             {
                 if (forceWarning)
                 {
-                    SyntaxDiagnosticInfo rawInfo = new SyntaxDiagnosticInfo(ErrorCode.ERR_FeatureIsExperimental, featureName, requiredFeature);
-                    return this.AddError(node, ErrorCode.WRN_ErrorOverride, rawInfo, rawInfo.Code);
+                    return AddError(node, ErrorCode.WRN_ErrorOverride, info, (int)info.Code);
                 }
 
-                return this.AddError(node, ErrorCode.ERR_FeatureIsExperimental, featureName, requiredFeature);
-            }
-            else
-            {
-                if (forceWarning)
-                {
-                    SyntaxDiagnosticInfo rawInfo = new SyntaxDiagnosticInfo(availableVersion.GetErrorCode(), featureName,
-                        new CSharpRequiredLanguageVersion(requiredVersion));
-                    return this.AddError(node, ErrorCode.WRN_ErrorOverride, rawInfo, rawInfo.Code);
-                }
+                return AddError(node, info.Code, info.Arguments);
             }
 
-            return this.AddError(node, availableVersion.GetErrorCode(), featureName, new CSharpRequiredLanguageVersion(requiredVersion));
+            return node;
         }
+#nullable restore
 
         protected bool IsFeatureEnabled(MessageID feature)
         {

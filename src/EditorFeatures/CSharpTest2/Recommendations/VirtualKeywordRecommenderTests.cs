@@ -160,9 +160,9 @@ $$");
         }
 
         [Fact, Trait(Traits.Feature, Traits.Features.KeywordRecommending)]
-        public async Task TestNotInsideInterface()
+        public async Task TestInsideInterface()
         {
-            await VerifyAbsenceAsync(@"interface I {
+            await VerifyKeywordAsync(@"interface I {
    $$");
         }
 
@@ -326,6 +326,14 @@ $$");
             await VerifyAbsenceAsync(
 @"class C {
     int Goo { get; internal $$");
+        }
+
+        [Fact, Trait(Traits.Feature, Traits.Features.KeywordRecommending)]
+        public async Task TestAfterPrivateProtected()
+        {
+            await VerifyKeywordAsync(
+@"class C {
+    private protected $$");
         }
     }
 }

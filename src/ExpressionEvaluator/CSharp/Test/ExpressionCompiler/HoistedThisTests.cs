@@ -972,7 +972,7 @@ class C
             var testData = new CompilationTestData();
             var assembly = context.CompileGetLocals(locals, argumentsOnly: false, typeName: out typeName, testData: testData);
             Assert.NotNull(assembly);
-            Assert.NotEqual(assembly.Count, 0);
+            Assert.NotEqual(0, assembly.Count);
             var methods = testData.GetMethodsByName();
             var localAndMethod = locals.Single(l => l.LocalName == "this");
             if (expectedIL != null)
@@ -996,7 +996,7 @@ class C
             methodData.VerifyIL(expectedIL);
             var method = (MethodSymbol)methodData.Method;
             VerifyTypeParameters(method);
-            Assert.Equal(expectedType, method.ReturnType.TypeSymbol.ToTestDisplayString());
+            Assert.Equal(expectedType, method.ReturnType.ToTestDisplayString());
         }
 
         private void VerifyNoThis(string source, string methodName)

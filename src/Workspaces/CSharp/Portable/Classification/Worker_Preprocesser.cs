@@ -1,5 +1,7 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
+#nullable enable
+
 using System;
 using Microsoft.CodeAnalysis.Classification;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -104,7 +106,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Classification
             }
         }
 
-        private void ClassifyPreprocessorExpression(ExpressionSyntax node)
+        private void ClassifyPreprocessorExpression(ExpressionSyntax? node)
         {
             if (node == null)
             {
@@ -300,6 +302,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Classification
             AddClassification(node.HashToken, ClassificationTypeNames.PreprocessorKeyword);
             AddClassification(node.NullableKeyword, ClassificationTypeNames.PreprocessorKeyword);
             AddClassification(node.SettingToken, ClassificationTypeNames.PreprocessorKeyword);
+            AddClassification(node.TargetToken, ClassificationTypeNames.PreprocessorKeyword);
             ClassifyDirectiveTrivia(node);
         }
     }

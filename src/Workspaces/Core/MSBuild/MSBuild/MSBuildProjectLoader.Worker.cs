@@ -337,7 +337,7 @@ namespace Microsoft.CodeAnalysis.MSBuild
                     if (string.IsNullOrWhiteSpace(assemblyName))
                     {
                         // if there isn't an assembly name, make one from the file path.
-                        // Note: This may not be necessary any longer if the commmand line args
+                        // Note: This may not be necessary any longer if the command line args
                         // always produce a valid compilation name.
                         assemblyName = GetAssemblyNameFromProjectPath(projectPath);
                     }
@@ -361,7 +361,8 @@ namespace Microsoft.CodeAnalysis.MSBuild
 
                     var documents = CreateDocumentInfos(projectFileInfo.Documents, projectId, commandLineArgs.Encoding);
                     var additionalDocuments = CreateDocumentInfos(projectFileInfo.AdditionalDocuments, projectId, commandLineArgs.Encoding);
-                    CheckForDuplicateDocuments(documents, additionalDocuments, projectPath, projectId);
+                    var analyzerConfigDocuments = CreateDocumentInfos(projectFileInfo.AnalyzerConfigDocuments, projectId, commandLineArgs.Encoding);
+                    CheckForDuplicateDocuments(documents.Concat(additionalDocuments).Concat(analyzerConfigDocuments), projectPath, projectId);
 
                     var analyzerReferences = ResolveAnalyzerReferences(commandLineArgs);
 
@@ -385,7 +386,8 @@ namespace Microsoft.CodeAnalysis.MSBuild
                         additionalDocuments: additionalDocuments,
                         isSubmission: false,
                         hostObjectType: null)
-                        .WithDefaultNamespace(projectFileInfo.DefaultNamespace);
+                        .WithDefaultNamespace(projectFileInfo.DefaultNamespace)
+                        .WithAnalyzerConfigDocuments(analyzerConfigDocuments);
                 });
             }
 
@@ -473,10 +475,10 @@ namespace Microsoft.CodeAnalysis.MSBuild
                 }
             }
 
-            private void CheckForDuplicateDocuments(ImmutableArray<DocumentInfo> documents, ImmutableArray<DocumentInfo> additionalDocuments, string projectFilePath, ProjectId projectId)
+            private void CheckForDuplicateDocuments(ImmutableArray<DocumentInfo> documents, string projectFilePath, ProjectId projectId)
             {
                 var paths = new HashSet<string>(PathUtilities.Comparer);
-                foreach (var doc in documents.Concat(additionalDocuments))
+                foreach (var doc in documents)
                 {
                     if (paths.Contains(doc.FilePath))
                     {

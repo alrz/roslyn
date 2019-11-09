@@ -11,6 +11,7 @@ Imports Microsoft.CodeAnalysis.Emit
 Imports Microsoft.CodeAnalysis.ExpressionEvaluator
 Imports Microsoft.CodeAnalysis.ExpressionEvaluator.UnitTests
 Imports Microsoft.CodeAnalysis.PooledObjects
+Imports Microsoft.CodeAnalysis.Symbols
 Imports Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator
 Imports Microsoft.CodeAnalysis.VisualBasic.Symbols
 Imports Microsoft.CodeAnalysis.VisualBasic.Symbols.Metadata.PE
@@ -317,7 +318,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator.UnitTests
             Optional includeSymbols As Boolean = True) As CompilationTestData
 
             Dim compilation0 = CreateEmptyCompilationWithReferences(
-                {Parse(source)},
+                {Parse(source, SyntaxHelpers.ParseOptions)},
                 {MscorlibRef_v4_0_30316_17626, SystemRef, MsvbRef},
                 options:=If(outputKind = OutputKind.DynamicallyLinkedLibrary, TestOptions.DebugDll, TestOptions.DebugExe))
 
@@ -488,6 +489,14 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator.UnitTests
                     Assert.Empty(attributes)
                 End If
             End If
+        End Sub
+
+        Friend Shared Sub CheckAttribute(assembly As IEnumerable(Of Byte), method As IMethodSymbolInternal, description As AttributeDescription, expected As Boolean)
+            CheckAttribute(assembly, DirectCast(method, IMethodSymbol), description, expected)
+        End Sub
+
+        Friend Shared Sub CheckAttribute(assembly As IEnumerable(Of Byte), method As MethodSymbol, description As AttributeDescription, expected As Boolean)
+            CheckAttribute(assembly, DirectCast(method, IMethodSymbolInternal), description, expected)
         End Sub
     End Class
 End Namespace

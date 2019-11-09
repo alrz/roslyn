@@ -14,6 +14,10 @@ namespace Microsoft.CodeAnalysis.CompilerServer
             NameValueCollection appSettings;
             try
             {
+#if BOOTSTRAP
+                ExitingTraceListener.Install();
+#endif
+
 #if NET472
                 appSettings = System.Configuration.ConfigurationManager.AppSettings;
 #else
@@ -32,7 +36,7 @@ namespace Microsoft.CodeAnalysis.CompilerServer
 
             try
             {
-                var controller = new DesktopBuildServerController(appSettings);
+                var controller = new BuildServerController(appSettings);
                 return controller.Run(args);
             }
             catch (FileNotFoundException e)

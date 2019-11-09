@@ -41,15 +41,16 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Diagnostics
             // this will allow us to build once and deploy on different versions of VS SxS.
             var vsDteVersion = Version.Parse(dte.Version.Split(' ')[0]); // DTE.Version is in the format of D[D[.D[D]]][ (?+)], so we need to split out the version part and check for uninitialized Major/Minor below
             var assembly = Assembly.Load($"Microsoft.VisualStudio.ExtensionManager, Version={(vsDteVersion.Major == -1 ? 0 : vsDteVersion.Major)}.{(vsDteVersion.Minor == -1 ? 0 : vsDteVersion.Minor)}.0.0, PublicKeyToken=b03f5f7f11d50a3a");
-
-            // Get the analyzer assets for installed VSIX extensions through the VSIX extension manager.
-            var extensionManager = serviceProvider.GetService(assembly.GetType("Microsoft.VisualStudio.ExtensionManager.SVsExtensionManager"));
-            if (extensionManager == null)
+            if (assembly == null)
             {
                 // extension manager can't be null. if it is null, then VS is seriously broken.
                 // fail fast right away
                 FailFast.OnFatalException(new Exception("extension manager can't be null"));
             }
+
+            // Get the analyzer assets for installed VSIX extensions through the VSIX extension manager.
+            var extensionManager = serviceProvider.GetService(assembly.GetType("Microsoft.VisualStudio.ExtensionManager.SVsExtensionManager"));
+            Assumes.Present(extensionManager);
 
             _hostDiagnosticAnalyzerInfo = new Lazy<ImmutableArray<HostDiagnosticAnalyzerPackage>>(
                 () => GetHostAnalyzerPackagesWithName(extensionManager, assembly.GetType("Microsoft.VisualStudio.ExtensionManager.IExtensionContent")), isThreadSafe: true);
@@ -76,7 +77,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Diagnostics
         {
             try
             {
-                // dynamic is wierd. it can't see internal type with public interface even if callee is
+                // dynamic is weird. it can't see internal type with public interface even if callee is
                 // implementation of the public interface in internal type. so we can't use dynamic here
 
                 var builder = ImmutableArray.CreateBuilder<HostDiagnosticAnalyzerPackage>();
@@ -110,8 +111,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Diagnostics
                         }
 
                         var extensionType_GetContentMethod = extensionType.GetRuntimeMethod("GetContentLocation", new Type[] { parameterType });
-                        var assembly = extensionType_GetContentMethod?.Invoke(extension, new object[] { content }) as string;
-                        if (assembly == null)
+                        if (!(extensionType_GetContentMethod?.Invoke(extension, new object[] { content }) is string assembly))
                         {
                             continue;
                         }

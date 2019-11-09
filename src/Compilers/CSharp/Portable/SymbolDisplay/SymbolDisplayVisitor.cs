@@ -197,15 +197,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             if (format.LocalOptions.IncludesOption(SymbolDisplayLocalOptions.IncludeType))
             {
-                var local = symbol as LocalSymbol;
-                if ((object)local != null)
-                {
-                    VisitTypeSymbolWithAnnotations(local.Type);
-                }
-                else
-                {
-                    symbol.Type.Accept(this.NotFirstVisitor);
-                }
+                symbol.Type.Accept(this.NotFirstVisitor);
                 AddSpace();
             }
 
@@ -235,7 +227,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             if (format.LocalOptions.IncludesOption(SymbolDisplayLocalOptions.IncludeType))
             {
-                symbol.Type.Accept(this);
+                symbol.Type.Accept(this.NotFirstVisitor);
                 AddSpace();
             }
 

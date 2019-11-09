@@ -138,6 +138,12 @@ namespace Microsoft.CodeAnalysis.BuildTasks
             get { return _store.GetOrDefault(nameof(PublicSign), false); }
         }
 
+        public ITaskItem[] AnalyzerConfigFiles
+        {
+            set { _store[nameof(AnalyzerConfigFiles)] = value; }
+            get { return (ITaskItem[])_store[nameof(AnalyzerConfigFiles)]; }
+        }
+
         public bool EmitDebugInformation
         {
             set { _store[nameof(EmitDebugInformation)] = value; }
@@ -243,6 +249,12 @@ namespace Microsoft.CodeAnalysis.BuildTasks
         {
             set { _store[nameof(Platform)] = value; }
             get { return (string)_store[nameof(Platform)]; }
+        }
+
+        public ITaskItem[] PotentialAnalyzerConfigFiles
+        {
+            set { _store[nameof(PotentialAnalyzerConfigFiles)] = value; }
+            get { return (ITaskItem[])_store[nameof(PotentialAnalyzerConfigFiles)]; }
         }
 
         public bool Prefer32Bit
@@ -416,7 +428,7 @@ namespace Microsoft.CodeAnalysis.BuildTasks
 
         // ToolExe delegates back to ToolName if the override is not
         // set.  So, if ToolExe == ToolName, we know ToolExe is not
-        // explicitly overriden.  So, if both ToolPath is unset and
+        // explicitly overridden.  So, if both ToolPath is unset and
         // ToolExe == ToolName, we know nothing is overridden, and
         // we can use our own csc.
         private bool HasToolBeenOverridden => !(string.IsNullOrEmpty(ToolPath) && ToolExe == ToolName);
@@ -526,9 +538,11 @@ namespace Microsoft.CodeAnalysis.BuildTasks
         /// </summary>
         public override void Cancel()
         {
-            base.Cancel();
-
+            // This must be cancelled first. Otherwise we risk that MSBuild cancellation logic will take down
+            // our pipes and tasks in an order we're not expecting.
             _sharedCompileCts?.Cancel();
+
+            base.Cancel();
         }
 
         /// <summary>
@@ -801,6 +815,7 @@ namespace Microsoft.CodeAnalysis.BuildTasks
 
             AddFeatures(commandLine, Features);
             AddEmbeddedFilesToCommandLine(commandLine);
+            AddAnalyzerConfigFilesToCommandLine(commandLine);
         }
 
         /// <summary>
@@ -866,6 +881,20 @@ namespace Microsoft.CodeAnalysis.BuildTasks
                 foreach (ITaskItem embeddedFile in EmbeddedFiles)
                 {
                     commandLine.AppendSwitchIfNotNull("/embed:", embeddedFile.ItemSpec);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Adds a "/editorconfig:" switch to the command line for each .editorconfig file.
+        /// </summary>
+        private void AddAnalyzerConfigFilesToCommandLine(CommandLineBuilderExtension commandLine)
+        {
+            if (AnalyzerConfigFiles != null)
+            {
+                foreach (ITaskItem analyzerConfigFile in AnalyzerConfigFiles)
+                {
+                    commandLine.AppendSwitchIfNotNull("/analyzerconfig:", analyzerConfigFile.ItemSpec);
                 }
             }
         }

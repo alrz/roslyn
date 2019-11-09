@@ -342,14 +342,14 @@ Namespace Microsoft.CodeAnalysis.Operations
 
                     Dim constantValue = ConvertToOptional(TryCast(boundNode, BoundExpression)?.ConstantValueOpt)
                     Dim isImplicit As Boolean = boundNode.WasCompilerGenerated
-                    Return Operation.CreateOperationNone(_semanticModel, boundNode.Syntax, constantValue, Function() GetIOperationChildren(boundNode), isImplicit)
+                    Return New VisualBasicLazyNoneOperation(Me, boundNode, _semanticModel, boundNode.Syntax, constantValue, isImplicit)
 
                 Case Else
                     Throw ExceptionUtilities.UnexpectedValue(boundNode.Kind)
             End Select
         End Function
 
-        Private Function GetIOperationChildren(boundNode As BoundNode) As ImmutableArray(Of IOperation)
+        Friend Function GetIOperationChildren(boundNode As BoundNode) As ImmutableArray(Of IOperation)
             Dim boundNodeWithChildren = DirectCast(boundNode, IBoundNodeWithIOperationChildren)
             If boundNodeWithChildren.Children.IsDefaultOrEmpty Then
                 Return ImmutableArray(Of IOperation).Empty
@@ -374,7 +374,7 @@ Namespace Microsoft.CodeAnalysis.Operations
                 ' https://github.com/dotnet/roslyn/issues/23109
                 Dim constantValue As [Optional](Of Object) = ConvertToOptional(boundAssignmentOperator.ConstantValueOpt)
                 Dim isImplicit As Boolean = boundAssignmentOperator.WasCompilerGenerated
-                Return Operation.CreateOperationNone(_semanticModel, boundAssignmentOperator.Syntax, constantValue, Function() GetIOperationChildren(boundAssignmentOperator), isImplicit)
+                Return New VisualBasicLazyNoneOperation(Me, boundAssignmentOperator, _semanticModel, boundAssignmentOperator.Syntax, constantValue, isImplicit)
             ElseIf boundAssignmentOperator.LeftOnTheRightOpt IsNot Nothing Then
                 Return CreateCompoundAssignment(boundAssignmentOperator)
             Else
@@ -590,7 +590,7 @@ Namespace Microsoft.CodeAnalysis.Operations
 
             Dim valueConversion = New Conversion(Conversions.Identity)
 
-            If boundBinaryConditionalExpression.Type <> boundBinaryConditionalExpression.TestExpression.Type Then
+            If Not TypeSymbol.Equals(boundBinaryConditionalExpression.Type, boundBinaryConditionalExpression.TestExpression.Type, TypeCompareKind.ConsiderEverything) Then
                 Dim convertedTestExpression As BoundExpression = boundBinaryConditionalExpression.ConvertedTestExpression
                 If convertedTestExpression IsNot Nothing Then
                     If convertedTestExpression.Kind = BoundKind.Conversion Then
@@ -676,7 +676,7 @@ Namespace Microsoft.CodeAnalysis.Operations
 
             Dim boundOperand = GetConversionOperand(boundConversionOrCast)
             If boundOperand.Syntax Is boundConversionOrCast.Syntax Then
-                If boundOperand.Kind = BoundKind.ConvertedTupleLiteral AndAlso boundOperand.Type = boundConversionOrCast.Type Then
+                If boundOperand.Kind = BoundKind.ConvertedTupleLiteral AndAlso TypeSymbol.Equals(boundOperand.Type, boundConversionOrCast.Type, TypeCompareKind.ConsiderEverything) Then
                     ' Erase this conversion, this is an artificial conversion added on top of BoundConvertedTupleLiteral
                     ' in Binder.ReclassifyTupleLiteral
                     Return Create(boundOperand)
@@ -926,7 +926,7 @@ Namespace Microsoft.CodeAnalysis.Operations
             ' does not match the type of the containing type.
             If (boundLateMemberAccess.ContainerTypeOpt IsNot Nothing AndAlso
                 (boundLateMemberAccess.ReceiverOpt Is Nothing OrElse
-                 boundLateMemberAccess.ContainerTypeOpt <> boundLateMemberAccess.ReceiverOpt.Type)) Then
+                 Not TypeSymbol.Equals(boundLateMemberAccess.ContainerTypeOpt, boundLateMemberAccess.ReceiverOpt.Type, TypeCompareKind.ConsiderEverything))) Then
                 containingType = boundLateMemberAccess.ContainerTypeOpt
             End If
             Dim syntax As SyntaxNode = boundLateMemberAccess.Syntax
@@ -1167,6 +1167,7 @@ Namespace Microsoft.CodeAnalysis.Operations
                                                      statementInfo.GetEnumeratorMethod,
                                                      statementInfo.CurrentProperty,
                                                      statementInfo.MoveNextMethod,
+                                                     isAsynchronous:=False,
                                                      boundForEachStatement.EnumeratorInfo.NeedToDispose,
                                                      knownToImplementIDisposable:=boundForEachStatement.EnumeratorInfo.NeedToDispose AndAlso
                                                                                   boundForEachStatement.EnumeratorInfo.IsOrInheritsFromOrImplementsIDisposable,
@@ -1224,7 +1225,7 @@ Namespace Microsoft.CodeAnalysis.Operations
 
         Friend Function CreateBoundCatchBlockExceptionDeclarationOrExpression(boundCatchBlock As BoundCatchBlock) As IOperation
             If boundCatchBlock.LocalOpt IsNot Nothing AndAlso
-                        boundCatchBlock.ExceptionSourceOpt?.Kind = BoundKind.Local AndAlso
+                        (boundCatchBlock.ExceptionSourceOpt?.Kind = BoundKind.Local).GetValueOrDefault() AndAlso
                         boundCatchBlock.LocalOpt Is DirectCast(boundCatchBlock.ExceptionSourceOpt, BoundLocal).LocalSymbol Then
                 Return New VariableDeclaratorOperation(boundCatchBlock.LocalOpt, initializer:=Nothing, ignoredArguments:=ImmutableArray(Of IOperation).Empty, semanticModel:=_semanticModel, syntax:=boundCatchBlock.ExceptionSourceOpt.Syntax, type:=Nothing, constantValue:=Nothing, isImplicit:=False)
             Else
@@ -1581,7 +1582,7 @@ Namespace Microsoft.CodeAnalysis.Operations
             Dim type As ITypeSymbol = boundAnonymousTypePropertyAccess.Type
             Dim constantValue As [Optional](Of Object) = ConvertToOptional(boundAnonymousTypePropertyAccess.ConstantValueOpt)
             Dim isImplicit As Boolean = boundAnonymousTypePropertyAccess.WasCompilerGenerated
-            Return New PropertyReferenceOperation([property], instance, arguments, _semanticModel, syntax, type, constantValue, isImplicit)
+            Return New PropertyReferenceOperation([property], arguments, instance, _semanticModel, syntax, type, constantValue, isImplicit)
         End Function
 
         Private Function CreateAnonymousTypePropertyAccessImplicitReceiverOperation(propertySym As IPropertySymbol, syntax As SyntaxNode) As InstanceReferenceOperation

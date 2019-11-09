@@ -612,6 +612,7 @@ class C
     static async Task<int> M()
     {
         return await d;     //-fieldAccess: dynamic
+                            //-awaitableValuePlaceholder: dynamic
                             //-awaitExpression: dynamic
                             //-conversion: int
     }
@@ -635,7 +636,9 @@ class C
 	{
 		var x = await await d; //-typeExpression: dynamic
                                //-fieldAccess: dynamic
+                               //-awaitableValuePlaceholder: dynamic
                                //-awaitExpression: dynamic
+                               //-awaitableValuePlaceholder: dynamic
                                //-awaitExpression: dynamic
 	}
 }";
@@ -1905,7 +1908,7 @@ unsafe public class C<X>
             var c = compilation.GlobalNamespace.GetMember<TypeSymbol>("C");
             var f = c.GetMember<FieldSymbol>("F");
             var eraser = new DynamicTypeEraser(compilation.GetSpecialType(SpecialType.System_Object));
-            var erasedType = eraser.EraseDynamic(f.Type.TypeSymbol);
+            var erasedType = eraser.EraseDynamic(f.Type);
 
             Assert.Equal("System.Func<A<System.Object, A<System.Object, System.Boolean>.E*[]>.B<X>, System.Collections.Generic.Dictionary<System.Object[], System.Int32>>", erasedType.ToTestDisplayString());
         }
@@ -2608,10 +2611,13 @@ class C
     static void M()
     {
         var x = new C          //-typeExpression: C
+                               //-objectOrCollectionValuePlaceholder: C
         {
             A =                //-objectInitializerMember: dynamic 
+                               //-objectOrCollectionValuePlaceholder: dynamic
             {                  
                 B =            //-dynamicObjectInitializerMember: dynamic 
+                               //-objectOrCollectionValuePlaceholder: dynamic
                 {              
                     C = 3      //-dynamicObjectInitializerMember: dynamic
                                //-literal: int
@@ -2650,11 +2656,12 @@ class C : List<int>
     {	
 		var z = new C()         //-typeExpression: C
 		{
-			{ d },              //-implicitReceiver: C
+			{ d },              //-objectOrCollectionValuePlaceholder: C
+                                //-objectOrCollectionValuePlaceholder: C
                                 //-fieldAccess: dynamic
                                 //-dynamicCollectionElementInitializer: dynamic
 
-			{ d, d, d },        //-implicitReceiver: C
+			{ d, d, d },        //-objectOrCollectionValuePlaceholder: C
                                 //-fieldAccess: dynamic
                                 //-fieldAccess: dynamic
                                 //-fieldAccess: dynamic
@@ -3774,10 +3781,10 @@ class Program
             var typeObject = comp.GetSpecialType(SpecialType.System_Object);
             var typeGConstructed = typeG.Construct(typeObject, typeObject);
 
-            Assert.Equal(typeGConstructed, typeD.GetMember<FieldSymbol>("MissingTrue").Type.TypeSymbol);
-            Assert.Equal(typeGConstructed, typeD.GetMember<FieldSymbol>("MissingFalse").Type.TypeSymbol);
-            Assert.Equal(typeGConstructed, typeD.GetMember<FieldSymbol>("ExtraTrue").Type.TypeSymbol);
-            Assert.Equal(typeGConstructed, typeD.GetMember<FieldSymbol>("ExtraFalse").Type.TypeSymbol);
+            Assert.Equal(typeGConstructed, typeD.GetMember<FieldSymbol>("MissingTrue").Type);
+            Assert.Equal(typeGConstructed, typeD.GetMember<FieldSymbol>("MissingFalse").Type);
+            Assert.Equal(typeGConstructed, typeD.GetMember<FieldSymbol>("ExtraTrue").Type);
+            Assert.Equal(typeGConstructed, typeD.GetMember<FieldSymbol>("ExtraFalse").Type);
         }
 
         [ClrOnlyFact(ClrOnlyReason.Ilasm)]

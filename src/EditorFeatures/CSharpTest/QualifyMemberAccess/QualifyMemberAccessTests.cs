@@ -818,6 +818,65 @@ CodeStyleOptions.QualifyMethodAccess);
 CodeStyleOptions.QualifyMethodAccess);
         }
 
+        [WorkItem(38043, "https://github.com/dotnet/roslyn/issues/38043")]
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsQualifyMemberAccess)]
+        public async Task QualifyLocalMethodAccess_NotSuggestedInNestedMethodCall()
+        {
+            await TestMissingAsyncWithOption(
+@"using System;
+
+class C
+{
+    void Method()
+    {
+        object LocalFunction() => new object();
+        this.Method2([|LocalFunction|]);
+    }
+
+    void Method2(Func<object> LocalFunction)
+    {
+    }
+}",
+CodeStyleOptions.QualifyMethodAccess);
+        }
+
+        [WorkItem(38043, "https://github.com/dotnet/roslyn/issues/38043")]
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsQualifyMemberAccess)]
+        public async Task QualifyLocalMethodAccess_NotSuggestedInCollectionInitializer()
+        {
+            await TestMissingAsyncWithOption(
+@"using System;
+using System.Collections.Generic;
+
+class C
+{
+    void Method()
+    {
+        object LocalFunction() => new object();
+        var dict = new Dictionary<Func<object>, int>() { { [|LocalFunction|], 1 } };
+    }
+}",
+CodeStyleOptions.QualifyMethodAccess);
+        }
+
+        [WorkItem(38043, "https://github.com/dotnet/roslyn/issues/38043")]
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsQualifyMemberAccess)]
+        public async Task QualifyLocalMethodAccess_NotSuggestedInObjectMethodInvocation()
+        {
+            await TestMissingAsyncWithOption(
+@"using System;
+
+class C
+{
+    void Method()
+    {
+        object LocalFunction() => new object();
+        [|LocalFunction|]();
+    }
+}",
+CodeStyleOptions.QualifyMethodAccess);
+        }
+
         [WorkItem(7065, "https://github.com/dotnet/roslyn/issues/7065")]
         [Fact(Skip = "https://github.com/dotnet/roslyn/issues/7587"), Trait(Traits.Feature, Traits.Features.CodeActionsQualifyMemberAccess)]
         public async Task QualifyEventAccess_EventSubscription()
@@ -1372,6 +1431,26 @@ CodeStyleOptions.QualifyPropertyAccess);
     private string Field = nameof([|Bar|]);
 }",
 CodeStyleOptions.QualifyEventAccess);
+        }
+
+        [WorkItem(32093, "https://github.com/dotnet/roslyn/issues/32093")]
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsQualifyMemberAccess)]
+        public async Task DoNotReportToQualify_IfInBaseConstructor()
+        {
+            await TestMissingAsyncWithOption(
+@"public class Base
+{
+    public string Foo { get; }
+    public Base(string foo){}
+}
+public class Derived : Base
+{
+    public Derived()
+        : base(nameof([|Foo|]))
+    {}
+}
+",
+                CodeStyleOptions.QualifyFieldAccess);
         }
 
         [WorkItem(21519, "https://github.com/dotnet/roslyn/issues/21519")]

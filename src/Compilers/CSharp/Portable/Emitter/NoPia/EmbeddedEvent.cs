@@ -35,7 +35,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Emit.NoPia
 
         protected override Cci.ITypeReference GetType(PEModuleBuilder moduleBuilder, SyntaxNode syntaxNodeOpt, DiagnosticBag diagnostics)
         {
-            return moduleBuilder.Translate(UnderlyingEvent.Type.TypeSymbol, syntaxNodeOpt, diagnostics);
+            return moduleBuilder.Translate(UnderlyingEvent.Type, syntaxNodeOpt, diagnostics);
         }
 
         protected override EmbeddedType ContainingType
@@ -76,7 +76,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Emit.NoPia
 
                     if (attrData.CommonConstructorArguments.Length == 2)
                     {
-                        sourceInterface = attrData.CommonConstructorArguments[0].Value as NamedTypeSymbol;
+                        sourceInterface = attrData.CommonConstructorArguments[0].ValueInternal as NamedTypeSymbol;
 
                         if ((object)sourceInterface != null)
                         {

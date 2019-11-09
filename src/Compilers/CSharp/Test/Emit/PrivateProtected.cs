@@ -6,6 +6,7 @@ using Microsoft.CodeAnalysis.Test.Utilities;
 using Roslyn.Test.Utilities;
 using static Roslyn.Test.Utilities.SigningTestHelpers;
 using Xunit;
+using Microsoft.CodeAnalysis.CSharp.Symbols;
 
 namespace Microsoft.CodeAnalysis.CSharp.UnitTests
 {
@@ -95,7 +96,7 @@ public class Base
             var baseCompilation = CreateCompilation(source1, parseOptions: TestOptions.Regular7_2,
                 options: TestOptions.SigningReleaseDll,
                 assemblyName: "Paul");
-            var bb = (INamedTypeSymbol)baseCompilation.GlobalNamespace.GetMember("Base");
+            var bb = (NamedTypeSymbol)baseCompilation.GlobalNamespace.GetMember("Base");
             foreach (var member in bb.GetMembers())
             {
                 switch (member.Name)
@@ -413,9 +414,12 @@ struct Struct
 }";
             CreateCompilation(source, parseOptions: TestOptions.Regular7_2)
                 .VerifyDiagnostics(
-                // (3,27): error CS0106: The modifier 'private protected' is not valid for this item
+                // (3,27): error CS8503: The modifier 'private protected' is not valid for this item in C# 7.2. Please use language version '8.0' or greater.
                 //     private protected int M();
-                Diagnostic(ErrorCode.ERR_BadMemberFlag, "M").WithArguments("private protected").WithLocation(3, 27)
+                Diagnostic(ErrorCode.ERR_DefaultInterfaceImplementationModifier, "M").WithArguments("private protected", "7.2", "8.0").WithLocation(3, 27),
+                // (3,27): error CS8707: Target runtime doesn't support 'protected', 'protected internal', or 'private protected' accessibility for a member of an interface.
+                //     private protected int M();
+                Diagnostic(ErrorCode.ERR_RuntimeDoesNotSupportProtectedAccessForInterfaceMember, "M").WithLocation(3, 27)
                 );
         }
 

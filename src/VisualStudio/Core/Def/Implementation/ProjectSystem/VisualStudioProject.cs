@@ -17,6 +17,8 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
 {
     internal sealed class VisualStudioProject
     {
+        private static readonly ImmutableArray<MetadataReferenceProperties> s_defaultMetadataReferenceProperties = ImmutableArray.Create(default(MetadataReferenceProperties));
+
         private readonly VisualStudioWorkspaceImpl _workspace;
         private readonly HostDiagnosticUpdateSource _hostDiagnosticUpdateSource;
 
@@ -59,7 +61,15 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
         private string _outputRefFilePath;
         private string _defaultNamespace;
 
-        private readonly Dictionary<string, List<MetadataReferenceProperties>> _allMetadataReferences = new Dictionary<string, List<MetadataReferenceProperties>>();
+        // Actual property values for 'RunAnalyzers' and 'RunAnalyzersDuringLiveAnalysis' properties from the project file.
+        // Both these properties can be used to configure running analyzers, with RunAnalyzers overriding RunAnalyzersDuringLiveAnalysis.
+        private bool? _runAnalyzersPropertyValue;
+        private bool? _runAnalyzersDuringLiveAnalysisPropertyValue;
+
+        // Effective boolean value to determine if analyzers should be executed based on _runAnalyzersPropertyValue and _runAnalyzersDuringLiveAnalysisPropertyValue.
+        private bool _runAnalyzers = true;
+
+        private readonly Dictionary<string, ImmutableArray<MetadataReferenceProperties>> _allMetadataReferences = new Dictionary<string, ImmutableArray<MetadataReferenceProperties>>();
 
         /// <summary>
         /// The file watching tokens for the documents in this project. We get the tokens even when we're in a batch, so the files here
@@ -68,28 +78,10 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
         private readonly Dictionary<DocumentId, FileChangeWatcher.IFileWatchingToken> _documentFileWatchingTokens = new Dictionary<DocumentId, FileChangeWatcher.IFileWatchingToken>();
 
         /// <summary>
-        /// A file change context used to watch source files and additional files for this project. It's automatically set to watch the user's project
+        /// A file change context used to watch source files, additional files, and analyzer config files for this project. It's automatically set to watch the user's project
         /// directory so we avoid file-by-file watching.
         /// </summary>
         private readonly FileChangeWatcher.IContext _documentFileChangeContext;
-
-        /// <summary>
-        /// A file change context used to watch metadata and analyzer references.
-        /// </summary>
-        private readonly FileChangeWatcher.IContext _fileReferenceChangeContext;
-
-        /// <summary>
-        /// File watching tokens from <see cref="_fileReferenceChangeContext"/> that are watching metadata references. These are only created once we are actually applying a batch because
-        /// we don't determine until the batch is applied if the file reference will actually be a file reference or it'll be a converted project reference.
-        /// </summary>
-        private readonly Dictionary<PortableExecutableReference, FileChangeWatcher.IFileWatchingToken> _metadataReferenceFileWatchingTokens = new Dictionary<PortableExecutableReference, FileChangeWatcher.IFileWatchingToken>();
-
-        /// <summary>
-        /// <see cref="CancellationTokenSource"/>s for in-flight refreshing of metadata references. When we see a file change, we wait a bit before trying to actually
-        /// update the workspace. We need cancellation tokens for those so we can cancel them either when a flurry of events come in (so we only do the delay after the last
-        /// modification), or when we know the project is going away entirely. We don't 
-        /// </summary>
-        private readonly Dictionary<string, CancellationTokenSource> _metadataReferenceRefreshCancellationTokenSources = new Dictionary<string, CancellationTokenSource>();
 
         /// <summary>
         /// track whether we have been subscribed to <see cref="IDynamicFileInfoProvider.Updated"/> event
@@ -109,6 +101,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
 
         private readonly BatchingDocumentCollection _sourceFiles;
         private readonly BatchingDocumentCollection _additionalFiles;
+        private readonly BatchingDocumentCollection _analyzerConfigFiles;
 
         public ProjectId Id { get; }
         public string Language { get; }
@@ -143,11 +136,6 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
 
             _documentFileChangeContext.FileChanged += DocumentFileChangeContext_FileChanged;
 
-            // TODO: set this to watch the NuGet directory or the reference assemblies directory; since those change rarely and most references
-            // will come from them, we can avoid creating a bunch of explicit file watchers.
-            _fileReferenceChangeContext = workspace.FileChangeWatcher.CreateContext();
-            _fileReferenceChangeContext.FileChanged += FileReferenceChangeContext_FileChanged;
-
             _sourceFiles = new BatchingDocumentCollection(
                 this,
                 documentAlreadyInWorkspace: (s, d) => s.ContainsDocument(d),
@@ -160,6 +148,12 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                 (w, d) => w.OnAdditionalDocumentAdded(d),
                 (w, documentId) => w.OnAdditionalDocumentRemoved(documentId),
                 documentTextLoaderChangedAction: (w, d, loader) => w.OnAdditionalDocumentTextLoaderChanged(d, loader));
+
+            _analyzerConfigFiles = new BatchingDocumentCollection(this,
+                (s, d) => s.ContainsAnalyzerConfigDocument(d),
+                (w, d) => w.OnAnalyzerConfigDocumentAdded(d),
+                (w, documentId) => w.OnAnalyzerConfigDocumentRemoved(documentId),
+                documentTextLoaderChangedAction: (w, d, loader) => w.OnAnalyzerConfigDocumentTextLoaderChanged(d, loader));
         }
 
         private void ChangeProjectProperty<T>(ref T field, T newValue, Func<Solution, Solution> withNewValue, Action<Workspace> changeValue)
@@ -242,13 +236,16 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
         /// <summary>
         /// The path to the output in obj.
         /// </summary>
-        /// <remarks>This is internal for now, as it's only consumed by <see cref="EditAndContinue.VsENCRebuildableProjectImpl"/>
-        /// which directly takes a <see cref="VisualStudioProject"/>.</remarks>
         internal string IntermediateOutputFilePath
         {
             get => _intermediateOutputFilePath;
             set
             {
+                // The Project System doesn't always indicate whether we emit PDB, what kind of PDB we emit nor the path of the PDB.
+                // To work around we look for the PDB on the path specified in the PDB debug directory.
+                // https://github.com/dotnet/roslyn/issues/35065
+                _workspace.SetCompilationOutputs(Id, new CompilationOutputFilesWithImplicitPdbPath(value));
+
                 // Unlike OutputFilePath and OutputRefFilePath, the intermediate output path isn't represented in the workspace anywhere;
                 // thus, we won't mutate the solution. We'll still call ChangeProjectOutputPath so we have the rest of the output path tracking
                 // for any P2P reference conversion.
@@ -303,6 +300,36 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                        w => w.OnHasAllInformationChanged(Id, value));
         }
 
+        internal bool? RunAnalyzers
+        {
+            get => _runAnalyzersPropertyValue;
+            set
+            {
+                _runAnalyzersPropertyValue = value;
+                UpdateRunAnalyzers();
+            }
+        }
+
+        internal bool? RunAnalyzersDuringLiveAnalysis
+        {
+            get => _runAnalyzersDuringLiveAnalysisPropertyValue;
+            set
+            {
+                _runAnalyzersDuringLiveAnalysisPropertyValue = value;
+                UpdateRunAnalyzers();
+            }
+        }
+
+        private void UpdateRunAnalyzers()
+        {
+            // Property RunAnalyzers overrides RunAnalyzersDuringLiveAnalysis, and default when both properties are not set is 'true'.
+            var runAnalyzers = _runAnalyzersPropertyValue ?? _runAnalyzersDuringLiveAnalysisPropertyValue ?? true;
+            ChangeProjectProperty(ref _runAnalyzers,
+                runAnalyzers,
+                s => s.WithRunAnalyzers(Id, runAnalyzers),
+                w => w.OnRunAnalyzersChanged(Id, runAnalyzers));
+        }
+
         /// <summary>
         /// The default namespace of the project.
         /// </summary>
@@ -321,6 +348,15 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                        value,
                        s => s.WithProjectDefaultNamespace(Id, value),
                        w => w.OnDefaultNamespaceChanged(Id, value));
+        }
+
+        /// <summary>
+        /// The max language version supported for this project, if applicable. Useful to help indicate what 
+        /// language version features should be suggested to a user, as well as if they can be upgraded. 
+        /// </summary>
+        internal string MaxLangVersion
+        {
+            set => _workspace.SetMaxLanguageVersion(Id, value);
         }
 
 
@@ -370,27 +406,33 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                 }
 
                 var documentFileNamesAdded = ImmutableArray.CreateBuilder<string>();
-                var documentsToOpen = new List<(DocumentId, SourceTextContainer)>();
+                var documentsToOpen = new List<(DocumentId documentId, SourceTextContainer textContainer)>();
+                var additionalDocumentsToOpen = new List<(DocumentId documentId, SourceTextContainer textContainer)>();
+                var analyzerConfigDocumentsToOpen = new List<(DocumentId documentId, SourceTextContainer textContainer)>();
 
-                _workspace.ApplyBatchChangeToProject(Id, solution =>
+                _workspace.ApplyBatchChangeToWorkspace(solution =>
                 {
-                    solution = _sourceFiles.UpdateSolutionForBatch(
-                        solution,
+                    var solutionChanges = new SolutionChangeAccumulator(startingSolution: solution);
+
+                    _sourceFiles.UpdateSolutionForBatch(
+                        solutionChanges,
                         documentFileNamesAdded,
                         documentsToOpen,
-                        (s, documents) => solution.AddDocuments(documents),
+                        (s, documents) => s.AddDocuments(documents),
+                        WorkspaceChangeKind.DocumentAdded,
                         (s, id) =>
                         {
                             // Clear any document-specific data now (like open file trackers, etc.). If we called OnRemoveDocument directly this is
                             // called, but since we're doing this in one large batch we need to do it now.
                             _workspace.ClearDocumentData(id);
                             return s.RemoveDocument(id);
-                        });
+                        },
+                        WorkspaceChangeKind.DocumentRemoved);
 
-                    solution = _additionalFiles.UpdateSolutionForBatch(
-                        solution,
+                    _additionalFiles.UpdateSolutionForBatch(
+                        solutionChanges,
                         documentFileNamesAdded,
-                        documentsToOpen,
+                        additionalDocumentsToOpen,
                         (s, documents) =>
                         {
                             foreach (var document in documents)
@@ -400,13 +442,30 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
 
                             return s;
                         },
+                        WorkspaceChangeKind.AdditionalDocumentAdded,
                         (s, id) =>
                         {
                             // Clear any document-specific data now (like open file trackers, etc.). If we called OnRemoveDocument directly this is
                             // called, but since we're doing this in one large batch we need to do it now.
                             _workspace.ClearDocumentData(id);
                             return s.RemoveAdditionalDocument(id);
-                        });
+                        },
+                        WorkspaceChangeKind.AdditionalDocumentRemoved);
+
+                    _analyzerConfigFiles.UpdateSolutionForBatch(
+                        solutionChanges,
+                        documentFileNamesAdded,
+                        analyzerConfigDocumentsToOpen,
+                        (s, documents) => s.AddAnalyzerConfigDocuments(documents),
+                        WorkspaceChangeKind.AnalyzerConfigDocumentAdded,
+                        (s, id) =>
+                        {
+                            // Clear any document-specific data now (like open file trackers, etc.). If we called OnRemoveAnalyzerConfigDocument directly this is
+                            // called, but since we're doing this in one large batch we need to do it now.
+                            _workspace.ClearDocumentData(id);
+                            return s.RemoveAnalyzerConfigDocument(id);
+                        },
+                        WorkspaceChangeKind.AnalyzerConfigDocumentRemoved);
 
                     // Metadata reference adding...
                     if (_metadataReferencesAddedInBatch.Count > 0)
@@ -414,9 +473,9 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                         var projectReferencesCreated = new List<ProjectReference>();
                         var metadataReferencesCreated = new List<MetadataReference>();
 
-                        foreach (var metadataReferenceAddedInBatch in _metadataReferencesAddedInBatch)
+                        foreach (var (path, properties) in _metadataReferencesAddedInBatch)
                         {
-                            var projectReference = _workspace.TryCreateConvertedProjectReference(Id, metadataReferenceAddedInBatch.path, metadataReferenceAddedInBatch.properties);
+                            var projectReference = _workspace.TryCreateConvertedProjectReference(Id, path, properties);
 
                             if (projectReference != null)
                             {
@@ -424,63 +483,74 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                             }
                             else
                             {
-                                var metadataReference = _workspace.CreatePortableExecutableReference(metadataReferenceAddedInBatch.path, metadataReferenceAddedInBatch.properties);
+                                var metadataReference = _workspace.FileWatchedReferenceFactory.CreateReferenceAndStartWatchingFile(path, properties);
                                 metadataReferencesCreated.Add(metadataReference);
-                                _metadataReferenceFileWatchingTokens.Add(metadataReference, _fileReferenceChangeContext.EnqueueWatchingFile(metadataReference.FilePath));
                             }
                         }
 
-                        solution = solution.AddProjectReferences(Id, projectReferencesCreated)
-                                           .AddMetadataReferences(Id, metadataReferencesCreated);
+                        solutionChanges.UpdateSolutionForProjectAction(
+                            Id,
+                            solutionChanges.Solution.AddProjectReferences(Id, projectReferencesCreated)
+                                                    .AddMetadataReferences(Id, metadataReferencesCreated));
 
                         ClearAndZeroCapacity(_metadataReferencesAddedInBatch);
                     }
 
                     // Metadata reference removing...
-                    foreach (var metadataReferenceRemovedInBatch in _metadataReferencesRemovedInBatch)
+                    foreach (var (path, properties) in _metadataReferencesRemovedInBatch)
                     {
-                        var projectReference = _workspace.TryRemoveConvertedProjectReference(Id, metadataReferenceRemovedInBatch.path, metadataReferenceRemovedInBatch.properties);
+                        var projectReference = _workspace.TryRemoveConvertedProjectReference(Id, path, properties);
 
                         if (projectReference != null)
                         {
-                            solution = solution.RemoveProjectReference(Id, projectReference);
+                            solutionChanges.UpdateSolutionForProjectAction(
+                                Id,
+                                solutionChanges.Solution.RemoveProjectReference(Id, projectReference));
                         }
                         else
                         {
                             // TODO: find a cleaner way to fetch this
                             var metadataReference = _workspace.CurrentSolution.GetProject(Id).MetadataReferences.Cast<PortableExecutableReference>()
-                                                                                    .Single(m => m.FilePath == metadataReferenceRemovedInBatch.path && m.Properties == metadataReferenceRemovedInBatch.properties);
+                                                                                    .Single(m => m.FilePath == path && m.Properties == properties);
 
-                            _fileReferenceChangeContext.StopWatchingFile(_metadataReferenceFileWatchingTokens[metadataReference]);
-                            _metadataReferenceFileWatchingTokens.Remove(metadataReference);
-                            CancelOutstandingMetadataReferenceRefreshForFile_NoLock(metadataReference.FilePath);
+                            _workspace.FileWatchedReferenceFactory.StopWatchingReference(metadataReference);
 
-                            solution = solution.RemoveMetadataReference(Id, metadataReference);
+                            solutionChanges.UpdateSolutionForProjectAction(
+                                Id,
+                                newSolution: solutionChanges.Solution.RemoveMetadataReference(Id, metadataReference));
                         }
                     }
 
                     ClearAndZeroCapacity(_metadataReferencesRemovedInBatch);
 
                     // Project reference adding...
-                    solution = solution.AddProjectReferences(Id, _projectReferencesAddedInBatch);
+                    solutionChanges.UpdateSolutionForProjectAction(
+                        Id,
+                        newSolution: solutionChanges.Solution.AddProjectReferences(Id, _projectReferencesAddedInBatch));
                     ClearAndZeroCapacity(_projectReferencesAddedInBatch);
 
                     // Project reference removing...
                     foreach (var projectReference in _projectReferencesRemovedInBatch)
                     {
-                        solution = solution.RemoveProjectReference(Id, projectReference);
+                        solutionChanges.UpdateSolutionForProjectAction(
+                            Id,
+                            newSolution: solutionChanges.Solution.RemoveProjectReference(Id, projectReference));
                     }
 
                     ClearAndZeroCapacity(_projectReferencesRemovedInBatch);
 
                     // Analyzer reference adding...
-                    solution = solution.AddAnalyzerReferences(Id, _analyzersAddedInBatch.Select(a => a.GetReference()));
+                    solutionChanges.UpdateSolutionForProjectAction(
+                        Id,
+                        newSolution: solutionChanges.Solution.AddAnalyzerReferences(Id, _analyzersAddedInBatch.Select(a => a.GetReference())));
                     ClearAndZeroCapacity(_analyzersAddedInBatch);
 
                     // Analyzer reference removing...
                     foreach (var analyzerReference in _analyzersRemovedInBatch)
                     {
-                        solution = solution.RemoveAnalyzerReference(Id, analyzerReference.GetReference());
+                        solutionChanges.UpdateSolutionForProjectAction(
+                            Id,
+                            newSolution: solutionChanges.Solution.RemoveAnalyzerReference(Id, analyzerReference.GetReference()));
                     }
 
                     ClearAndZeroCapacity(_analyzersRemovedInBatch);
@@ -488,12 +558,14 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                     // Other property modifications...
                     foreach (var propertyModification in _projectPropertyModificationsInBatch)
                     {
-                        solution = propertyModification(solution);
+                        solutionChanges.UpdateSolutionForProjectAction(
+                            Id,
+                            propertyModification(solutionChanges.Solution));
                     }
 
                     ClearAndZeroCapacity(_projectPropertyModificationsInBatch);
 
-                    return solution;
+                    return solutionChanges;
                 });
 
                 foreach (var (documentId, textContainer) in documentsToOpen)
@@ -501,8 +573,18 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                     _workspace.ApplyChangeToWorkspace(w => w.OnDocumentOpened(documentId, textContainer));
                 }
 
+                foreach (var (documentId, textContainer) in additionalDocumentsToOpen)
+                {
+                    _workspace.ApplyChangeToWorkspace(w => w.OnAdditionalDocumentOpened(documentId, textContainer));
+                }
+
+                foreach (var (documentId, textContainer) in analyzerConfigDocumentsToOpen)
+                {
+                    _workspace.ApplyChangeToWorkspace(w => w.OnAnalyzerConfigDocumentOpened(documentId, textContainer));
+                }
+
                 // Check for those files being opened to start wire-up if necessary
-                _workspace.CheckForOpenDocuments(documentFileNamesAdded.ToImmutable());
+                _workspace.QueueCheckForFilesBeingOpen(documentFileNamesAdded.ToImmutable());
             }
         }
 
@@ -562,6 +644,26 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
 
         #endregion
 
+        #region Analyzer Config File Addition/Removal
+
+        public void AddAnalyzerConfigFile(string fullPath)
+        {
+            // TODO: do we need folders for analyzer config files?
+            _analyzerConfigFiles.AddFile(fullPath, SourceCodeKind.Regular, folders: default);
+        }
+
+        public bool ContainsAnalyzerConfigFile(string fullPath)
+        {
+            return _analyzerConfigFiles.ContainsFile(fullPath);
+        }
+
+        public void RemoveAnalyzerConfigFile(string fullPath)
+        {
+            _analyzerConfigFiles.RemoveFile(fullPath);
+        }
+
+        #endregion
+
         #region Non Source File Addition/Removal
 
         public void AddDynamicSourceFile(string dynamicFilePath, ImmutableArray<string> folders)
@@ -580,11 +682,11 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                     continue;
                 }
 
-                // don't get confused by _filePath and filePath
+                // Don't get confused by _filePath and filePath.
                 // VisualStudioProject._filePath points to csproj/vbproj of the project
-                // and the parameter filePath points to dynamic file such as cshtml and etc
+                // and the parameter filePath points to dynamic file such as ASP.NET .g.cs files.
                 // 
-                // also, provider is free-threaded. so fine to call Wait rather than JTF
+                // Also, provider is free-threaded. so fine to call Wait rather than JTF.
                 var fileInfo = provider.Value.GetDynamicFileInfoAsync(
                     projectId: Id, projectFilePath: _filePath, filePath: dynamicFilePath, CancellationToken.None).WaitAndGetResult_CanCallOnBackground(CancellationToken.None);
 
@@ -705,76 +807,8 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
         {
             _sourceFiles.ProcessFileChange(fullFilePath);
             _additionalFiles.ProcessFileChange(fullFilePath);
+            _analyzerConfigFiles.ProcessFileChange(fullFilePath);
         }
-
-        #region Metadata Reference Refreshing
-
-        private void FileReferenceChangeContext_FileChanged(object sender, string fullFilePath)
-        {
-            lock (_gate)
-            {
-                CancelOutstandingMetadataReferenceRefreshForFile_NoLock(fullFilePath);
-
-                var cancellationTokenSource = new CancellationTokenSource();
-                _metadataReferenceRefreshCancellationTokenSources.Add(fullFilePath, cancellationTokenSource);
-
-                Task.Delay(TimeSpan.FromSeconds(5), cancellationTokenSource.Token).ContinueWith(_ =>
-                {
-                    lock (_gate)
-                    {
-                        // We need to re-check the cancellation token source under the lock, since it might have been cancelled and restarted
-                        // due to another event
-                        cancellationTokenSource.Token.ThrowIfCancellationRequested();
-                        RefreshMetadataReferencesForFile_NoLock(fullFilePath);
-
-                        _metadataReferenceRefreshCancellationTokenSources.Remove(fullFilePath);
-                    }
-                }, cancellationTokenSource.Token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
-            }
-        }
-
-        private void RefreshMetadataReferencesForFile_NoLock(string fullFilePath)
-        {
-            // Since all adds/removals of references for this project happen under our lock, it's safe to do this
-            // check without taking the main workspace lock.
-            var project = _workspace.CurrentSolution.GetProject(Id);
-
-            foreach (var portableExecutableReference in project.MetadataReferences.OfType<PortableExecutableReference>())
-            {
-                // Loop to find each reference with the given path. It's possible that there might be multiple references of the same path;
-                // the project system could concievably add the same reference multiple times but with different aliases. It's also possible
-                // we might not find the path at all: when we recieve the file changed event, we aren't checking if the file is still
-                // in the workspace at that time; it's possible it might have already been removed. We could add a second check for the file
-                // there, but it's just overhead checking for a rare situation we'll still be able to deal with here.
-                if (portableExecutableReference.FilePath == fullFilePath)
-                {
-                    var newPortableExecutableReference = _workspace.CreatePortableExecutableReference(portableExecutableReference.FilePath, portableExecutableReference.Properties);
-
-                    // We need to swap this out. Time to take the full lock now.
-                    _workspace.ApplyBatchChangeToProject(Id, s =>
-                    {
-                        return s.RemoveMetadataReference(Id, portableExecutableReference)
-                                .AddMetadataReference(Id, newPortableExecutableReference);
-                    });
-
-                    // Transfer the ownership of the file watching token
-                    var fileWatchingToken = _metadataReferenceFileWatchingTokens[portableExecutableReference];
-                    _metadataReferenceFileWatchingTokens.Remove(portableExecutableReference);
-                    _metadataReferenceFileWatchingTokens.Add(newPortableExecutableReference, fileWatchingToken);
-                }
-            }
-        }
-
-        private void CancelOutstandingMetadataReferenceRefreshForFile_NoLock(string fullFilePath)
-        {
-            if (_metadataReferenceRefreshCancellationTokenSources.TryGetValue(fullFilePath, out var cancellationTokenSource))
-            {
-                cancellationTokenSource.Cancel();
-                _metadataReferenceRefreshCancellationTokenSources.Remove(fullFilePath);
-            }
-        }
-
-        #endregion
 
         #region Metadata Reference Addition/Removal
 
@@ -792,7 +826,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                     throw new InvalidOperationException("The metadata reference has already been added to the project.");
                 }
 
-                _allMetadataReferences.MultiAdd(fullPath, properties);
+                _allMetadataReferences.MultiAdd(fullPath, properties, s_defaultMetadataReferenceProperties);
 
                 if (_activeBatchScopes > 0)
                 {
@@ -813,9 +847,8 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                         }
                         else
                         {
-                            var metadataReference = _workspace.CreatePortableExecutableReference(fullPath, properties);
+                            var metadataReference = _workspace.FileWatchedReferenceFactory.CreateReferenceAndStartWatchingFile(fullPath, properties);
                             w.OnMetadataReferenceAdded(Id, metadataReference);
-                            _metadataReferenceFileWatchingTokens.Add(metadataReference, _fileReferenceChangeContext.EnqueueWatchingFile(metadataReference.FilePath));
                         }
                     });
                 }
@@ -838,10 +871,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
         {
             lock (_gate)
             {
-                _allMetadataReferences.TryGetValue(fullPath, out var list);
-
-                // Note: AsImmutableOrEmpty accepts null recievers and treats that as an empty array
-                return list.AsImmutableOrEmpty();
+                return _allMetadataReferences.TryGetValue(fullPath, out var list) ? list : ImmutableArray<MetadataReferenceProperties>.Empty;
             }
         }
 
@@ -885,11 +915,8 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                             var metadataReference = w.CurrentSolution.GetProject(Id).MetadataReferences.Cast<PortableExecutableReference>()
                                                                                     .Single(m => m.FilePath == fullPath && m.Properties == properties);
 
+                            _workspace.FileWatchedReferenceFactory.StopWatchingReference(metadataReference);
                             w.OnMetadataReferenceRemoved(Id, metadataReference);
-
-                            _fileReferenceChangeContext.StopWatchingFile(_metadataReferenceFileWatchingTokens[metadataReference]);
-                            _metadataReferenceFileWatchingTokens.Remove(metadataReference);
-                            CancelOutstandingMetadataReferenceRefreshForFile_NoLock(metadataReference.FilePath);
                         }
                     });
                 }
@@ -1000,7 +1027,6 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
         public void RemoveFromWorkspace()
         {
             _documentFileChangeContext.Dispose();
-            _fileReferenceChangeContext.Dispose();
 
             lock (_gate)
             {
@@ -1012,10 +1038,10 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
 
                 _eventSubscriptionTracker.Clear();
 
-                // Clear any remaining pending refreshes we have for files
-                foreach (var cancellationTokenSource in _metadataReferenceRefreshCancellationTokenSources.Values)
+                // Clear any file watchers we still have for references
+                foreach (PortableExecutableReference reference in _workspace.CurrentSolution.GetProject(Id).MetadataReferences)
                 {
-                    cancellationTokenSource.Cancel();
+                    _workspace.FileWatchedReferenceFactory.StopWatchingReference(reference);
                 }
             }
 
@@ -1172,7 +1198,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                     else
                     {
                         _project._workspace.ApplyChangeToWorkspace(w => _documentAddAction(w, documentInfo));
-                        _project._workspace.CheckForOpenDocuments(ImmutableArray.Create(fullPath));
+                        _project._workspace.QueueCheckForFilesBeingOpen(ImmutableArray.Create(fullPath));
                     }
                 }
 
@@ -1340,7 +1366,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                 }
                 else
                 {
-                    for (int i = 0; i < _documentsAddedInBatch.Count; i++)
+                    for (var i = 0; i < _documentsAddedInBatch.Count; i++)
                     {
                         if (_documentsAddedInBatch[i].Id == documentId)
                         {
@@ -1397,7 +1423,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                     }
                     else
                     {
-                        for (int i = 0; i < _documentsAddedInBatch.Count; i++)
+                        for (var i = 0; i < _documentsAddedInBatch.Count; i++)
                         {
                             if (_documentsAddedInBatch[i].Id == documentId)
                             {
@@ -1524,20 +1550,32 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                     }
                     else
                     {
-                        _project._workspace.ApplyBatchChangeToProject(_project.Id, solution => solution.WithProjectDocumentsOrder(_project.Id, documentIds.ToImmutable()));
+                        _project._workspace.ApplyBatchChangeToWorkspace(solution =>
+                        {
+                            var solutionChanges = new SolutionChangeAccumulator(solution);
+                            solutionChanges.UpdateSolutionForProjectAction(
+                                _project.Id,
+                                solutionChanges.Solution.WithProjectDocumentsOrder(_project.Id, documentIds.ToImmutable()));
+                            return solutionChanges;
+                        });
                     }
                 }
             }
 
-            internal Solution UpdateSolutionForBatch(
-                Solution solution,
+            internal void UpdateSolutionForBatch(
+                SolutionChangeAccumulator solutionChanges,
                 ImmutableArray<string>.Builder documentFileNamesAdded,
-                List<(DocumentId, SourceTextContainer)> documentsToOpen,
+                List<(DocumentId documentId, SourceTextContainer textContainer)> documentsToOpen,
                 Func<Solution, ImmutableArray<DocumentInfo>, Solution> addDocuments,
-                Func<Solution, DocumentId, Solution> removeDocument)
+                WorkspaceChangeKind addDocumentChangeKind,
+                Func<Solution, DocumentId, Solution> removeDocument,
+                WorkspaceChangeKind removeDocumentChangeKind)
             {
                 // Document adding...
-                solution = addDocuments(solution, _documentsAddedInBatch.ToImmutable());
+                solutionChanges.UpdateSolutionForDocumentAction(
+                    newSolution: addDocuments(solutionChanges.Solution, _documentsAddedInBatch.ToImmutable()),
+                    changeKind: addDocumentChangeKind,
+                    documentIds: _documentsAddedInBatch.Select(d => d.Id));
 
                 foreach (var documentInfo in _documentsAddedInBatch)
                 {
@@ -1554,7 +1592,9 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                 // Document removing...
                 foreach (var documentId in _documentsRemovedInBatch)
                 {
-                    solution = removeDocument(solution, documentId);
+                    solutionChanges.UpdateSolutionForDocumentAction(removeDocument(solutionChanges.Solution, documentId),
+                        removeDocumentChangeKind,
+                        SpecializedCollections.SingletonEnumerable(documentId));
                 }
 
                 ClearAndZeroCapacity(_documentsRemovedInBatch);
@@ -1562,11 +1602,11 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                 // Update project's order of documents.
                 if (_orderedDocumentsInBatch != null)
                 {
-                    solution = solution.WithProjectDocumentsOrder(_project.Id, _orderedDocumentsInBatch);
+                    solutionChanges.UpdateSolutionForProjectAction(
+                        _project.Id,
+                        solutionChanges.Solution.WithProjectDocumentsOrder(_project.Id, _orderedDocumentsInBatch));
                     _orderedDocumentsInBatch = null;
                 }
-
-                return solution;
             }
 
             private DocumentInfo CreateDocumentInfoFromFileInfo(DynamicFileInfo fileInfo, IEnumerable<string> folders)
@@ -1578,7 +1618,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                 var documentId = DocumentId.CreateNewId(_project.Id, filePath);
 
                 var textLoader = fileInfo.TextLoader;
-                var documentServiceProvider = fileInfo.DocumentServiceProvider;
+                var documentServiceProvider = new DynamicFileDocumentServiceProvider(fileInfo.DocumentServiceProvider);
 
                 return DocumentInfo.Create(
                     documentId,
@@ -1589,6 +1629,32 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
                     filePath: filePath,
                     isGenerated: false,
                     documentServiceProvider: documentServiceProvider);
+            }
+
+            private sealed class DynamicFileDocumentServiceProvider : IDocumentServiceProvider
+            {
+                private sealed class DesignTimeOnlyDocumentPropertiesService : DocumentPropertiesService
+                {
+                    public static readonly DesignTimeOnlyDocumentPropertiesService Instance = new DesignTimeOnlyDocumentPropertiesService();
+                    public override bool DesignTimeOnly => true;
+                }
+
+                private readonly IDocumentServiceProvider _provider;
+
+                public DynamicFileDocumentServiceProvider(IDocumentServiceProvider provider)
+                {
+                    _provider = provider;
+                }
+
+                TService IDocumentServiceProvider.GetService<TService>()
+                {
+                    if (DesignTimeOnlyDocumentPropertiesService.Instance is TService documentPropertiesService)
+                    {
+                        return documentPropertiesService;
+                    }
+
+                    return _provider.GetService<TService>();
+                }
             }
 
             private sealed class SourceTextLoader : TextLoader

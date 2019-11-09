@@ -9,7 +9,7 @@ using Roslyn.Utilities;
 
 namespace Microsoft.CodeAnalysis.CSharp.Symbols
 {
-    internal sealed partial class DynamicTypeSymbol : TypeSymbol, IDynamicTypeSymbol
+    internal sealed partial class DynamicTypeSymbol : TypeSymbol
     {
         internal static readonly DynamicTypeSymbol Instance = new DynamicTypeSymbol();
 
@@ -104,13 +104,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             }
         }
 
-        internal sealed override bool IsManagedType
-        {
-            get
-            {
-                return true;
-            }
-        }
+        internal sealed override ManagedKind ManagedKind => ManagedKind.Managed;
 
         public sealed override bool IsRefLikeType
         {
@@ -120,7 +114,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             }
         }
 
-        internal sealed override bool IsReadOnly
+        public sealed override bool IsReadOnly
         {
             get
             {
@@ -196,7 +190,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             return (int)Microsoft.CodeAnalysis.SpecialType.System_Object;
         }
 
-        internal override bool Equals(TypeSymbol t2, TypeCompareKind comparison)
+        internal override bool Equals(TypeSymbol t2, TypeCompareKind comparison, IReadOnlyDictionary<TypeParameterSymbol, bool> isValueTypeOverrideOpt = null)
         {
             if ((object)t2 == null)
             {
@@ -227,30 +221,26 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             return true;
         }
 
-        internal override TypeSymbol SetNullabilityForReferenceTypes(Func<TypeSymbolWithAnnotations, TypeSymbolWithAnnotations> transform)
+        internal override TypeSymbol SetNullabilityForReferenceTypes(Func<TypeWithAnnotations, TypeWithAnnotations> transform)
         {
             return this;
         }
 
-        internal override TypeSymbol MergeNullability(TypeSymbol other, VarianceKind variance, out bool hadNullabilityMismatch)
+        internal override TypeSymbol MergeEquivalentTypes(TypeSymbol other, VarianceKind variance)
         {
             Debug.Assert(this.Equals(other, TypeCompareKind.IgnoreDynamicAndTupleNames | TypeCompareKind.IgnoreNullableModifiersForReferenceTypes));
-            hadNullabilityMismatch = false;
             return this;
         }
 
-        #region ISymbol Members
-
-        public override void Accept(SymbolVisitor visitor)
+        protected override ISymbol CreateISymbol()
         {
-            visitor.VisitDynamicType(this);
+            return new PublicModel.DynamicTypeSymbol(this, DefaultNullableAnnotation);
         }
 
-        public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor)
+        protected sealed override ITypeSymbol CreateITypeSymbol(CodeAnalysis.NullableAnnotation nullableAnnotation)
         {
-            return visitor.VisitDynamicType(this);
+            Debug.Assert(nullableAnnotation != DefaultNullableAnnotation);
+            return new PublicModel.DynamicTypeSymbol(this, nullableAnnotation);
         }
-
-        #endregion
     }
 }

@@ -14,6 +14,10 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.QuickInfo
     Friend Class VisualBasicSemanticQuickInfoProvider
         Inherits CommonSemanticQuickInfoProvider
 
+        <ImportingConstructor>
+        Public Sub New()
+        End Sub
+
         Protected Overrides Async Function BuildQuickInfoAsync(
                 document As Document,
                 token As SyntaxToken,
@@ -94,6 +98,17 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.QuickInfo
         ''' </summary>
         Protected Overrides Function GetBindableNodeForTokenIndicatingLambda(token As SyntaxToken, <Out> ByRef found As SyntaxNode) As Boolean
             If token.IsKind(SyntaxKind.SubKeyword, SyntaxKind.FunctionKeyword) AndAlso token.Parent.IsKind(SyntaxKind.SubLambdaHeader, SyntaxKind.FunctionLambdaHeader) Then
+                found = token.Parent.Parent
+                Return True
+            End If
+
+            found = Nothing
+            Return False
+        End Function
+
+        Protected Overrides Function GetBindableNodeForTokenIndicatingPossibleIndexerAccess(token As SyntaxToken, ByRef found As SyntaxNode) As Boolean
+            If token.IsKind(SyntaxKind.OpenParenToken, SyntaxKind.CloseParenToken) AndAlso
+                token.Parent?.Parent.IsKind(SyntaxKind.InvocationExpression) = True Then
                 found = token.Parent.Parent
                 Return True
             End If

@@ -17,8 +17,8 @@ namespace Microsoft.CodeAnalysis.CSharp.ExtractMethod
 {
     internal partial class CSharpMethodExtractor : MethodExtractor
     {
-        public CSharpMethodExtractor(CSharpSelectionResult result) :
-            base(result)
+        public CSharpMethodExtractor(CSharpSelectionResult result)
+            : base(result)
         {
         }
 
@@ -72,7 +72,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExtractMethod
             return CSharpCodeGenerator.GenerateAsync(insertionPoint, selectionResult, analyzeResult, cancellationToken);
         }
 
-        protected override IEnumerable<IFormattingRule> GetFormattingRules(Document document)
+        protected override IEnumerable<AbstractFormattingRule> GetFormattingRules(Document document)
         {
             return SpecializedCollections.SingletonEnumerable(new FormattingRule()).Concat(Formatter.GetDefaultFormattingRules(document));
         }
@@ -110,7 +110,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExtractMethod
             {
                 var typeName = SyntaxFactory.ParseTypeName(typeParameter.Name);
                 var currentType = semanticModel.GetSpeculativeTypeInfo(contextNode.SpanStart, typeName, SpeculativeBindingOption.BindAsTypeOrNamespace).Type;
-                if (currentType == null || !currentType.Equals(typeParameter))
+                if (currentType == null || !AllNullabilityIgnoringSymbolComparer.Instance.Equals(currentType, typeParameter))
                 {
                     return new OperationStatus(OperationStatusFlag.BestEffort,
                         string.Format(FeaturesResources.Type_parameter_0_is_hidden_by_another_type_parameter_1,

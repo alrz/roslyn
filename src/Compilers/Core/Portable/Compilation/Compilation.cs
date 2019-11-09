@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.Contracts;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -55,7 +56,8 @@ namespace Microsoft.CodeAnalysis
         /// </summary>
         private SmallDictionary<int, bool> _lazyMakeMemberMissingMap;
 
-        private readonly IReadOnlyDictionary<string, string> _features;
+        // Protected for access in CSharpCompilation.WithAdditionalFeatures
+        protected readonly IReadOnlyDictionary<string, string> _features;
 
         public ScriptCompilationInfo ScriptCompilationInfo => CommonScriptCompilationInfo;
         internal abstract ScriptCompilationInfo CommonScriptCompilationInfo { get; }
@@ -736,8 +738,10 @@ namespace Microsoft.CodeAnalysis
         /// <param name="assemblySymbol">The target symbol.</param>
         public MetadataReference GetMetadataReference(IAssemblySymbol assemblySymbol)
         {
-            return GetBoundReferenceManager().GetMetadataReference(assemblySymbol);
+            return CommonGetMetadataReference(assemblySymbol);
         }
+
+        private protected abstract MetadataReference CommonGetMetadataReference(IAssemblySymbol assemblySymbol);
 
         /// <summary>
         /// Assembly identities of all assemblies directly referenced by this compilation.
@@ -801,25 +805,30 @@ namespace Microsoft.CodeAnalysis
         /// </summary>
         public INamedTypeSymbol GetSpecialType(SpecialType specialType)
         {
-            return CommonGetSpecialType(specialType);
+            return (INamedTypeSymbol)CommonGetSpecialType(specialType)?.GetITypeSymbol();
         }
 
         /// <summary>
         /// Get the symbol for the predefined type member from the COR Library referenced by this compilation.
         /// </summary>
-        internal abstract ISymbol CommonGetSpecialTypeMember(SpecialMember specialMember);
+        internal abstract ISymbolInternal CommonGetSpecialTypeMember(SpecialMember specialMember);
 
         /// <summary>
         /// Returns true if the type is System.Type.
         /// </summary>
-        internal abstract bool IsSystemTypeReference(ITypeSymbol type);
+        internal abstract bool IsSystemTypeReference(ITypeSymbolInternal type);
 
-        protected abstract INamedTypeSymbol CommonGetSpecialType(SpecialType specialType);
+        private protected abstract INamedTypeSymbolInternal CommonGetSpecialType(SpecialType specialType);
 
         /// <summary>
         /// Lookup member declaration in well known type used by this Compilation.
         /// </summary>
-        internal abstract ISymbol CommonGetWellKnownTypeMember(WellKnownMember member);
+        internal abstract ISymbolInternal CommonGetWellKnownTypeMember(WellKnownMember member);
+
+        /// <summary>
+        /// Lookup well-known type used by this Compilation.
+        /// </summary>
+        internal abstract ITypeSymbolInternal CommonGetWellKnownType(WellKnownType wellknownType);
 
         /// <summary>
         /// Returns true if the specified type is equal to or derives from System.Attribute well-known type.
@@ -895,12 +904,22 @@ namespace Microsoft.CodeAnalysis
         /// Returns a new ArrayTypeSymbol representing an array type tied to the base types of the
         /// COR Library in this Compilation.
         /// </summary>
-        public IArrayTypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType, int rank = 1)
+        public IArrayTypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType, int rank = 1, NullableAnnotation elementNullableAnnotation = NullableAnnotation.None)
         {
-            return CommonCreateArrayTypeSymbol(elementType, rank);
+            return CommonCreateArrayTypeSymbol(elementType, rank, elementNullableAnnotation);
         }
 
-        protected abstract IArrayTypeSymbol CommonCreateArrayTypeSymbol(ITypeSymbol elementType, int rank);
+        /// <summary>
+        /// Returns a new ArrayTypeSymbol representing an array type tied to the base types of the
+        /// COR Library in this Compilation.
+        /// </summary>
+        /// <remarks>This overload is for backwards compatibility. Do not remove.</remarks>
+        public IArrayTypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType, int rank)
+        {
+            return CreateArrayTypeSymbol(elementType, rank, elementNullableAnnotation: default);
+        }
+
+        protected abstract IArrayTypeSymbol CommonCreateArrayTypeSymbol(ITypeSymbol elementType, int rank, NullableAnnotation elementNullableAnnotation);
 
         /// <summary>
         /// Returns a new PointerTypeSymbol representing a pointer type tied to a type in this
@@ -945,27 +964,31 @@ namespace Microsoft.CodeAnalysis
 
 #pragma warning disable RS0026 // Do not add multiple public overloads with optional parameters
         /// <summary>
-        /// Returns a new INamedTypeSymbol with the given element types and (optional) element names.
+        /// Returns a new INamedTypeSymbol with the given element types and
+        /// (optional) element names, locations, and nullable annotations.
         /// </summary>
         public INamedTypeSymbol CreateTupleTypeSymbol(
             ImmutableArray<ITypeSymbol> elementTypes,
-            ImmutableArray<string> elementNames = default(ImmutableArray<string>),
-            ImmutableArray<Location> elementLocations = default(ImmutableArray<Location>))
+            ImmutableArray<string> elementNames = default,
+            ImmutableArray<Location> elementLocations = default,
+            ImmutableArray<NullableAnnotation> elementNullableAnnotations = default)
         {
             if (elementTypes.IsDefault)
             {
                 throw new ArgumentNullException(nameof(elementTypes));
             }
 
+            int n = elementTypes.Length;
             if (elementTypes.Length <= 1)
             {
                 throw new ArgumentException(CodeAnalysisResources.TuplesNeedAtLeastTwoElements, nameof(elementNames));
             }
 
-            elementNames = CheckTupleElementNames(elementTypes.Length, elementNames);
-            CheckTupleElementLocations(elementTypes.Length, elementLocations);
+            elementNames = CheckTupleElementNames(n, elementNames);
+            CheckTupleElementLocations(n, elementLocations);
+            CheckTupleElementNullableAnnotations(n, elementNullableAnnotations);
 
-            for (int i = 0, n = elementTypes.Length; i < n; i++)
+            for (int i = 0; i < n; i++)
             {
                 if (elementTypes[i] == null)
                 {
@@ -978,9 +1001,34 @@ namespace Microsoft.CodeAnalysis
                 }
             }
 
-            return CommonCreateTupleTypeSymbol(elementTypes, elementNames, elementLocations);
+            return CommonCreateTupleTypeSymbol(elementTypes, elementNames, elementLocations, elementNullableAnnotations);
         }
 #pragma warning restore RS0026 // Do not add multiple public overloads with optional parameters
+
+        /// <summary>
+        /// Returns a new INamedTypeSymbol with the given element types, names, and locations.
+        /// </summary>
+        /// <remarks>This overload is for backwards compatibility. Do not remove.</remarks>
+        public INamedTypeSymbol CreateTupleTypeSymbol(
+            ImmutableArray<ITypeSymbol> elementTypes,
+            ImmutableArray<string> elementNames,
+            ImmutableArray<Location> elementLocations)
+        {
+            return CreateTupleTypeSymbol(elementTypes, elementNames, elementLocations, elementNullableAnnotations: default);
+        }
+
+        protected static void CheckTupleElementNullableAnnotations(
+            int cardinality,
+            ImmutableArray<NullableAnnotation> elementNullableAnnotations)
+        {
+            if (!elementNullableAnnotations.IsDefault)
+            {
+                if (elementNullableAnnotations.Length != cardinality)
+                {
+                    throw new ArgumentException(CodeAnalysisResources.TupleElementNullableAnnotationCountMismatch, nameof(elementNullableAnnotations));
+                }
+            }
+        }
 
         /// <summary>
         /// Check that if any names are provided, and their number matches the expected cardinality.
@@ -1028,49 +1076,61 @@ namespace Microsoft.CodeAnalysis
         protected abstract INamedTypeSymbol CommonCreateTupleTypeSymbol(
             ImmutableArray<ITypeSymbol> elementTypes,
             ImmutableArray<string> elementNames,
-            ImmutableArray<Location> elementLocations);
+            ImmutableArray<Location> elementLocations,
+            ImmutableArray<NullableAnnotation> elementNullableAnnotations);
 
 #pragma warning disable RS0026 // Do not add multiple public overloads with optional parameters
         /// <summary>
-        /// Returns a new INamedTypeSymbol with the given underlying type and (optional) element names.
+        /// Returns a new INamedTypeSymbol with the given underlying type and
+        /// (optional) element names, locations, and nullable annotations.
+        /// The underlying type needs to be tuple-compatible.
         /// </summary>
-        /// <remarks>
-        /// Since VB doesn't support tuples yet, this call will fail in a VB compilation.
-        /// Also, the underlying type needs to be tuple-compatible.
-        /// </remarks>
         public INamedTypeSymbol CreateTupleTypeSymbol(
             INamedTypeSymbol underlyingType,
-            ImmutableArray<string> elementNames = default(ImmutableArray<string>),
-            ImmutableArray<Location> elementLocations = default(ImmutableArray<Location>))
+            ImmutableArray<string> elementNames = default,
+            ImmutableArray<Location> elementLocations = default,
+            ImmutableArray<NullableAnnotation> elementNullableAnnotations = default)
         {
             if ((object)underlyingType == null)
             {
                 throw new ArgumentNullException(nameof(underlyingType));
             }
 
-            return CommonCreateTupleTypeSymbol(
-                underlyingType, elementNames, elementLocations);
+            return CommonCreateTupleTypeSymbol(underlyingType, elementNames, elementLocations, elementNullableAnnotations);
         }
 #pragma warning restore RS0026 // Do not add multiple public overloads with optional parameters
+
+        /// <summary>
+        /// Returns a new INamedTypeSymbol with the given underlying type and element names and locations.
+        /// The underlying type needs to be tuple-compatible.
+        /// </summary>
+        /// <remarks>This overload is for backwards compatibility. Do not remove.</remarks>
+        public INamedTypeSymbol CreateTupleTypeSymbol(
+            INamedTypeSymbol underlyingType,
+            ImmutableArray<string> elementNames,
+            ImmutableArray<Location> elementLocations)
+        {
+            return CreateTupleTypeSymbol(underlyingType, elementNames, elementLocations, elementNullableAnnotations: default);
+        }
 
         protected abstract INamedTypeSymbol CommonCreateTupleTypeSymbol(
             INamedTypeSymbol underlyingType,
             ImmutableArray<string> elementNames,
-            ImmutableArray<Location> elementLocations);
+            ImmutableArray<Location> elementLocations,
+            ImmutableArray<NullableAnnotation> elementNullableAnnotations);
 
         /// <summary>
-        /// Returns a new anonymous type symbol with the given member types member names.
+        /// Returns a new anonymous type symbol with the given member types, names, source locations, and nullable annotations.
         /// Anonymous type members will be readonly by default.  Writable properties are
         /// supported in VB and can be created by passing in <see langword="false"/> in the
         /// appropriate locations in <paramref name="memberIsReadOnly"/>.
-        ///
-        /// Source locations can also be provided through <paramref name="memberLocations"/>
         /// </summary>
         public INamedTypeSymbol CreateAnonymousTypeSymbol(
             ImmutableArray<ITypeSymbol> memberTypes,
             ImmutableArray<string> memberNames,
-            ImmutableArray<bool> memberIsReadOnly = default(ImmutableArray<bool>),
-            ImmutableArray<Location> memberLocations = default(ImmutableArray<Location>))
+            ImmutableArray<bool> memberIsReadOnly = default,
+            ImmutableArray<Location> memberLocations = default,
+            ImmutableArray<NullableAnnotation> memberNullableAnnotations = default)
         {
             if (memberTypes.IsDefault)
             {
@@ -1100,6 +1160,12 @@ namespace Microsoft.CodeAnalysis
                                                     nameof(memberIsReadOnly), nameof(memberNames)));
             }
 
+            if (!memberNullableAnnotations.IsDefault && memberNullableAnnotations.Length != memberTypes.Length)
+            {
+                throw new ArgumentException(string.Format(CodeAnalysisResources.AnonymousTypeArgumentCountMismatch2,
+                                                    nameof(memberNullableAnnotations), nameof(memberNames)));
+            }
+
             for (int i = 0, n = memberTypes.Length; i < n; i++)
             {
                 if (memberTypes[i] == null)
@@ -1118,14 +1184,31 @@ namespace Microsoft.CodeAnalysis
                 }
             }
 
-            return CommonCreateAnonymousTypeSymbol(memberTypes, memberNames, memberLocations, memberIsReadOnly);
+            return CommonCreateAnonymousTypeSymbol(memberTypes, memberNames, memberLocations, memberIsReadOnly, memberNullableAnnotations);
+        }
+
+        /// <summary>
+        /// Returns a new anonymous type symbol with the given member types, names, and source locations.
+        /// Anonymous type members will be readonly by default.  Writable properties are
+        /// supported in VB and can be created by passing in <see langword="false"/> in the
+        /// appropriate locations in <paramref name="memberIsReadOnly"/>.
+        /// </summary>
+        /// <remarks>This overload is for backwards compatibility. Do not remove.</remarks>
+        public INamedTypeSymbol CreateAnonymousTypeSymbol(
+            ImmutableArray<ITypeSymbol> memberTypes,
+            ImmutableArray<string> memberNames,
+            ImmutableArray<bool> memberIsReadOnly,
+            ImmutableArray<Location> memberLocations)
+        {
+            return CreateAnonymousTypeSymbol(memberTypes, memberNames, memberIsReadOnly, memberLocations, memberNullableAnnotations: default);
         }
 
         protected abstract INamedTypeSymbol CommonCreateAnonymousTypeSymbol(
             ImmutableArray<ITypeSymbol> memberTypes,
             ImmutableArray<string> memberNames,
             ImmutableArray<Location> memberLocations,
-            ImmutableArray<bool> memberIsReadOnly);
+            ImmutableArray<bool> memberIsReadOnly,
+            ImmutableArray<NullableAnnotation> memberNullableAnnotations);
 
         /// <summary>
         /// Classifies a conversion from <paramref name="source"/> to <paramref name="destination"/> according
@@ -1185,7 +1268,7 @@ namespace Microsoft.CodeAnalysis
 
             checkInCompilationReferences(symbol, nameof(symbol));
             checkInCompilationReferences(within, nameof(within));
-            if (!(throughType is null))
+            if (throughType is object)
             {
                 checkInCompilationReferences(throughType, nameof(throughType));
             }
@@ -1345,7 +1428,7 @@ namespace Microsoft.CodeAnalysis
         /// </summary>
         /// <param name="accumulator">Bag to which filtered diagnostics will be added.</param>
         /// <param name="incoming">Diagnostics to be filtered.</param>
-        /// <returns>True if there were no errors or warnings-as-errors.</returns>
+        /// <returns>True if there are no unsuppressed errors (i.e., no errors which fail compilation).</returns>
         internal bool FilterAndAppendAndFreeDiagnostics(DiagnosticBag accumulator, ref DiagnosticBag incoming)
         {
             bool result = FilterAndAppendDiagnostics(accumulator, incoming.AsEnumerableWithoutResolution(), exclude: null);
@@ -1357,7 +1440,7 @@ namespace Microsoft.CodeAnalysis
         /// <summary>
         /// Filter out warnings based on the compiler options (/nowarn, /warn and /warnaserror) and the pragma warning directives.
         /// </summary>
-        /// <returns>True when there is no error.</returns>
+        /// <returns>True if there are no unsuppressed errors (i.e., no errors which fail compilation).</returns>
         internal bool FilterAndAppendDiagnostics(DiagnosticBag accumulator, IEnumerable<Diagnostic> incoming, HashSet<int> exclude)
         {
             bool hasError = false;
@@ -1376,7 +1459,7 @@ namespace Microsoft.CodeAnalysis
                 {
                     continue;
                 }
-                else if (filtered.Severity == DiagnosticSeverity.Error)
+                else if (filtered.IsUnsuppressableError())
                 {
                     hasError = true;
                 }
@@ -1962,7 +2045,7 @@ namespace Microsoft.CodeAnalysis
             bool emitMetadataOnly,
             bool emitTestCoverageData,
             DiagnosticBag diagnostics,
-            Predicate<ISymbol> filterOpt,
+            Predicate<ISymbolInternal> filterOpt,
             CancellationToken cancellationToken);
 
         internal bool CreateDebugDocuments(DebugDocumentsBuilder documentsBuilder, IEnumerable<EmbeddedText> embeddedTexts, DiagnosticBag diagnostics)
@@ -1987,8 +2070,6 @@ namespace Microsoft.CodeAnalysis
             // takes priority over the syntax tree pass, which will not embed.
             if (!embeddedTexts.IsEmpty())
             {
-                var embeddedDocuments = ArrayBuilder<Cci.DebugSourceDocument>.GetInstance();
-
                 foreach (var text in embeddedTexts)
                 {
                     Debug.Assert(!string.IsNullOrEmpty(text.FilePath));
@@ -2002,11 +2083,8 @@ namespace Microsoft.CodeAnalysis
                             () => text.GetDebugSourceInfo());
 
                         documentsBuilder.AddDebugDocument(document);
-                        embeddedDocuments.Add(document);
                     }
                 }
-
-                documentsBuilder.EmbeddedDocuments = embeddedDocuments.ToImmutableAndFree();
             }
 
             // Add debug documents for all trees with distinct paths.
@@ -2079,7 +2157,7 @@ namespace Microsoft.CodeAnalysis
             CommonPEModuleBuilder moduleBuilder,
             bool emittingPdb,
             DiagnosticBag diagnostics,
-            Predicate<ISymbol> filterOpt,
+            Predicate<ISymbolInternal> filterOpt,
             CancellationToken cancellationToken)
         {
             try
@@ -2413,6 +2491,8 @@ namespace Microsoft.CodeAnalysis
 
                     if (!options.EmitMetadataOnly)
                     {
+                        // NOTE: We generate documentation even in presence of compile errors.
+                        // https://github.com/dotnet/roslyn/issues/37996 tracks revisiting this behavior.
                         if (!GenerateResourcesAndDocumentationComments(
                             moduleBeingBuilt,
                             xmlDocumentationStream,
@@ -2439,6 +2519,11 @@ namespace Microsoft.CodeAnalysis
                 if (Options.StrongNameProvider != null && SignUsingBuilder && !Options.PublicSign)
                 {
                     privateKeyOpt = StrongNameKeys.PrivateKey;
+                }
+
+                if (!options.EmitMetadataOnly && CommonCompiler.HasUnsuppressedErrors(diagnostics))
+                {
+                    success = false;
                 }
 
                 if (success)
@@ -2578,7 +2663,7 @@ namespace Microsoft.CodeAnalysis
                 }
             }
 
-            if (diagnostics.HasAnyErrors())
+            if (CommonCompiler.HasUnsuppressableErrors(diagnostics))
             {
                 return null;
             }
@@ -2651,7 +2736,7 @@ namespace Microsoft.CodeAnalysis
             try
             {
                 var signKind = IsRealSigned
-                    ? (SignUsingBuilder ? EmitStreamSignKind.SignedWithBulider : EmitStreamSignKind.SignedWithFile)
+                    ? (SignUsingBuilder ? EmitStreamSignKind.SignedWithBuilder : EmitStreamSignKind.SignedWithFile)
                     : EmitStreamSignKind.None;
                 emitPeStream = new EmitStream(peStreamProvider, signKind, Options.StrongNameProvider);
                 emitMetadataStream = metadataPEStreamProvider == null

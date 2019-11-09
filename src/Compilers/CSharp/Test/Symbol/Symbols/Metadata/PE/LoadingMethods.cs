@@ -50,7 +50,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests.Symbols.Metadata.PE
             Assert.Equal("void TC10.M1()", localM1.ToTestDisplayString());
             Assert.True(localM1.ReturnsVoid);
             Assert.Equal(Accessibility.Public, localM1.DeclaredAccessibility);
-            Assert.Same(module2, localM1.Locations.Single().MetadataModule);
+            Assert.Same(module2, localM1.Locations.Single().MetadataModuleInternal);
 
             Assert.Equal("void TC10.M2(System.Int32 m1_1)", localM2.ToTestDisplayString());
             Assert.True(localM2.ReturnsVoid);
@@ -68,7 +68,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests.Symbols.Metadata.PE
             Assert.False(localM1_1.IsOverride);
             Assert.False(localM1_1.IsStatic);
             Assert.False(localM1_1.IsExtern);
-            Assert.Equal(0, localM1_1.Type.CustomModifiers.Length);
+            Assert.Equal(0, localM1_1.TypeWithAnnotations.CustomModifiers.Length);
 
             Assert.Equal("TC8 TC10.M3()", localM3.ToTestDisplayString());
             Assert.False(localM3.ReturnsVoid);
@@ -111,7 +111,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests.Symbols.Metadata.PE
 
             Assert.False(basicC1_M1.Parameters[0].IsOptional);
             Assert.False(basicC1_M1.Parameters[0].HasExplicitDefaultValue);
-            Assert.Same(module4, basicC1_M1.Parameters[0].Locations.Single().MetadataModule);
+            Assert.Same(module4, basicC1_M1.Parameters[0].Locations.Single().MetadataModuleInternal);
 
             Assert.True(basicC1_M2.Parameters[0].IsOptional);
             Assert.False(basicC1_M2.Parameters[0].HasExplicitDefaultValue);
@@ -155,7 +155,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests.Symbols.Metadata.PE
             Assert.Same(basicC1, basicC1_M11.TypeParameters[1].ConstraintTypes().Single());
 
             var basicC1_M12 = (MethodSymbol)basicC1.GetMembers("M12").Single();
-            Assert.Equal(0, basicC1_M12.TypeArguments.Length);
+            Assert.Equal(0, basicC1_M12.TypeArgumentsWithAnnotations.Length);
             Assert.False(basicC1_M12.IsVararg);
             Assert.False(basicC1_M12.IsExtern);
             Assert.False(basicC1_M12.IsStatic);
@@ -1310,7 +1310,7 @@ class P
         }
 
         [WorkItem(666162, "http://vstfdevdiv:8080/DevDiv2/DevDiv/_workitems/edit/666162")]
-        [ClrOnlyFact(ClrOnlyReason.Ilasm)]
+        [Fact]
         public void Repro666162()
         {
             var il = @"
@@ -1344,7 +1344,7 @@ class P
 
             var type = comp.GlobalNamespace.GetMember<NamedTypeSymbol>("Test");
             var method = type.GetMember<MethodSymbol>("M");
-            Assert.NotNull(method.ReturnType);
+            Assert.False(method.ReturnTypeWithAnnotations.IsDefault);
         }
 
         [Fact, WorkItem(217681, "https://devdiv.visualstudio.com/DefaultCollection/DevDiv/_workitems?id=217681")]

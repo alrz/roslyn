@@ -2,6 +2,7 @@
 
 using System;
 using System.Diagnostics;
+using Microsoft.CodeAnalysis.AddImports;
 using Microsoft.CodeAnalysis.CodeStyle;
 using Roslyn.Utilities;
 
@@ -38,17 +39,47 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeStyle
 
         private static string GetExpressionBodyPreferenceEditorConfigString(CodeStyleOption<ExpressionBodyPreference> value)
         {
-            Debug.Assert(value.Notification != null);
-
             var notificationString = value.Notification.ToEditorConfigString();
-            switch (value.Value)
+            return value.Value switch
             {
-                case ExpressionBodyPreference.Never: return $"false:{notificationString}";
-                case ExpressionBodyPreference.WhenPossible: return $"true:{notificationString}";
-                case ExpressionBodyPreference.WhenOnSingleLine: return $"when_on_single_line:{notificationString}";
-                default:
-                    throw new NotSupportedException();
+                ExpressionBodyPreference.Never => $"false:{notificationString}",
+                ExpressionBodyPreference.WhenPossible => $"true:{notificationString}",
+                ExpressionBodyPreference.WhenOnSingleLine => $"when_on_single_line:{notificationString}",
+                _ => throw new NotSupportedException(),
+            };
+        }
+
+        public static CodeStyleOption<AddImportPlacement> ParseUsingDirectivesPlacement(
+            string optionString, CodeStyleOption<AddImportPlacement> @default)
+        {
+            // optionString must be similar to outside_namespace:error or inside_namespace:suggestion.
+            if (CodeStyleHelpers.TryGetCodeStyleValueAndOptionalNotification(
+                optionString, out var value, out var notificationOpt))
+            {
+                // A notification value must be provided.
+                if (notificationOpt != null)
+                {
+                    return value switch
+                    {
+                        "inside_namespace" => new CodeStyleOption<AddImportPlacement>(AddImportPlacement.InsideNamespace, notificationOpt),
+                        "outside_namespace" => new CodeStyleOption<AddImportPlacement>(AddImportPlacement.OutsideNamespace, notificationOpt),
+                        _ => throw new NotSupportedException(),
+                    };
+                }
             }
+
+            return @default;
+        }
+
+        public static string GetUsingDirectivesPlacementEditorConfigString(CodeStyleOption<AddImportPlacement> value)
+        {
+            var notificationString = value.Notification.ToEditorConfigString();
+            return value.Value switch
+            {
+                AddImportPlacement.InsideNamespace => $"inside_namespace:{notificationString}",
+                AddImportPlacement.OutsideNamespace => $"outside_namespace:{notificationString}",
+                _ => throw new NotSupportedException(),
+            };
         }
 
         private static CodeStyleOption<PreferBracesPreference> ParsePreferBracesPreference(
@@ -81,23 +112,14 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeStyle
 
         private static string GetPreferBracesPreferenceEditorConfigString(CodeStyleOption<PreferBracesPreference> value)
         {
-            Debug.Assert(value.Notification != null);
-
             var notificationString = value.Notification.ToEditorConfigString();
-            switch (value.Value)
+            return value.Value switch
             {
-                case PreferBracesPreference.None:
-                    return $"false:{notificationString}";
-
-                case PreferBracesPreference.WhenMultiline:
-                    return $"when_multiline:{notificationString}";
-
-                case PreferBracesPreference.Always:
-                    return $"true:{notificationString}";
-
-                default:
-                    throw ExceptionUtilities.Unreachable;
-            }
+                PreferBracesPreference.None => $"false:{notificationString}",
+                PreferBracesPreference.WhenMultiline => $"when_multiline:{notificationString}",
+                PreferBracesPreference.Always => $"true:{notificationString}",
+                _ => throw ExceptionUtilities.Unreachable,
+            };
         }
     }
 }

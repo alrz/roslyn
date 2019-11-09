@@ -44,7 +44,7 @@ namespace Microsoft.CodeAnalysis.UnitTests
 
             using (var stream = new MemoryStream(buffer, 0, bytes.Length, writable: true, publiclyVisible: true))
             {
-                return EncodedStringText.Create(stream, new Lazy<Encoding>(getEncoding), readEncodingOpt, algorithm);
+                return EncodedStringText.TestAccessor.Create(stream, new Lazy<Encoding>(getEncoding), readEncodingOpt, algorithm, canBeEmbedded: false);
             }
         }
 
@@ -152,9 +152,9 @@ namespace Microsoft.CodeAnalysis.UnitTests
             // bytes should not decode to UTF-8
             using (var stream = new MemoryStream(bytes))
             {
-                Assert.Throws(typeof(DecoderFallbackException), () =>
+                Assert.Throws<DecoderFallbackException>(() =>
                 {
-                    EncodedStringText.Decode(stream, utf8, SourceHashAlgorithm.Sha1);
+                    EncodedStringText.TestAccessor.Decode(stream, utf8, SourceHashAlgorithm.Sha1, throwIfBinaryDetected: false, canBeEmbedded: false);
                 });
 
                 Assert.True(stream.CanRead);

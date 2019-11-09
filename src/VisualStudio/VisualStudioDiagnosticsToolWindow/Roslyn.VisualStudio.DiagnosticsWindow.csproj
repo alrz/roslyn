@@ -3,7 +3,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
-    <RoslynProjectType>Vsix</RoslynProjectType>
     <OutputType>Library</OutputType>
     <RootNamespace>Roslyn.VisualStudio.DiagnosticsWindow</RootNamespace>
 
@@ -66,6 +65,7 @@
     <PackageReference Include="Microsoft.VisualStudio.Text.UI.Wpf" Version="$(MicrosoftVisualStudioTextUIWpfVersion)" />
     <PackageReference Include="Microsoft.VisualStudio.Shell.15.0" Version="$(MicrosoftVisualStudioShell150Version)" />
     <PackageReference Include="Microsoft.VisualStudio.SDK.EmbedInteropTypes" Version="$(MicrosoftVisualStudioSDKEmbedInteropTypesVersion)" />
+    <PackageReference Include="Microsoft.VisualStudio.Threading" Version="$(MicrosoftVisualStudioThreadingVersion)" />
   </ItemGroup>
   <ItemGroup>
     <Compile Update="Resources.Designer.cs">
@@ -75,7 +75,6 @@
     </Compile>
     <Compile Update="Telemetry\TelemetryPanel.xaml.cs">
       <DependentUpon>TelemetryPanel.xaml</DependentUpon>
-      <SubType>Code</SubType>
     </Compile>
     <Compile Update="VenusMargin\ProjectionBufferMargin.xaml.cs">
       <DependentUpon>ProjectionBufferMargin.xaml</DependentUpon>

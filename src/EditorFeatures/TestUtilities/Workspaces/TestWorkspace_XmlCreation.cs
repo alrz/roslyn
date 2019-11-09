@@ -3,6 +3,7 @@
 using System.Linq;
 using System.Xml.Linq;
 using Microsoft.CodeAnalysis.Text;
+using Roslyn.Utilities;
 
 namespace Microsoft.CodeAnalysis.Editor.UnitTests.Workspaces
 {
@@ -76,11 +77,17 @@ namespace Microsoft.CodeAnalysis.Editor.UnitTests.Workspaces
 
         private static XElement CreateCompilationOptionsElement(CompilationOptions options)
         {
-            XElement element = null;
-            if (options is Microsoft.CodeAnalysis.VisualBasic.VisualBasicCompilationOptions vbOptions)
+            Contract.ThrowIfFalse(options.SpecificDiagnosticOptions.IsEmpty);
+
+            var element = new XElement(CompilationOptionsElementName);
+
+            if (options is CodeAnalysis.CSharp.CSharpCompilationOptions csOptions)
             {
-                element = new XElement(CompilationOptionsElementName,
-                    vbOptions.GlobalImports.AsEnumerable().Select(i => new XElement(GlobalImportElementName, i.Name)));
+                element.SetAttributeValue(AllowUnsafeAttributeName, csOptions.AllowUnsafe);
+            }
+            else if (options is CodeAnalysis.VisualBasic.VisualBasicCompilationOptions vbOptions)
+            {
+                element.Add(vbOptions.GlobalImports.AsEnumerable().Select(i => new XElement(GlobalImportElementName, i.Name)));
 
                 if (vbOptions.RootNamespace != null)
                 {
@@ -88,16 +95,24 @@ namespace Microsoft.CodeAnalysis.Editor.UnitTests.Workspaces
                 }
             }
 
+            if (options.GeneralDiagnosticOption != ReportDiagnostic.Default)
+            {
+                element.SetAttributeValue(ReportDiagnosticAttributeName, options.GeneralDiagnosticOption);
+            }
+
             if (options.CheckOverflow)
             {
-                element = element ?? new XElement(CompilationOptionsElementName);
                 element.SetAttributeValue(CheckOverflowAttributeName, true);
             }
 
             if (options.OutputKind != OutputKind.DynamicallyLinkedLibrary)
             {
-                element = element ?? new XElement(CompilationOptionsElementName);
                 element.SetAttributeValue(OutputKindName, options.OutputKind);
+            }
+
+            if (options.NullableContextOptions != NullableContextOptions.Disable)
+            {
+                element.SetAttributeValue(NullableAttributeName, options.NullableContextOptions);
             }
 
             return element;

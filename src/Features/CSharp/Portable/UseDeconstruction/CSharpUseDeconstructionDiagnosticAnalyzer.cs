@@ -21,6 +21,8 @@ namespace Microsoft.CodeAnalysis.CSharp.UseDeconstruction
     {
         public CSharpUseDeconstructionDiagnosticAnalyzer()
             : base(IDEDiagnosticIds.UseDeconstructionDiagnosticId,
+                   CSharpCodeStyleOptions.PreferDeconstructedVariableDeclaration,
+                   LanguageNames.CSharp,
                    new LocalizableResourceString(nameof(FeaturesResources.Deconstruct_variable_declaration), FeaturesResources.ResourceManager, typeof(FeaturesResources)),
                    new LocalizableResourceString(nameof(FeaturesResources.Variable_declaration_can_be_deconstructed), FeaturesResources.ResourceManager, typeof(FeaturesResources)))
         {
@@ -28,9 +30,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseDeconstruction
 
         public override DiagnosticAnalyzerCategory GetAnalyzerCategory()
             => DiagnosticAnalyzerCategory.SemanticSpanAnalysis;
-
-        public override bool OpenFileOnly(Workspace workspace)
-            => false;
 
         protected override void InitializeWorker(AnalysisContext context)
         {
@@ -47,7 +46,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UseDeconstruction
                 return;
             }
 
-            var option = optionSet.GetOption(CodeStyleOptions.PreferDeconstructedVariableDeclaration, context.Node.Language);
+            var option = optionSet.GetOption(CSharpCodeStyleOptions.PreferDeconstructedVariableDeclaration);
             if (!option.Value)
             {
                 return;

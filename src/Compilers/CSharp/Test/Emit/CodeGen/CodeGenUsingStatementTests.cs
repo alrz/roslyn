@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
-using Microsoft.CodeAnalysis.CSharp.Symbols;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.CSharp.UnitTests.Emit;
-using Microsoft.CodeAnalysis.Test.Utilities;
 using Roslyn.Test.Utilities;
 using Xunit;
 
@@ -981,7 +977,7 @@ class Test
         #endregion
 
         // The object could be created inside the "using" statement 
-        [Fact]
+        [ConditionalFact(typeof(WindowsOnly), Reason = ConditionalSkipReason.NativePdbRequiresDesktop)]
         public void ObjectCreateInsideUsing()
         {
             var source = @"
@@ -1008,24 +1004,30 @@ class Program
   // Code size       25 (0x19)
   .maxstack  1
   .locals init (Program.MyManagedClass V_0) //mnObj
+  // sequence point: MyManagedClass mnObj = new MyManagedClass()
   IL_0000:  newobj     ""Program.MyManagedClass..ctor()""
   IL_0005:  stloc.0
   .try
   {
+    // sequence point: mnObj.Use();
     IL_0006:  ldloc.0
     IL_0007:  callvirt   ""void Program.MyManagedClass.Use()""
+    // sequence point: }
     IL_000c:  leave.s    IL_0018
   }
   finally
   {
+    // sequence point: <hidden>
     IL_000e:  ldloc.0
     IL_000f:  brfalse.s  IL_0017
     IL_0011:  ldloc.0
     IL_0012:  callvirt   ""void System.IDisposable.Dispose()""
+    // sequence point: <hidden>
     IL_0017:  endfinally
   }
+  // sequence point: }
   IL_0018:  ret
-}");
+}", sequencePoints: "Program.Main", source: source);
         }
 
         [Fact]
@@ -1125,7 +1127,6 @@ class C2
         public void UsingPatternExtensionMethodTest()
         {
             var source = @"
-using System;
 ref struct S1
 {
 }
@@ -1134,7 +1135,6 @@ static class C2
 {
     public static void Dispose(this S1 s1) 
     {
-        Console.WriteLine(""C2.Dispose(S1)"");
     }
 }
 
@@ -1147,26 +1147,12 @@ class C3
         }
     }
 }";
-            CompileAndVerify(source, expectedOutput: "C2.Dispose(S1)").VerifyIL("C3.Main()", @"
-{
-  // Code size       18 (0x12)
-  .maxstack  1
-  .locals init (S1 V_0) //s
-  IL_0000:  ldloca.s   V_0
-  IL_0002:  initobj    ""S1""
-  .try
-  {
-    IL_0008:  leave.s    IL_0011
-  }
-  finally
-  {
-    IL_000a:  ldloc.0
-    IL_000b:  call       ""void C2.Dispose(S1)""
-    IL_0010:  endfinally
-  }
-  IL_0011:  ret
-}
-");
+            var comp = CreateCompilation(source);
+            comp.VerifyDiagnostics(
+                // (17,16): error CS1674: 'S1': type used in a using statement must be implicitly convertible to 'System.IDisposable'.
+                //         using (S1 s = new S1())
+                Diagnostic(ErrorCode.ERR_NoConvToIDisp, "S1 s = new S1()").WithArguments("S1").WithLocation(17, 16)
+                );
         }
 
         [Fact]
@@ -1231,7 +1217,7 @@ ref struct S1
 
 static class C2 
 {
-    internal static void Dispose(this S1 s1, int a = 1) { System.Console.WriteLine($""Dispose default param {a}""); }
+    internal static void Dispose(this S1 s1, int a = 1) { }
 }
 
 class C3
@@ -1243,7 +1229,12 @@ class C3
        }
     }
 }";
-            CompileAndVerify(source, expectedOutput: "Dispose default param 1");
+            var comp = CreateCompilation(source);
+            comp.VerifyDiagnostics(
+                // (15,15): error CS1674: 'S1': type used in a using statement must be implicitly convertible to 'System.IDisposable'.
+                //        using (S1 s = new S1())
+                Diagnostic(ErrorCode.ERR_NoConvToIDisp, "S1 s = new S1()").WithArguments("S1").WithLocation(15, 15)
+                );
         }
 
         [Fact]
@@ -1256,7 +1247,7 @@ ref struct S1
 
 static class C2 
 {
-    internal static void Dispose(this S1 s1, params int[] args) { System.Console.WriteLine($""Dispose params {args.Length}""); }
+    internal static void Dispose(this S1 s1, params int[] args) { }
 }
 
 class C3
@@ -1268,7 +1259,12 @@ class C3
        }
     }
 }";
-            CompileAndVerify(source, expectedOutput: "Dispose params 0");
+            var comp = CreateCompilation(source);
+            comp.VerifyDiagnostics(
+                // (15,15): error CS1674: 'S1': type used in a using statement must be implicitly convertible to 'System.IDisposable'.
+                //        using (S1 s = new S1())
+                Diagnostic(ErrorCode.ERR_NoConvToIDisp, "S1 s = new S1()").WithArguments("S1").WithLocation(15, 15)
+                );
         }
 
         // The object could be created outside the "using" statement 

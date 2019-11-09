@@ -380,7 +380,7 @@ class C
     }
 }";
             var tree = SyntaxFactory.ParseSyntaxTree(text);
-            var comp = CreateCompilation(tree);
+            var comp = (Compilation)CreateCompilation(tree);
             var model = comp.GetSemanticModel(tree);
             var a = tree.GetRoot().DescendantNodes()
                 .OfType<IdentifierNameSyntax>().ElementAt(2);
@@ -588,9 +588,9 @@ class C
     public void M<T>(T value) where T : class, object { }
 }");
             comp.VerifyDiagnostics(
-                // (4,48): error CS0450: 'object': cannot specify both a constraint class and the 'class' or 'struct' constraint
+                // (4,48): error CS0702: Constraint cannot be special class 'object'
                 //     public void M<T>(T value) where T : class, object { }
-                Diagnostic(ErrorCode.ERR_RefValBoundWithClass, "object").WithArguments("object").WithLocation(4, 48)
+                Diagnostic(ErrorCode.ERR_SpecialTypeAsBound, "object").WithArguments("object").WithLocation(4, 48)
                 );
         }
 
@@ -708,7 +708,7 @@ class C
             var model = comp.GetSemanticModel(tree);
 
             var x = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Where(v => v.Identifier.ValueText == "x").Single();
-            var localSymbol = (LocalFunctionSymbol)model.GetDeclaredSymbol(x).ContainingSymbol;
+            var localSymbol = model.GetDeclaredSymbol(x).ContainingSymbol.GetSymbol<LocalFunctionSymbol>();
             var typeParam = localSymbol.TypeParameters.Single();
             var attrs = typeParam.GetAttributes();
 
@@ -726,7 +726,7 @@ class C
         [Fact]
         public void TypeParameterAttributesInSemanticModel()
         {
-            var comp = CreateCompilation(@"
+            var comp = (Compilation)CreateCompilation(@"
 using System;
 class C
 {
@@ -755,7 +755,7 @@ class C
                 //         void Local<[A]T, [CLSCompliant]U>() { }
                 Diagnostic(ErrorCode.WRN_UnreferencedLocalFunction, "Local").WithArguments("Local").WithLocation(7, 14));
 
-            var tree = comp.SyntaxTrees[0];
+            var tree = comp.SyntaxTrees.First();
             var root = tree.GetRoot();
 
             var model = comp.GetSemanticModel(tree);
@@ -783,7 +783,7 @@ class C
                 .Where(id => id.Identifier.ValueText == "CLSCompliant")
                 .Single();
             var clsCompliantSymbol = comp.GlobalNamespace
-                .GetMember<NamespaceSymbol>("System")
+                .GetMember<INamespaceSymbol>("System")
                 .GetTypeMember("CLSCompliantAttribute");
 
             Assert.Null(model.GetDeclaredSymbol(clsCompliant));
@@ -791,7 +791,7 @@ class C
             // This should be null because there is no CLSCompliant ctor with no args
             var clsCompliantSymbolInfo = model.GetSymbolInfo(clsCompliant);
             Assert.Null(clsCompliantSymbolInfo.Symbol);
-            Assert.Equal(clsCompliantSymbol.GetMember<MethodSymbol>(".ctor"),
+            Assert.Equal(clsCompliantSymbol.GetMember<IMethodSymbol>(".ctor"),
                 clsCompliantSymbolInfo.CandidateSymbols.Single());
             Assert.Equal(CandidateReason.OverloadResolutionFailure, clsCompliantSymbolInfo.CandidateReason);
 
@@ -801,13 +801,13 @@ class C
 
             Assert.Equal(clsCompliantSymbol,
                 model.LookupNamespacesAndTypes(clsCompliant.SpanStart, name: "CLSCompliantAttribute").Single());
-            comp.DeclarationDiagnostics.Verify();
+            ((CSharpCompilation)comp).DeclarationDiagnostics.Verify();
         }
 
         [Fact]
         public void ParameterAttributesInSemanticModel()
         {
-            var comp = CreateCompilation(@"
+            var comp = (Compilation)CreateCompilation(@"
 using System;
 class C
 {
@@ -836,7 +836,7 @@ class C
                 //         void Local([A]int x, [CLSCompliant]int y) { }
                 Diagnostic(ErrorCode.WRN_UnreferencedLocalFunction, "Local").WithArguments("Local").WithLocation(7, 14));
 
-            var tree = comp.SyntaxTrees[0];
+            var tree = comp.SyntaxTrees.First();
             var root = tree.GetRoot();
 
             var model = comp.GetSemanticModel(tree);
@@ -864,7 +864,7 @@ class C
                 .Where(id => id.Identifier.ValueText == "CLSCompliant")
                 .Single();
             var clsCompliantSymbol = comp.GlobalNamespace
-                .GetMember<NamespaceSymbol>("System")
+                .GetMember<INamespaceSymbol>("System")
                 .GetTypeMember("CLSCompliantAttribute");
 
             Assert.Null(model.GetDeclaredSymbol(clsCompliant));
@@ -872,7 +872,7 @@ class C
             // This should be null because there is no CLSCompliant ctor with no args
             var clsCompliantSymbolInfo = model.GetSymbolInfo(clsCompliant);
             Assert.Null(clsCompliantSymbolInfo.Symbol);
-            Assert.Equal(clsCompliantSymbol.GetMember<MethodSymbol>(".ctor"),
+            Assert.Equal(clsCompliantSymbol.GetMember<IMethodSymbol>(".ctor"),
                 clsCompliantSymbolInfo.CandidateSymbols.Single());
             Assert.Equal(CandidateReason.OverloadResolutionFailure, clsCompliantSymbolInfo.CandidateReason);
 
@@ -882,7 +882,7 @@ class C
 
             Assert.Equal(clsCompliantSymbol,
                 model.LookupNamespacesAndTypes(clsCompliant.SpanStart, name: "CLSCompliantAttribute").Single());
-            comp.DeclarationDiagnostics.Verify();
+            ((CSharpCompilation)comp).DeclarationDiagnostics.Verify();
         }
 
         [Fact]
@@ -929,7 +929,7 @@ class C
 
             var localDecl = tree.FindNodeOrTokenByKind(SyntaxKind.LocalFunctionStatement);
             var model = comp.GetSemanticModel(tree);
-            var localSymbol = Assert.IsType<LocalFunctionSymbol>(model.GetDeclaredSymbol(localDecl.AsNode()));
+            var localSymbol = Assert.IsType<LocalFunctionSymbol>(model.GetDeclaredSymbol(localDecl.AsNode()).GetSymbol());
             var typeParam = localSymbol.TypeParameters.Single();
             var attrs = typeParam.GetAttributes();
 
@@ -985,7 +985,7 @@ class C
 
             var localDecl = tree.FindNodeOrTokenByKind(SyntaxKind.LocalFunctionStatement);
             var model = comp.GetSemanticModel(tree);
-            var localSymbol = Assert.IsType<LocalFunctionSymbol>(model.GetDeclaredSymbol(localDecl.AsNode()));
+            var localSymbol = Assert.IsType<LocalFunctionSymbol>(model.GetDeclaredSymbol(localDecl.AsNode()).GetSymbol());
             var param = localSymbol.Parameters[0];
             var attrs = param.GetAttributes();
 
@@ -1691,7 +1691,7 @@ class Program
     Diagnostic(ErrorCode.ERR_ExpressionTreeContainsLocalFunction, "Id").WithLocation(17, 51),
     // (18,35): error CS8096: An expression tree may not contain a reference to a local function
     //         Console.Write(Local(() => new Func<int, int>(Id)));
-    Diagnostic(ErrorCode.ERR_ExpressionTreeContainsLocalFunction, "new Func<int, int>(Id)").WithLocation(18, 35)
+    Diagnostic(ErrorCode.ERR_ExpressionTreeContainsLocalFunction, "Id").WithLocation(18, 54)
     );
         }
 
@@ -2483,32 +2483,36 @@ class Program
     }
 }
 ";
-            var comp = CreateCompilation(source, parseOptions: TestOptions.Regular7_3);
-            comp.VerifyDiagnostics(
+
+            var baseExpected = new[]
+            {
                 // (6,9): error CS0106: The modifier 'const' is not valid for this item
                 //         const void LocalConst()
                 Diagnostic(ErrorCode.ERR_BadMemberFlag, "const").WithArguments("const").WithLocation(6, 9),
-                // (9,9): error CS8370: Feature 'static local functions' is not available in C# 7.3. Please use language version 8.0 or greater.
+                // (12,9): error CS0106: The modifier 'readonly' is not valid for this item
+                //         readonly void LocalReadonly()
+                Diagnostic(ErrorCode.ERR_BadMemberFlag, "readonly").WithArguments("readonly").WithLocation(12, 9),
+                // (15,9): error CS0106: The modifier 'volatile' is not valid for this item
+                //         volatile void LocalVolatile()
+                Diagnostic(ErrorCode.ERR_BadMemberFlag, "volatile").WithArguments("volatile").WithLocation(15, 9)
+            };
+
+            var extra = new[]
+            {
+                // (9,9): error CS8652: The feature 'static local functions' is not available in C# 7.3. Please use language version 8.0 or greater.
                 //         static void LocalStatic()
                 Diagnostic(ErrorCode.ERR_FeatureNotAvailableInVersion7_3, "static").WithArguments("static local functions", "8.0").WithLocation(9, 9),
-                // (12,9): error CS0106: The modifier 'readonly' is not valid for this item
-                //         readonly void LocalReadonly()
-                Diagnostic(ErrorCode.ERR_BadMemberFlag, "readonly").WithArguments("readonly").WithLocation(12, 9),
-                // (15,9): error CS0106: The modifier 'volatile' is not valid for this item
-                //         volatile void LocalVolatile()
-                Diagnostic(ErrorCode.ERR_BadMemberFlag, "volatile").WithArguments("volatile").WithLocation(15, 9));
+            };
+
+            var comp = CreateCompilation(source, parseOptions: TestOptions.Regular7_3);
+            comp.VerifyDiagnostics(
+                baseExpected.Concat(extra).ToArray());
 
             comp = CreateCompilation(source, parseOptions: TestOptions.Regular8);
-            comp.VerifyDiagnostics(
-                // (6,9): error CS0106: The modifier 'const' is not valid for this item
-                //         const void LocalConst()
-                Diagnostic(ErrorCode.ERR_BadMemberFlag, "const").WithArguments("const").WithLocation(6, 9),
-                // (12,9): error CS0106: The modifier 'readonly' is not valid for this item
-                //         readonly void LocalReadonly()
-                Diagnostic(ErrorCode.ERR_BadMemberFlag, "readonly").WithArguments("readonly").WithLocation(12, 9),
-                // (15,9): error CS0106: The modifier 'volatile' is not valid for this item
-                //         volatile void LocalVolatile()
-                Diagnostic(ErrorCode.ERR_BadMemberFlag, "volatile").WithArguments("volatile").WithLocation(15, 9));
+            comp.VerifyDiagnostics(baseExpected);
+
+            comp = CreateCompilation(source, parseOptions: TestOptions.RegularPreview);
+            comp.VerifyDiagnostics(baseExpected);
         }
 
         [Fact]
@@ -4482,91 +4486,6 @@ class Program
         }
 
         [Fact]
-        public void ShadowNames_LambdaInsideLocalFunction_01()
-        {
-            var source =
-@"#pragma warning disable 0219
-#pragma warning disable 8321
-using System;
-class Program
-{
-    static void M()
-    {
-        void F1()
-        {
-            object x = null;
-            Action a1 = () => { int x = 0; };
-        }
-        void F2<T>()
-        {
-            Action a2 = () => { int T = 0; };
-        }
-    }
-}";
-            var comp = CreateCompilation(source, parseOptions: TestOptions.Regular7_3);
-            verifyDiagnostics();
-
-            comp = CreateCompilation(source);
-            verifyDiagnostics();
-
-            void verifyDiagnostics()
-            {
-                comp.VerifyDiagnostics(
-                    // (11,37): error CS0136: A local or parameter named 'x' cannot be declared in this scope because that name is used in an enclosing local scope to define a local or parameter
-                    //             Action a1 = () => { int x = 0; };
-                    Diagnostic(ErrorCode.ERR_LocalIllegallyOverrides, "x").WithArguments("x").WithLocation(11, 37),
-                    // (15,37): error CS0412: 'T': a parameter, local variable, or local function cannot have the same name as a method type parameter
-                    //             Action a2 = () => { int T = 0; };
-                    Diagnostic(ErrorCode.ERR_LocalSameNameAsTypeParam, "T").WithArguments("T").WithLocation(15, 37));
-            }
-        }
-
-        [Fact]
-        public void ShadowNames_LambdaInsideLocalFunction_02()
-        {
-            var source =
-@"#pragma warning disable 0219
-#pragma warning disable 8321
-using System;
-class Program
-{
-    static void M<T>()
-    {
-        object x = null;
-        void F()
-        {
-            Action<int> a1 = (int x) =>
-            {
-                Action b1 = () => { int T = 0; };
-            };
-            Action a2 = () =>
-            {
-                int x = 0;
-                Action<int> b2 = (int T) => { };
-            };
-        }
-    }
-}";
-            var comp = CreateCompilation(source, parseOptions: TestOptions.Regular7_3);
-            comp.VerifyDiagnostics(
-                // (11,35): error CS0136: A local or parameter named 'x' cannot be declared in this scope because that name is used in an enclosing local scope to define a local or parameter
-                //             Action<int> a1 = (int x) =>
-                Diagnostic(ErrorCode.ERR_LocalIllegallyOverrides, "x").WithArguments("x").WithLocation(11, 35),
-                // (13,41): error CS0412: 'T': a parameter, local variable, or local function cannot have the same name as a method type parameter
-                //                 Action b1 = () => { int T = 0; };
-                Diagnostic(ErrorCode.ERR_LocalSameNameAsTypeParam, "T").WithArguments("T").WithLocation(13, 41),
-                // (17,21): error CS0136: A local or parameter named 'x' cannot be declared in this scope because that name is used in an enclosing local scope to define a local or parameter
-                //                 int x = 0;
-                Diagnostic(ErrorCode.ERR_LocalIllegallyOverrides, "x").WithArguments("x").WithLocation(17, 21),
-                // (18,39): error CS0412: 'T': a parameter, local variable, or local function cannot have the same name as a method type parameter
-                //                 Action<int> b2 = (int T) => { };
-                Diagnostic(ErrorCode.ERR_LocalSameNameAsTypeParam, "T").WithArguments("T").WithLocation(18, 39));
-
-            comp = CreateCompilation(source);
-            comp.VerifyDiagnostics();
-        }
-
-        [Fact]
         public void StaticWithThisReference()
         {
             var source =
@@ -4977,6 +4896,206 @@ class Program
             CompileAndVerify(source, expectedOutput:
 @"42
 13");
+        }
+
+        [Fact, WorkItem(38129, "https://github.com/dotnet/roslyn/issues/38129")]
+        public void StaticLocalFunctionLocalFunctionReference()
+        {
+            var source =
+@"#pragma warning disable 8321
+class C
+{
+    static void M()
+    {
+        void F1() {}
+        static void F2() {}
+
+        static void F3()
+        {
+            F1();
+            F2();
+        }
+    }
+}";
+            var comp = CreateCompilation(source);
+            comp.VerifyDiagnostics(
+                // (11,13): error CS8421: A static local function cannot contain a reference to 'F1'.
+                //             F1();
+                Diagnostic(ErrorCode.ERR_StaticLocalFunctionCannotCaptureVariable, "F1()").WithArguments("F1").WithLocation(11, 13));
+        }
+
+        [Fact, WorkItem(38240, "https://github.com/dotnet/roslyn/issues/38240")]
+        public void StaticLocalFunctionLocalFunctionDelegateReference()
+        {
+            var source =
+@"#pragma warning disable 8321
+using System;
+class C
+{
+    static void M()
+    {
+        void F1() {}
+
+        static void F2()
+        {
+            Action a = F1;
+            _ = new Action(F1);
+        }
+    }
+}";
+            var comp = CreateCompilation(source);
+            comp.VerifyDiagnostics(
+                // (11,24): error CS8421: A static local function cannot contain a reference to 'F1'.
+                //             Action a = F1;
+                Diagnostic(ErrorCode.ERR_StaticLocalFunctionCannotCaptureVariable, "F1").WithArguments("F1").WithLocation(11, 24),
+                // (12,28): error CS8421: A static local function cannot contain a reference to 'F1'.
+                //             _ = new Action(F1);
+                Diagnostic(ErrorCode.ERR_StaticLocalFunctionCannotCaptureVariable, "F1").WithArguments("F1").WithLocation(12, 28));
+        }
+
+        [Fact, WorkItem(38240, "https://github.com/dotnet/roslyn/issues/38240")]
+        public void StaticLocalFunctionStaticFunctionsDelegateReference()
+        {
+            var source =
+@"#pragma warning disable 8321
+using System;
+class C
+{
+    static void M()
+    {
+        static void F1() {}
+        
+        static void F2()
+        {
+            Action m = M;
+            Action f1 = F1;
+            _ = new Action(M);
+            _ = new Action(F1);
+        }
+    }
+}";
+            var comp = CreateCompilation(source);
+            comp.VerifyDiagnostics();
+        }
+
+        [Fact, WorkItem(38240, "https://github.com/dotnet/roslyn/issues/38240")]
+        public void StaticLocalFunctionThisAndBaseDelegateReference()
+        {
+            var source =
+@"#pragma warning disable 8321
+using System;
+class B
+{
+    public virtual void M() {}
+}
+
+class C : B
+{
+    public override void M()
+    {
+        static void F()
+        {
+            Action a1 = base.M;
+            Action a2 = this.M;
+            Action a3 = M;
+            _ = new Action(base.M);
+            _ = new Action(this.M);
+            _ = new Action(M);
+        }
+    }
+}";
+            var comp = CreateCompilation(source);
+            comp.VerifyDiagnostics(
+                // (14,25): error CS8422: A static local function cannot contain a reference to 'this' or 'base'.
+                //             Action a1 = base.M;
+                Diagnostic(ErrorCode.ERR_StaticLocalFunctionCannotCaptureThis, "base").WithLocation(14, 25),
+                // (15,25): error CS8422: A static local function cannot contain a reference to 'this' or 'base'.
+                //             Action a2 = this.M;
+                Diagnostic(ErrorCode.ERR_StaticLocalFunctionCannotCaptureThis, "this").WithLocation(15, 25),
+                // (16,25): error CS8422: A static local function cannot contain a reference to 'this' or 'base'.
+                //             Action a3 = M;
+                Diagnostic(ErrorCode.ERR_StaticLocalFunctionCannotCaptureThis, "M").WithLocation(16, 25),
+                // (17,28): error CS8422: A static local function cannot contain a reference to 'this' or 'base'.
+                //             _ = new Action(base.M);
+                Diagnostic(ErrorCode.ERR_StaticLocalFunctionCannotCaptureThis, "base").WithLocation(17, 28),
+                // (18,28): error CS8422: A static local function cannot contain a reference to 'this' or 'base'.
+                //             _ = new Action(this.M);
+                Diagnostic(ErrorCode.ERR_StaticLocalFunctionCannotCaptureThis, "this").WithLocation(18, 28),
+                // (19,28): error CS8422: A static local function cannot contain a reference to 'this' or 'base'.
+                //             _ = new Action(M);
+                Diagnostic(ErrorCode.ERR_StaticLocalFunctionCannotCaptureThis, "M").WithLocation(19, 28));
+        }
+
+        [Fact, WorkItem(38240, "https://github.com/dotnet/roslyn/issues/38240")]
+        public void StaticLocalFunctionDelegateReferenceWithReceiver()
+        {
+            var source =
+@"#pragma warning disable 649
+#pragma warning disable 8321
+using System;
+class C
+{
+    object f;
+    
+    void M()
+    {
+        object l;
+        
+        static void F1()
+        {
+            _ = new Func<int>(f.GetHashCode);
+            _ = new Func<int>(l.GetHashCode);
+        }
+    }
+}";
+            var comp = CreateCompilation(source);
+            comp.VerifyDiagnostics(
+                // (14,31): error CS8422: A static local function cannot contain a reference to 'this' or 'base'.
+                //             _ = new Func<int>(f.GetHashCode);
+                Diagnostic(ErrorCode.ERR_StaticLocalFunctionCannotCaptureThis, "f").WithLocation(14, 31),
+                // (15,31): error CS8421: A static local function cannot contain a reference to 'l'.
+                //             _ = new Func<int>(l.GetHashCode);
+                Diagnostic(ErrorCode.ERR_StaticLocalFunctionCannotCaptureVariable, "l").WithArguments("l").WithLocation(15, 31));
+        }
+
+        [Fact]
+        [WorkItem(38143, "https://github.com/dotnet/roslyn/issues/38143")]
+        public void EmittedAsStatic_01()
+        {
+            var source =
+@"class Program
+{
+    static void M()
+    {
+        static void local() { }
+        System.Action action = local;
+    }
+}";
+            CompileAndVerify(source, options: TestOptions.DebugDll.WithMetadataImportOptions(MetadataImportOptions.All), symbolValidator: m =>
+            {
+                var method = (MethodSymbol)m.GlobalNamespace.GetMember("Program.<M>g__local|0_0");
+                Assert.True(method.IsStatic);
+            });
+        }
+
+        [Fact]
+        [WorkItem(38143, "https://github.com/dotnet/roslyn/issues/38143")]
+        public void EmittedAsStatic_02()
+        {
+            var source =
+@"class Program
+{
+    static void M<T>()
+    {
+        static void local(T t) { }
+        System.Action<T> action = local;
+    }
+}";
+            CompileAndVerify(source, options: TestOptions.DebugDll.WithMetadataImportOptions(MetadataImportOptions.All), symbolValidator: m =>
+            {
+                var method = (MethodSymbol)m.GlobalNamespace.GetMember("Program.<M>g__local|0_0");
+                Assert.True(method.IsStatic);
+            });
         }
     }
 }

@@ -63,7 +63,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
 
         private void OnAnalyzerLoadError(object sender, AnalyzerLoadFailureEventArgs e)
         {
-            var data = AnalyzerHelper.CreateAnalyzerLoadFailureDiagnostic(_workspace, _projectId, _language, FullPath, e);
+            var data = AnalyzerHelper.CreateAnalyzerLoadFailureDiagnostic(_projectId, _language, FullPath, e);
 
             lock (_gate)
             {
@@ -148,6 +148,9 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem
 
             public override object Id
                 => _underlying.Id;
+
+            public override string Display
+                => _underlying.Display;
 
             public override ImmutableArray<DiagnosticAnalyzer> GetAnalyzers(string language)
             {

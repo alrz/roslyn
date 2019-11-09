@@ -5,15 +5,6 @@ namespace Microsoft.CodeAnalysis.CodeStyle
     internal static class NotificationOptionExtensions
     {
         public static string ToEditorConfigString(this NotificationOption notificationOption)
-        {
-            if (notificationOption == NotificationOption.Silent)
-            {
-                return nameof(NotificationOption.Silent).ToLowerInvariant();
-            }
-            else
-            {
-                return notificationOption.ToString().ToLowerInvariant();
-            }
-        }
+            => notificationOption.Severity.ToEditorConfigString();
     }
 }

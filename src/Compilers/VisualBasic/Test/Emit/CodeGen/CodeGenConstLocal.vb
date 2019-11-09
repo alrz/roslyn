@@ -179,7 +179,8 @@ End Module
 
         End Sub
 
-        <Fact()>
+        <Fact>
+        <WorkItem(33564, "https://github.com/dotnet/roslyn/issues/33564")>
         Public Sub TestDoubleConstLocal()
             Dim verifier = CompileAndVerify(
 <compilation>

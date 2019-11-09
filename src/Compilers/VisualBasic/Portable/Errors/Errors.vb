@@ -68,6 +68,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
         ERR_MissingGuidForOption = 2044
         ERR_BadChecksumAlgorithm = 2045
         ERR_MutuallyExclusiveOptions = 2046
+        ERR_BadSwitchValue = 2047
 
         '// The naming convention is that if your error requires arguments, to append
         '// the number of args taken, e.g. AmbiguousName2
@@ -1742,6 +1743,13 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
 
         ERR_ValueTupleResolutionAmbiguous3 = 37305
 
+        ERR_CommentsAfterLineContinuationNotAvailable1 = 37306
+
+        ERR_DefaultInterfaceImplementationInNoPIAType = 37307
+        ERR_ReAbstractionInNoPIAType = 37308
+        ERR_RuntimeDoesNotSupportDefaultInterfaceImplementation = 37309
+        ERR_RuntimeDoesNotSupportProtectedAccessForInterfaceMember = 37310
+
         '// WARNINGS BEGIN HERE
         WRN_UseOfObsoleteSymbol2 = 40000
         WRN_InvalidOverrideDueToTupleNames2 = 40001
@@ -1964,8 +1972,10 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
         WRN_AttributeIgnoredWhenPublicSigning = 42379
         WRN_Experimental = 42380
 
-        ' // AVAILABLE                             42381 - 49998
-        ERRWRN_NextAvailable = 42381
+        ERR_MultipleAnalyzerConfigsInSameDir = 42500
+
+        ' // AVAILABLE                             42600 - 49998
+        ERRWRN_NextAvailable = 42600
 
         '// HIDDENS AND INFOS BEGIN HERE
         HDN_UnusedImportClause = 50000
@@ -2019,5 +2029,6 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
         FEATURE_PrivateProtected
         FEATURE_InterpolatedStrings
         FEATURE_UnconstrainedTypeParameterInConditional
+        FEATURE_CommentsAfterLineContinuation
     End Enum
 End Namespace

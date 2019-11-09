@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Immutable;
+using Microsoft.CodeAnalysis.Symbols;
 
 namespace Microsoft.CodeAnalysis.CSharp.Symbols
 {
@@ -38,9 +39,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             get { return RefKind.None; }
         }
 
-        public override TypeSymbolWithAnnotations Type
+        public override TypeWithAnnotations TypeWithAnnotations
         {
-            get { return _getter.ReturnType; }
+            get { return _getter.ReturnTypeWithAnnotations; }
         }
 
         public override ImmutableArray<CustomModifier> RefCustomModifiers
@@ -156,7 +157,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             get { return _getter.HasMethodBodyDependency; }
         }
 
-        IMethodSymbol ISynthesizedMethodBodyImplementationSymbol.Method
+        IMethodSymbolInternal ISynthesizedMethodBodyImplementationSymbol.Method
         {
             get { return ((ISynthesizedMethodBodyImplementationSymbol)ContainingSymbol).Method; }
         }

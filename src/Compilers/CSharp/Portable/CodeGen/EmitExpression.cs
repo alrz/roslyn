@@ -111,6 +111,10 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
                     EmitConvertedStackAllocExpression((BoundConvertedStackAllocExpression)expression, used);
                     break;
 
+                case BoundKind.ReadOnlySpanFromArray:
+                    EmitReadOnlySpanFromArrayExpression((BoundReadOnlySpanFromArray)expression, used);
+                    break;
+
                 case BoundKind.Conversion:
                     EmitConversionExpression((BoundConversion)expression, used);
                     break;
@@ -401,32 +405,43 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
                     // if T happens to be a value type, it could be a target of mutating calls.
                     receiverTemp = EmitReceiverRef(receiver, AddressKind.Constrained);
 
-                    // unconstrained case needs to handle case where T is actually a struct.
-                    // such values are never nulls
-                    // we will emit a check for such case, but the check is really a JIT-time 
-                    // constant since JIT will know if T is a struct or not.
+                    if (receiverTemp is null)
+                    {
+                        // unconstrained case needs to handle case where T is actually a struct.
+                        // such values are never nulls
+                        // we will emit a check for such case, but the check is really a JIT-time 
+                        // constant since JIT will know if T is a struct or not.
 
-                    // if ((object)default(T) != null) 
-                    // {
-                    //     goto whenNotNull
-                    // }
-                    // else
-                    // {
-                    //     temp = receiverRef
-                    //     receiverRef = ref temp
-                    // }
-                    EmitDefaultValue(receiverType, true, receiver.Syntax);
-                    EmitBox(receiverType, receiver.Syntax);
-                    _builder.EmitBranch(ILOpCode.Brtrue, whenNotNullLabel);
-                    EmitLoadIndirect(receiverType, receiver.Syntax);
+                        // if ((object)default(T) != null) 
+                        // {
+                        //     goto whenNotNull
+                        // }
+                        // else
+                        // {
+                        //     temp = receiverRef
+                        //     receiverRef = ref temp
+                        // }
+                        EmitDefaultValue(receiverType, true, receiver.Syntax);
+                        EmitBox(receiverType, receiver.Syntax);
+                        _builder.EmitBranch(ILOpCode.Brtrue, whenNotNullLabel);
+                        EmitLoadIndirect(receiverType, receiver.Syntax);
 
-                    cloneTemp = AllocateTemp(receiverType, receiver.Syntax);
-                    _builder.EmitLocalStore(cloneTemp);
-                    _builder.EmitLocalAddress(cloneTemp);
-                    _builder.EmitLocalLoad(cloneTemp);
-                    EmitBox(receiver.Type, receiver.Syntax);
+                        cloneTemp = AllocateTemp(receiverType, receiver.Syntax);
+                        _builder.EmitLocalStore(cloneTemp);
+                        _builder.EmitLocalAddress(cloneTemp);
+                        _builder.EmitLocalLoad(cloneTemp);
+                        EmitBox(receiverType, receiver.Syntax);
 
-                    // here we have loaded a ref to a temp and its boxed value { &T, O }
+                        // here we have loaded a ref to a temp and its boxed value { &T, O }
+                    }
+                    else
+                    {
+                        // we are calling the expression on a copy of the target anyway, 
+                        // so even if T is a struct, we don't need to make sure we call the expression on the original target.
+
+                        _builder.EmitLocalLoad(receiverTemp);
+                        EmitBox(receiverType, receiver.Syntax);
+                    }
                 }
                 else
                 {
@@ -1002,7 +1017,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
             else
             {
                 var receiver = fieldAccess.ReceiverOpt;
-                TypeSymbol fieldType = field.Type.TypeSymbol;
+                TypeSymbol fieldType = field.Type;
                 if (fieldType.IsValueType && (object)fieldType == (object)receiver.Type)
                 {
                     //Handle emitting a field of a self-containing struct (only possible in mscorlib)
@@ -1245,7 +1260,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
 
             if (used && local.LocalSymbol.RefKind != RefKind.None)
             {
-                EmitLoadIndirect(local.LocalSymbol.Type.TypeSymbol, local.Syntax);
+                EmitLoadIndirect(local.LocalSymbol.Type, local.Syntax);
             }
         }
 
@@ -1256,7 +1271,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
 
             if (parameter.ParameterSymbol.RefKind != RefKind.None)
             {
-                var parameterType = parameter.ParameterSymbol.Type.TypeSymbol;
+                var parameterType = parameter.ParameterSymbol.Type;
                 EmitLoadIndirect(parameterType, parameter.Syntax);
             }
         }
@@ -1475,7 +1490,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
 
             CallKind callKind;
 
-            if (method.IsStatic)
+            if (!method.RequiresInstanceReceiver)
             {
                 callKind = CallKind.Call;
             }
@@ -1516,7 +1531,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
                             //       otherwise we should not use direct 'call' and must use constrained call;
 
                             // calling a method defined in a value type
-                            Debug.Assert(TypeSymbol.Equals(receiverType, methodContainingType, TypeCompareKind.ConsiderEverything2));
+                            Debug.Assert(TypeSymbol.Equals(receiverType, methodContainingType, TypeCompareKind.ObliviousNullableModifierMatchesAny));
                             tempOpt = EmitReceiverRef(receiver, receiverAddresskind);
                             callKind = CallKind.Call;
                         }
@@ -1674,7 +1689,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
 
             if (useKind == UseKind.UsedAsValue && method.RefKind != RefKind.None)
             {
-                EmitLoadIndirect(method.ReturnType.TypeSymbol, call.Syntax);
+                EmitLoadIndirect(method.ReturnType, call.Syntax);
             }
             else if (useKind == UseKind.UsedAsAddress)
             {
@@ -1688,7 +1703,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
         {
             Debug.Assert(methodContainingType.IsVerifierValue(), "only struct calls can be readonly");
 
-            if (methodContainingType.IsReadOnly && method.MethodKind != MethodKind.Constructor)
+            if (method.IsEffectivelyReadOnly && method.MethodKind != MethodKind.Constructor)
             {
                 return true;
             }
@@ -1744,7 +1759,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
                 stack += 1;
             }
 
-            if (!call.Method.IsStatic)
+            if (call.Method.RequiresInstanceReceiver)
             {
                 // The call pops the receiver off the stack.
                 stack -= 1;
@@ -1877,7 +1892,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
             if (arrayType.IsSZArray)
             {
                 _builder.EmitOpCode(ILOpCode.Newarr);
-                EmitSymbolToken(arrayType.ElementType.TypeSymbol, expression.Syntax);
+                EmitSymbolToken(arrayType.ElementType, expression.Syntax);
             }
             else
             {
@@ -2100,14 +2115,21 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
                 return true;
             }
 
-            if (right.Kind == BoundKind.ObjectCreationExpression)
+            if (right is BoundObjectCreationExpression objCreation)
             {
+                // If we are creating a Span<T> from a stackalloc, which is a particular pattern of code
+                // produced by lowering, we must use the constructor in its standard form because the stack
+                // is required to contain nothing more than stackalloc's argument.
+                if (objCreation.Arguments.Length > 0 && objCreation.Arguments[0].Kind == BoundKind.ConvertedStackAllocExpression)
+                {
+                    return false;
+                }
+
                 // It is desirable to do in-place ctor call if possible.
                 // we could do newobj/stloc, but in-place call 
                 // produces the same or better code in current JITs 
                 if (PartialCtorResultCannotEscape(left))
                 {
-                    var objCreation = (BoundObjectCreationExpression)right;
                     var ctor = objCreation.Constructor;
 
                     // ctor can possibly see its own assignments indirectly if there are ref parameters or __arglist
@@ -2540,7 +2562,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
                     BoundLocal local = (BoundLocal)expression;
                     if (local.LocalSymbol.RefKind != RefKind.None && !assignment.IsRef)
                     {
-                        EmitIndirectStore(local.LocalSymbol.Type.TypeSymbol, local.Syntax);
+                        EmitIndirectStore(local.LocalSymbol.Type, local.Syntax);
                     }
                     else
                     {
@@ -2668,7 +2690,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
         /// </summary>
         private void EmitVectorElementStore(ArrayTypeSymbol arrayType, SyntaxNode syntaxNode)
         {
-            var elementType = arrayType.ElementType.TypeSymbol;
+            var elementType = arrayType.ElementType;
 
             if (elementType.IsEnumType())
             {
@@ -2749,7 +2771,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
             {
                 //NOTE: we should have the actual parameter already loaded, 
                 //now need to do a store to where it points to
-                EmitIndirectStore(parameter.ParameterSymbol.Type.TypeSymbol, parameter.Syntax);
+                EmitIndirectStore(parameter.ParameterSymbol.Type, parameter.Syntax);
             }
             else
             {
@@ -3061,7 +3083,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
             }
 
             EmitSymbolToken(getMethod, node.Syntax, null);
-            if (!TypeSymbol.Equals(node.Type, getMethod.ReturnType.TypeSymbol, TypeCompareKind.ConsiderEverything2))
+            if (!TypeSymbol.Equals(node.Type, getMethod.ReturnType, TypeCompareKind.ConsiderEverything2))
             {
                 _builder.EmitOpCode(ILOpCode.Castclass);
                 EmitSymbolToken(node.Type, node.Syntax);
@@ -3088,7 +3110,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
             }
 
             EmitSymbolToken(getField, node.Syntax, null);
-            if (!TypeSymbol.Equals(node.Type, getField.ReturnType.TypeSymbol, TypeCompareKind.ConsiderEverything2))
+            if (!TypeSymbol.Equals(node.Type, getField.ReturnType, TypeCompareKind.ConsiderEverything2))
             {
                 _builder.EmitOpCode(ILOpCode.Castclass);
                 EmitSymbolToken(node.Type, node.Syntax);
@@ -3192,7 +3214,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
         /// </remarks>
         private void EmitNullCoalescingOperator(BoundNullCoalescingOperator expr, bool used)
         {
-            Debug.Assert(expr.LeftConversion.IsIdentity, "coalesce with nontrivial left conversions are lowered into ternary.");
+            Debug.Assert(expr.LeftConversion.IsIdentity, "coalesce with nontrivial left conversions are lowered into conditional.");
             Debug.Assert(expr.Type.IsReferenceType);
 
             EmitExpression(expr.LeftOperand, used: true);
@@ -3242,7 +3264,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
         }
 
         // Implicit casts are not emitted. As a result verifier may operate on a different 
-        // types from the types of operands when performing stack merges in coalesce/ternary.
+        // types from the types of operands when performing stack merges in coalesce/conditional.
         // Such differences are in general irrelevant since merging rules work the same way
         // for base and derived types.
         //
@@ -3273,11 +3295,12 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
                 case BoundKind.Conversion:
                     var conversion = (BoundConversion)expr;
                     var conversionKind = conversion.ConversionKind;
-                    Debug.Assert(conversionKind != ConversionKind.DefaultOrNullLiteral);
+                    Debug.Assert(conversionKind != ConversionKind.NullLiteral && conversionKind != ConversionKind.DefaultLiteral);
 
                     if (conversionKind.IsImplicitConversion() &&
                         conversionKind != ConversionKind.MethodGroup &&
-                        conversionKind != ConversionKind.DefaultOrNullLiteral)
+                        conversionKind != ConversionKind.NullLiteral &&
+                        conversionKind != ConversionKind.DefaultLiteral)
                     {
                         return StackMergeType(conversion.Operand);
                     }
@@ -3330,7 +3353,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
             // unless the element types are converted via variance.
             if (to.IsArray())
             {
-                return IsVarianceCast(((ArrayTypeSymbol)to).ElementType.TypeSymbol, ((ArrayTypeSymbol)from).ElementType.TypeSymbol);
+                return IsVarianceCast(((ArrayTypeSymbol)to).ElementType, ((ArrayTypeSymbol)from).ElementType);
             }
 
             return (to.IsDelegateType() && !TypeSymbol.Equals(to, from, TypeCompareKind.ConsiderEverything2)) ||
@@ -3359,6 +3382,8 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
 
         private void EmitBox(TypeSymbol type, SyntaxNode syntaxNode)
         {
+            Debug.Assert(!type.IsRefLikeType);
+
             _builder.EmitOpCode(ILOpCode.Box);
             EmitSymbolToken(type, syntaxNode);
         }

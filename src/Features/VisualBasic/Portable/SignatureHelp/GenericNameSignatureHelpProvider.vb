@@ -15,6 +15,10 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.SignatureHelp
     Partial Friend Class GenericNameSignatureHelpProvider
         Inherits AbstractVisualBasicSignatureHelpProvider
 
+        <ImportingConstructor>
+        Public Sub New()
+        End Sub
+
         Public Overrides Function IsTriggerCharacter(ch As Char) As Boolean
             Return ch = " "c OrElse ch = ","c
         End Function
@@ -94,7 +98,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.SignatureHelp
                                             FilterToVisibleAndBrowsableSymbolsAndNotUnsafeSymbols(document.ShouldHideAdvancedMembers(), semanticModel.Compilation).
                                             Sort(symbolDisplayService, semanticModel, genericName.SpanStart)
 
-            If accessibleSymbols.Count = 0 Then
+            If accessibleSymbols.Length = 0 Then
                 Return Nothing
             End If
 

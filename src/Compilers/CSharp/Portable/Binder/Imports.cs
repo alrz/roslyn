@@ -131,7 +131,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     usingsBinder = new InContainerBinder(binder.Container, binder.Next, imports);
                 }
 
-                var uniqueUsings = PooledHashSet<NamespaceOrTypeSymbol>.GetInstance();
+                var uniqueUsings = Symbols.SpecializedSymbolCollections.GetPooledSymbolHashSetInstance<NamespaceOrTypeSymbol>();
 
                 foreach (var usingDirective in usingDirectives)
                 {
@@ -585,7 +585,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 {
                     var typeSymbol = (TypeSymbol)@using.NamespaceOrType;
                     var location = @using.UsingDirective?.Name.Location ?? NoLocation.Singleton;
-                    typeSymbol.CheckAllConstraints(conversions, location, semanticDiagnostics);
+                    typeSymbol.CheckAllConstraints(_compilation, conversions, location, semanticDiagnostics);
                 }
             }
 

@@ -20,8 +20,8 @@ namespace Microsoft.CodeAnalysis.Editor.UnitTests
     {
         public static ComposableCatalog CreateAssemblyCatalog()
         {
-            return ExportProviderCache.GetOrCreateAssemblyCatalog(
-                GetLanguageNeutralTypes().Select(t => t.Assembly).Distinct().Concat(MinimalTestExportProvider.GetEditorAssemblies()), ExportProviderCache.CreateResolver());
+            return ExportProviderCache.GetOrCreateAssemblyCatalog(GetLanguageNeutralTypes().Select(t => t.Assembly).Distinct(), ExportProviderCache.CreateResolver())
+                .WithParts(MinimalTestExportProvider.GetEditorAssemblyCatalog());
         }
 
         public static Type[] GetLanguageNeutralTypes()
@@ -29,7 +29,7 @@ namespace Microsoft.CodeAnalysis.Editor.UnitTests
             var types = new[]
             {
                 // ROSLYN
-                typeof(Workspaces.NoCompilationLanguageServiceFactory),
+                typeof(CodeAnalysis.UnitTests.NoCompilationLanguageServiceFactory),
                 typeof(Workspaces.NoCompilationContentTypeDefinitions),
                 typeof(Workspaces.NoCompilationContentTypeLanguageService),
                 typeof(Microsoft.CodeAnalysis.Editor.Implementation.SmartIndent.SmartIndentProvider),

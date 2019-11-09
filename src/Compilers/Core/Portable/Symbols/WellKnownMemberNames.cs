@@ -1,5 +1,7 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
+#nullable enable
+
 using System;
 using System.Runtime.CompilerServices;
 
@@ -323,5 +325,20 @@ namespace Microsoft.CodeAnalysis
         /// The required name for the <c>DisposeAsync</c> method used in an await using statement.
         /// </summary>
         public const string DisposeAsyncMethodName = "DisposeAsync";
+
+        /// <summary>
+        /// The required name for the <c>Count</c> property used in a pattern-based Index or Range indexer.
+        /// </summary>
+        public const string CountPropertyName = "Count";
+
+        /// <summary>
+        /// The required name for the <c>Length</c> property used in a pattern-based Index or Range indexer.
+        /// </summary>
+        public const string LengthPropertyName = "Length";
+
+        /// <summary>
+        /// The required name for the <c>Slice</c> method used in a pattern-based Range indexer.
+        /// </summary>
+        public const string SliceMethodName = "Slice";
     }
 }

@@ -1,11 +1,11 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
-using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics.Analyzers.NamingStyles;
 using Microsoft.CodeAnalysis.Shared.Extensions;
 using Microsoft.CodeAnalysis.Shared.Utilities;
 using Microsoft.CodeAnalysis.Utilities;
@@ -224,8 +224,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Extensions
                 }
                 else if (current is DeclarationExpressionSyntax decl)
                 {
-                    var name = decl.Designation as SingleVariableDesignationSyntax;
-                    if (name == null)
+                    if (!(decl.Designation is SingleVariableDesignationSyntax name))
                     {
                         break;
                     }
@@ -309,7 +308,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Extensions
             IList<string> reservedNames,
             CancellationToken cancellationToken)
         {
-            reservedNames = reservedNames ?? SpecializedCollections.EmptyList<string>();
+            reservedNames ??= SpecializedCollections.EmptyList<string>();
 
             // We can't change the names of named parameters.  Any other names we're flexible on.
             var isFixed = reservedNames.Select(s => true).Concat(
@@ -321,11 +320,37 @@ namespace Microsoft.CodeAnalysis.CSharp.Extensions
             return GenerateNames(reservedNames, isFixed, parameterNames);
         }
 
+        public static ImmutableArray<ParameterName> GenerateParameterNames(
+            this SemanticModel semanticModel,
+            IEnumerable<ArgumentSyntax> arguments,
+            IList<string> reservedNames,
+            NamingRule parameterNamingRule,
+            CancellationToken cancellationToken)
+        {
+            reservedNames ??= SpecializedCollections.EmptyList<string>();
+
+            // We can't change the names of named parameters.  Any other names we're flexible on.
+            var isFixed = reservedNames.Select(s => true).Concat(
+                arguments.Select(a => a.NameColon != null)).ToList();
+
+            var parameterNames = reservedNames.Concat(
+                arguments.Select(a => semanticModel.GenerateNameForArgument(a, cancellationToken))).ToList();
+
+            return GenerateNames(reservedNames, isFixed, parameterNames, parameterNamingRule);
+        }
+
         private static ImmutableArray<ParameterName> GenerateNames(IList<string> reservedNames, List<bool> isFixed, List<string> parameterNames)
         {
             return NameGenerator.EnsureUniqueness(parameterNames, isFixed)
                                 .Select((name, index) => new ParameterName(name, isFixed[index]))
                                 .Skip(reservedNames.Count).ToImmutableArray();
+        }
+
+        private static ImmutableArray<ParameterName> GenerateNames(IList<string> reservedNames, List<bool> isFixed, List<string> parameterNames, NamingRule parameterNamingRule)
+        {
+            return NameGenerator.EnsureUniqueness(parameterNames, isFixed)
+                .Select((name, index) => new ParameterName(name, isFixed[index], parameterNamingRule))
+                .Skip(reservedNames.Count).ToImmutableArray();
         }
 
         public static ImmutableArray<ParameterName> GenerateParameterNames(
@@ -334,7 +359,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Extensions
             IList<string> reservedNames,
             CancellationToken cancellationToken)
         {
-            reservedNames = reservedNames ?? SpecializedCollections.EmptyList<string>();
+            reservedNames ??= SpecializedCollections.EmptyList<string>();
 
             // We can't change the names of named parameters.  Any other names we're flexible on.
             var isFixed = reservedNames.Select(s => true).Concat(
@@ -344,6 +369,25 @@ namespace Microsoft.CodeAnalysis.CSharp.Extensions
                 arguments.Select(a => semanticModel.GenerateNameForArgument(a, cancellationToken))).ToList();
 
             return GenerateNames(reservedNames, isFixed, parameterNames);
+        }
+
+        public static ImmutableArray<ParameterName> GenerateParameterNames(
+            this SemanticModel semanticModel,
+            IEnumerable<AttributeArgumentSyntax> arguments,
+            IList<string> reservedNames,
+            NamingRule parameterNamingRule,
+            CancellationToken cancellationToken)
+        {
+            reservedNames ??= SpecializedCollections.EmptyList<string>();
+
+            // We can't change the names of named parameters.  Any other names we're flexible on.
+            var isFixed = reservedNames.Select(s => true).Concat(
+                arguments.Select(a => a.NameEquals != null)).ToList();
+
+            var parameterNames = reservedNames.Concat(
+                arguments.Select(a => semanticModel.GenerateNameForArgument(a, cancellationToken))).ToList();
+
+            return GenerateNames(reservedNames, isFixed, parameterNames, parameterNamingRule);
         }
 
         public static ISet<INamespaceSymbol> GetUsingNamespacesInScope(this SemanticModel semanticModel, SyntaxNode location)
@@ -358,7 +402,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Extensions
                     var symbolInfo = semanticModel.GetSymbolInfo(@using.Name);
                     if (symbolInfo.Symbol != null && symbolInfo.Symbol.Kind == SymbolKind.Namespace)
                     {
-                        result = result ?? new HashSet<INamespaceSymbol>();
+                        result ??= new HashSet<INamespaceSymbol>();
                         result.Add((INamespaceSymbol)symbolInfo.Symbol);
                     }
                 }

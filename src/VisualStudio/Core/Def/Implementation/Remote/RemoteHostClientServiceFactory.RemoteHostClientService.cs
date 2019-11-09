@@ -17,8 +17,6 @@ using Roslyn.Utilities;
 
 namespace Microsoft.VisualStudio.LanguageServices.Remote
 {
-    using Workspace = Microsoft.CodeAnalysis.Workspace;
-
     internal partial class RemoteHostClientServiceFactory
     {
         public class RemoteHostClientService : ForegroundThreadAffinitizedObject, IRemoteHostClientService
@@ -139,6 +137,26 @@ namespace Microsoft.VisualStudio.LanguageServices.Remote
                 client?.Shutdown();
             }
 
+            bool IRemoteHostClientService.IsEnabled()
+            {
+                // We enable the remote host if either RemoteHostTest or RemoteHost are on.
+                if (!_workspace.Options.GetOption(RemoteHostOptions.RemoteHostTest)
+                    && !_workspace.Options.GetOption(RemoteHostOptions.RemoteHost))
+                {
+                    // not turned on
+                    return false;
+                }
+
+                var remoteHostClientFactory = _workspace.Services.GetService<IRemoteHostClientFactory>();
+                if (remoteHostClientFactory is null)
+                {
+                    // not available
+                    return false;
+                }
+
+                return true;
+            }
+
             public Task<RemoteHostClient> TryGetRemoteHostClientAsync(CancellationToken cancellationToken)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -163,8 +181,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Remote
                 var x64 = _workspace.Options.GetOption(RemoteHostOptions.OOP64Bit);
                 if (!x64)
                 {
-                    x64 = _workspace.Services.GetService<IExperimentationService>().IsExperimentEnabled(
-                        WellKnownExperimentNames.RoslynOOP64bit);
+                    x64 = _workspace.Services.GetService<IExperimentationService>().IsExperimentEnabled(WellKnownExperimentNames.RoslynOOP64bit);
                 }
 
                 // log OOP bitness
@@ -262,7 +279,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Remote
 
                     // s_lastRemoteClientTask info should be saved in the dump
                     // report NFW when connection is closed unless it is proper shutdown
-                    WatsonReporter.Report(new Exception("Connection to remote host closed"));
+                    WatsonReporter.Report(new Exception("Connection to remote host closed"), WatsonSeverity.Critical);
 
                     RemoteHostCrashInfoBar.ShowInfoBar(_workspace);
                 }

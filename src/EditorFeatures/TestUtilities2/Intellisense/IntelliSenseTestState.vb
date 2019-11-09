@@ -8,7 +8,9 @@ Namespace Microsoft.CodeAnalysis.Editor.UnitTests.IntelliSense
     Friend Class IntelliSenseTestState
         Implements IIntelliSenseTestState
 
-        Public Property CurrentCompletionPresenterSession As TestCompletionPresenterSession Implements IIntelliSenseTestState.CurrentCompletionPresenterSession
+        <ImportingConstructor>
+        Public Sub New()
+        End Sub
 
         Public Property CurrentSignatureHelpPresenterSession As TestSignatureHelpPresenterSession Implements IIntelliSenseTestState.CurrentSignatureHelpPresenterSession
     End Class

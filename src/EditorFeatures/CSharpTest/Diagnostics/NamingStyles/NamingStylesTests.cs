@@ -49,15 +49,15 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.Diagnostics.NamingStyle
         [InlineData("M_bar", "bar")]
         [InlineData("S_bar", "bar")]
         [InlineData("T_bar", "bar")]
-        [InlineData("_Bar", "bar", Skip = "https://github.com/dotnet/roslyn/issues/26588")]
-        [InlineData("__Bar", "bar", Skip = "https://github.com/dotnet/roslyn/issues/26588")]
+        [InlineData("_Bar", "bar")]
+        [InlineData("__Bar", "bar")]
         [InlineData("M_s__t_Bar", "bar")]
-        [InlineData("m_bar", "bar", Skip = "https://github.com/dotnet/roslyn/issues/26588")]
-        [InlineData("s_bar", "bar", Skip = "https://github.com/dotnet/roslyn/issues/26588")]
-        [InlineData("t_bar", "bar", Skip = "https://github.com/dotnet/roslyn/issues/26588")]
-        [InlineData("_bar", "bar", Skip = "https://github.com/dotnet/roslyn/issues/26588")]
-        [InlineData("__bar", "bar", Skip = "https://github.com/dotnet/roslyn/issues/26588")]
-        [InlineData("m_s__t_Bar", "bar", Skip = "https://github.com/dotnet/roslyn/issues/26588")]
+        [InlineData("m_bar", "bar")]
+        [InlineData("s_bar", "bar")]
+        [InlineData("t_bar", "bar")]
+        [InlineData("_bar", "bar")]
+        [InlineData("__bar", "bar")]
+        [InlineData("m_s__t_Bar", "bar")]
         // Special cases to ensure empty identifiers are not produced
         [InlineData("M_", "m_")]
         [InlineData("M__", "_")]
@@ -83,14 +83,14 @@ $@"class C
         [InlineData("S_bar", "_bar")]
         [InlineData("T_bar", "_bar")]
         [InlineData("_Bar", "_bar")]
-        [InlineData("__Bar", "_bar", Skip = "https://github.com/dotnet/roslyn/issues/26588")]
+        [InlineData("__Bar", "_bar")]
         [InlineData("M_s__t_Bar", "_bar")]
         [InlineData("m_bar", "_bar")]
         [InlineData("s_bar", "_bar")]
         [InlineData("t_bar", "_bar")]
         [InlineData("bar", "_bar")]
-        [InlineData("__bar", "_bar", Skip = "https://github.com/dotnet/roslyn/issues/26588")]
-        [InlineData("__s_bar", "_bar", Skip = "https://github.com/dotnet/roslyn/issues/26588")]
+        [InlineData("__bar", "_bar")]
+        [InlineData("__s_bar", "_bar")]
         [InlineData("m_s__t_Bar", "_bar")]
         // Special cases to ensure empty identifiers are not produced
         [InlineData("M_", "_m_")]
@@ -109,7 +109,7 @@ $@"class C
 {{
     int [|{correctedName}|];
 }}",
-                options: options.FieldNamesAreCamelCaseWithUnderscore);
+                options: options.FieldNamesAreCamelCaseWithUnderscorePrefix);
         }
 
         [Fact, Trait(Traits.Feature, Traits.Features.NamingStyle)]
@@ -1216,20 +1216,18 @@ namespace Microsoft.CodeAnalysis.Host
             var markup = @"public class [|c|] { }";
             var testParameters = new TestParameters(options: options.ClassNamesArePascalCase);
 
-            using (var workspace = CreateWorkspaceFromOptions(markup, testParameters))
-            {
-                var (_, action) = await GetCodeActionsAsync(workspace, testParameters);
+            using var workspace = CreateWorkspaceFromOptions(markup, testParameters);
+            var (_, action) = await GetCodeActionsAsync(workspace, testParameters);
 
-                var previewOperations = await action.GetPreviewOperationsAsync(CancellationToken.None);
-                Assert.Empty(previewOperations.OfType<TestSymbolRenamedCodeActionOperationFactoryWorkspaceService.Operation>());
+            var previewOperations = await action.GetPreviewOperationsAsync(CancellationToken.None);
+            Assert.Empty(previewOperations.OfType<TestSymbolRenamedCodeActionOperationFactoryWorkspaceService.Operation>());
 
-                var commitOperations = await action.GetOperationsAsync(CancellationToken.None);
-                Assert.Equal(2, commitOperations.Length);
+            var commitOperations = await action.GetOperationsAsync(CancellationToken.None);
+            Assert.Equal(2, commitOperations.Length);
 
-                var symbolRenamedOperation = (TestSymbolRenamedCodeActionOperationFactoryWorkspaceService.Operation)commitOperations[1];
-                Assert.Equal("c", symbolRenamedOperation._symbol.Name);
-                Assert.Equal("C", symbolRenamedOperation._newName);
-            }
+            var symbolRenamedOperation = (TestSymbolRenamedCodeActionOperationFactoryWorkspaceService.Operation)commitOperations[1];
+            Assert.Equal("c", symbolRenamedOperation._symbol.Name);
+            Assert.Equal("C", symbolRenamedOperation._newName);
         }
     }
 }

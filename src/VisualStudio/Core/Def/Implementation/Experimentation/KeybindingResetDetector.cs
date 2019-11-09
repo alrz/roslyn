@@ -113,7 +113,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Experimentation
             }
 
             var vsShell = _serviceProvider.GetService<IVsShell, SVsShell>();
-            var hr = vsShell.IsPackageInstalled(ReSharperPackageGuid, out int extensionEnabled);
+            var hr = vsShell.IsPackageInstalled(ReSharperPackageGuid, out var extensionEnabled);
             if (ErrorHandler.Failed(hr))
             {
                 FatalError.ReportWithoutCrash(Marshal.GetExceptionForHR(hr));
@@ -359,13 +359,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Experimentation
         {
             ThisCanBeCalledOnAnyThread();
 
-            if (!BrowserHelper.TryGetUri(KeybindingsFwLink, out Uri fwLink))
-            {
-                // We're providing a constant, known-good link. This should be impossible.
-                throw ExceptionUtilities.Unreachable;
-            }
-
-            BrowserHelper.StartBrowser(fwLink);
+            BrowserHelper.StartBrowser(KeybindingsFwLink);
 
             KeybindingsResetLogger.Log("ExtensionsLink");
             _workspace.Options = _workspace.Options.WithChangedOption(KeybindingResetOptions.NeedsReset, false);

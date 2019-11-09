@@ -1,6 +1,7 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis.Editor.CSharp.SplitStringLiteral;
@@ -10,6 +11,7 @@ using Microsoft.CodeAnalysis.Editor.UnitTests.Workspaces;
 using Microsoft.CodeAnalysis.Test.Utilities;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Text.Shared.Extensions;
+using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor.Commanding.Commands;
 using Microsoft.VisualStudio.Text.Operations;
 using Roslyn.Test.Utilities;
@@ -34,45 +36,49 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.SplitStringLiteral
             bool verifyUndo = true,
             IndentStyle indentStyle = IndentStyle.Smart)
         {
-            using (var workspace = TestWorkspace.CreateCSharp(inputMarkup))
+            using var workspace = TestWorkspace.CreateCSharp(inputMarkup);
+            workspace.Options = workspace.Options.WithChangedOption(SmartIndent, LanguageNames.CSharp, indentStyle);
+
+            var document = workspace.Documents.Single();
+            var view = document.GetTextView();
+
+            var originalSnapshot = view.TextBuffer.CurrentSnapshot;
+            var originalSelections = document.SelectedSpans;
+
+            var snapshotSpans = new List<SnapshotSpan>();
+            foreach (var selection in originalSelections)
             {
-                workspace.Options = workspace.Options.WithChangedOption(SmartIndent, LanguageNames.CSharp, indentStyle);
+                snapshotSpans.Add(selection.ToSnapshotSpan(originalSnapshot));
+            }
+            view.SetMultiSelection(snapshotSpans);
 
-                var document = workspace.Documents.Single();
-                var view = document.GetTextView();
+            var undoHistoryRegistry = workspace.GetService<ITextUndoHistoryRegistry>();
+            var commandHandler = new SplitStringLiteralCommandHandler(
+                undoHistoryRegistry,
+                workspace.GetService<IEditorOperationsFactoryService>());
 
-                var originalSnapshot = view.TextBuffer.CurrentSnapshot;
-                var originalSelection = document.SelectedSpans.Single();
-                view.SetSelection(originalSelection.ToSnapshotSpan(originalSnapshot));
+            if (!commandHandler.ExecuteCommand(new ReturnKeyCommandArgs(view, view.TextBuffer), TestCommandExecutionContext.Create()))
+            {
+                callback();
+            }
 
-                var undoHistoryRegistry = workspace.GetService<ITextUndoHistoryRegistry>();
-                var commandHandler = new SplitStringLiteralCommandHandler(
-                    undoHistoryRegistry,
-                    workspace.GetService<IEditorOperationsFactoryService>());
+            if (expectedOutputMarkup != null)
+            {
+                MarkupTestFile.GetSpans(expectedOutputMarkup,
+                    out var expectedOutput, out ImmutableArray<TextSpan> expectedSpans);
 
-                if (!commandHandler.ExecuteCommand(new ReturnKeyCommandArgs(view, view.TextBuffer), TestCommandExecutionContext.Create()))
+                Assert.Equal(expectedOutput, view.TextBuffer.CurrentSnapshot.AsText().ToString());
+                Assert.Equal(expectedSpans.First().Start, view.Caret.Position.BufferPosition.Position);
+
+                if (verifyUndo)
                 {
-                    callback();
-                }
+                    // Ensure that after undo we go back to where we were to begin with.
+                    var history = undoHistoryRegistry.GetHistory(document.GetTextBuffer());
+                    history.Undo(count: originalSelections.Count);
 
-                if (expectedOutputMarkup != null)
-                {
-                    MarkupTestFile.GetSpans(expectedOutputMarkup,
-                        out var expectedOutput, out ImmutableArray<TextSpan> expectedSpans);
-
-                    Assert.Equal(expectedOutput, view.TextBuffer.CurrentSnapshot.AsText().ToString());
-                    Assert.Equal(expectedSpans.Single().Start, view.Caret.Position.BufferPosition.Position);
-
-                    if (verifyUndo)
-                    {
-                        // Ensure that after undo we go back to where we were to begin with.
-                        var history = undoHistoryRegistry.GetHistory(document.TextBuffer);
-                        history.Undo(count: 1);
-
-                        var currentSnapshot = document.TextBuffer.CurrentSnapshot;
-                        Assert.Equal(originalSnapshot.GetText(), currentSnapshot.GetText());
-                        Assert.Equal(originalSelection.Start, view.Caret.Position.BufferPosition.Position);
-                    }
+                    var currentSnapshot = document.GetTextBuffer().CurrentSnapshot;
+                    Assert.Equal(originalSnapshot.GetText(), currentSnapshot.GetText());
+                    Assert.Equal(originalSelections.First().Start, view.Caret.Position.BufferPosition.Position);
                 }
             }
         }
@@ -745,6 +751,86 @@ $""[||]"";
     }
 }",
             verifyUndo: false);
+        }
+
+        [WorkItem(39040, "https://github.com/dotnet/roslyn/issues/39040")]
+        [WpfFact, Trait(Traits.Feature, Traits.Features.SplitStringLiteral)]
+        public void TestMultiCaretSingleLine()
+        {
+            TestHandled(
+@"class C
+{
+    void M()
+    {
+        var v = ""now is [||]the ti[||]me"";
+    }
+}",
+@"class C
+{
+    void M()
+    {
+        var v = ""now is "" +
+            ""[||]the ti"" +
+            ""[||]me"";
+    }
+}");
+        }
+
+        [WorkItem(39040, "https://github.com/dotnet/roslyn/issues/39040")]
+        [WpfFact, Trait(Traits.Feature, Traits.Features.SplitStringLiteral)]
+        public void TestMultiCaretMultiLines()
+        {
+            TestHandled(
+@"class C
+{
+    string s = ""hello w[||]orld"";
+
+    void M()
+    {
+        var v = ""now is [||]the ti[||]me"";
+    }
+}",
+@"class C
+{
+    string s = ""hello w"" +
+        ""[||]orld"";
+
+    void M()
+    {
+        var v = ""now is "" +
+            ""[||]the ti"" +
+            ""[||]me"";
+    }
+}");
+        }
+
+        [WorkItem(39040, "https://github.com/dotnet/roslyn/issues/39040")]
+        [WpfFact, Trait(Traits.Feature, Traits.Features.SplitStringLiteral)]
+        public void TestMultiCaretInterpolatedString()
+        {
+            TestHandled(
+@"class C
+{
+    string s = ""hello w[||]orld"";
+
+    void M()
+    {
+        var location = ""world"";
+        var s = $""H[||]ello {location}!"";
+    }
+}",
+@"class C
+{
+    string s = ""hello w"" +
+        ""[||]orld"";
+
+    void M()
+    {
+        var location = ""world"";
+        var s = $""H"" +
+            $""[||]ello {location}!"";
+    }
+}");
         }
     }
 }

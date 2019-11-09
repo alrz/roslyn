@@ -65,6 +65,8 @@ namespace Microsoft.CodeAnalysis.Execution
             writer.WriteBoolean(options.Deterministic);
             writer.WriteBoolean(options.PublicSign);
 
+            writer.WriteByte((byte)options.MetadataImportOptions);
+
             // REVIEW: What should I do with these. we probably need to implement either out own one
             //         or somehow share these as service....
             //
@@ -95,6 +97,7 @@ namespace Microsoft.CodeAnalysis.Execution
             out bool concurrentBuild,
             out bool deterministic,
             out bool publicSign,
+            out MetadataImportOptions metadataImportOptions,
             out XmlReferenceResolver xmlReferenceResolver,
             out SourceReferenceResolver sourceReferenceResolver,
             out MetadataReferenceResolver metadataReferenceResolver,
@@ -151,6 +154,8 @@ namespace Microsoft.CodeAnalysis.Execution
             concurrentBuild = reader.ReadBoolean();
             deterministic = reader.ReadBoolean();
             publicSign = reader.ReadBoolean();
+
+            metadataImportOptions = (MetadataImportOptions)reader.ReadByte();
 
             // REVIEW: What should I do with these. are these service required when compilation is built ourselves, not through
             //         compiler.
@@ -228,11 +233,8 @@ namespace Microsoft.CodeAnalysis.Execution
             WriteOptionTo(options, language, CodeStyleOptions.PreferCoalesceExpression, writer, cancellationToken);
             WriteOptionTo(options, language, CodeStyleOptions.PreferCollectionInitializer, writer, cancellationToken);
             WriteOptionTo(options, language, CodeStyleOptions.PreferExplicitTupleNames, writer, cancellationToken);
-            WriteOptionTo(options, language, CodeStyleOptions.PreferInlinedVariableDeclaration, writer, cancellationToken);
-            WriteOptionTo(options, language, CodeStyleOptions.PreferDeconstructedVariableDeclaration, writer, cancellationToken);
             WriteOptionTo(options, language, CodeStyleOptions.PreferNullPropagation, writer, cancellationToken);
             WriteOptionTo(options, language, CodeStyleOptions.PreferObjectInitializer, writer, cancellationToken);
-            WriteOptionTo(options, language, CodeStyleOptions.PreferThrowExpression, writer, cancellationToken);
             WriteOptionTo(options, language, CodeStyleOptions.RequireAccessibilityModifiers, writer, cancellationToken);
             WriteOptionTo(options, language, CodeStyleOptions.ArithmeticBinaryParentheses, writer, cancellationToken);
             WriteOptionTo(options, language, CodeStyleOptions.RelationalBinaryParentheses, writer, cancellationToken);
@@ -258,11 +260,8 @@ namespace Microsoft.CodeAnalysis.Execution
             options = ReadOptionFrom(options, language, CodeStyleOptions.PreferCoalesceExpression, reader, cancellationToken);
             options = ReadOptionFrom(options, language, CodeStyleOptions.PreferCollectionInitializer, reader, cancellationToken);
             options = ReadOptionFrom(options, language, CodeStyleOptions.PreferExplicitTupleNames, reader, cancellationToken);
-            options = ReadOptionFrom(options, language, CodeStyleOptions.PreferInlinedVariableDeclaration, reader, cancellationToken);
-            options = ReadOptionFrom(options, language, CodeStyleOptions.PreferDeconstructedVariableDeclaration, reader, cancellationToken);
             options = ReadOptionFrom(options, language, CodeStyleOptions.PreferNullPropagation, reader, cancellationToken);
             options = ReadOptionFrom(options, language, CodeStyleOptions.PreferObjectInitializer, reader, cancellationToken);
-            options = ReadOptionFrom(options, language, CodeStyleOptions.PreferThrowExpression, reader, cancellationToken);
             options = ReadOptionFrom(options, language, CodeStyleOptions.RequireAccessibilityModifiers, reader, cancellationToken);
             options = ReadOptionFrom(options, language, CodeStyleOptions.ArithmeticBinaryParentheses, reader, cancellationToken);
             options = ReadOptionFrom(options, language, CodeStyleOptions.RelationalBinaryParentheses, reader, cancellationToken);

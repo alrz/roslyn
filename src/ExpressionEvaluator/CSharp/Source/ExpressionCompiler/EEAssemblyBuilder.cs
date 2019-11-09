@@ -8,6 +8,7 @@ using Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE;
 using Microsoft.CodeAnalysis.Emit;
 using Microsoft.CodeAnalysis.ExpressionEvaluator;
 using Microsoft.CodeAnalysis.PooledObjects;
+using Microsoft.CodeAnalysis.Symbols;
 using Roslyn.Utilities;
 using System;
 using System.Collections.Immutable;
@@ -106,12 +107,12 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
             LocalSlotConstraints constraints;
             if (local.DeclarationKind == LocalDeclarationKind.FixedVariable)
             {
-                type = ((PointerTypeSymbol)local.Type.TypeSymbol).PointedAtType.TypeSymbol;
+                type = ((PointerTypeSymbol)local.Type).PointedAtType;
                 constraints = LocalSlotConstraints.ByRef | LocalSlotConstraints.Pinned;
             }
             else
             {
-                type = local.Type.TypeSymbol;
+                type = local.Type;
                 constraints = (local.IsPinned ? LocalSlotConstraints.Pinned : LocalSlotConstraints.None) |
                     ((local.RefKind == RefKind.None) ? LocalSlotConstraints.None : LocalSlotConstraints.ByRef);
             }

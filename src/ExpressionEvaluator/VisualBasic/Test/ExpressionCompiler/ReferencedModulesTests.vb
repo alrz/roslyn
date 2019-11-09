@@ -10,6 +10,7 @@ Imports Microsoft.CodeAnalysis.Emit
 Imports Microsoft.CodeAnalysis.ExpressionEvaluator
 Imports Microsoft.CodeAnalysis.ExpressionEvaluator.UnitTests
 Imports Microsoft.CodeAnalysis.PooledObjects
+Imports Microsoft.CodeAnalysis.Symbols
 Imports Microsoft.CodeAnalysis.Test.Utilities
 Imports Microsoft.CodeAnalysis.VisualBasic.Emit
 Imports Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator
@@ -955,8 +956,8 @@ End Class"
                 _objectType = New NamespaceTypeDefinitionNoBase(objectType)
             End Sub
 
-            Friend Overrides Iterator Function GetTopLevelTypesCore(context As EmitContext) As IEnumerable(Of INamespaceTypeDefinition)
-                For Each t In MyBase.GetTopLevelTypesCore(context)
+            Public Overrides Iterator Function GetTopLevelSourceTypeDefinitions(context As EmitContext) As IEnumerable(Of INamespaceTypeDefinition)
+                For Each t In MyBase.GetTopLevelSourceTypeDefinitions(context)
                     Yield If(t Is _objectType.UnderlyingType, _objectType, t)
                 Next
             End Function

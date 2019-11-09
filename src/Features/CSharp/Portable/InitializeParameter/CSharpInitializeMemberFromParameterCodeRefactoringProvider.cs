@@ -18,6 +18,11 @@ namespace Microsoft.CodeAnalysis.CSharp.InitializeParameter
             StatementSyntax,
             ExpressionSyntax>
     {
+        [ImportingConstructor]
+        public CSharpInitializeMemberFromParameterCodeRefactoringProvider()
+        {
+        }
+
         protected override bool IsFunctionDeclaration(SyntaxNode node)
             => InitializeParameterHelpers.IsFunctionDeclaration(node);
 
@@ -41,7 +46,7 @@ namespace Microsoft.CodeAnalysis.CSharp.InitializeParameter
         protected override Accessibility DetermineDefaultPropertyAccessibility()
             => Accessibility.Private;
 
-        protected override SyntaxNode GetBody(SyntaxNode functionDeclaration) 
+        protected override SyntaxNode GetBody(SyntaxNode functionDeclaration)
             => InitializeParameterHelpers.GetBody(functionDeclaration);
     }
 }

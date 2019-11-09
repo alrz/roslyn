@@ -6,7 +6,6 @@
     <AssemblyName>Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator.ResultProvider.UnitTests</AssemblyName>
     <TargetFramework>net472</TargetFramework>
     <VBRuntime>Default</VBRuntime>
-    <RoslynProjectType>UnitTest</RoslynProjectType>
     <RootNamespace></RootNamespace>
   </PropertyGroup>
   <ItemGroup Label="File References">
@@ -36,4 +35,5 @@
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <Import Project="..\..\Source\ResultProvider\BasicResultProvider.projitems" Label="Shared" />
+  <Import Project="$(RepositoryEngineeringDir)targets\ILTools.targets" />
 </Project>

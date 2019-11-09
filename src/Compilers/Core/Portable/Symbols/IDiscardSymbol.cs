@@ -1,5 +1,7 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
+#nullable enable
+
 using System.Collections.Immutable;
 
 namespace Microsoft.CodeAnalysis
@@ -14,5 +16,10 @@ namespace Microsoft.CodeAnalysis
         /// The type of the discarded value.
         /// </summary>
         ITypeSymbol Type { get; }
+
+        /// <summary>
+        /// The top-level nullability of the discarded value.
+        /// </summary>
+        NullableAnnotation NullableAnnotation { get; }
     }
 }

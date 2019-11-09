@@ -2,13 +2,11 @@
 
 using System;
 using System.Composition;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.ErrorReporting;
 using Microsoft.CodeAnalysis.Host.Mef;
 using Microsoft.CodeAnalysis.SymbolSearch;
 using Microsoft.VisualStudio.TaskStatusCenter;
-using Roslyn.Utilities;
 using VSShell = Microsoft.VisualStudio.Shell;
 
 namespace Microsoft.VisualStudio.LanguageServices.SymbolSearch
@@ -72,7 +70,7 @@ namespace Microsoft.VisualStudio.LanguageServices.SymbolSearch
             var options = new TaskHandlerOptions
             {
                 Title = title,
-                ActionsAfterCompletion = CompletionActions.RetainOnFaulted
+                ActionsAfterCompletion = CompletionActions.None
             };
 
             return options;

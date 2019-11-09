@@ -1,5 +1,7 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
+#nullable enable
+
 using System.Collections.Generic;
 using System.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
@@ -253,10 +255,10 @@ namespace Microsoft.CodeAnalysis
         System_ValueTuple_T3,
         System_ValueTuple_T4,
         System_ValueTuple_T5,
-        System_ValueTuple_T6,
 
         ExtSentinel, // Not a real type, just a marker for types above 255 and strictly below 512
 
+        System_ValueTuple_T6,
         System_ValueTuple_T7,
         System_ValueTuple_TRest,
 
@@ -264,6 +266,8 @@ namespace Microsoft.CodeAnalysis
 
         Microsoft_CodeAnalysis_Runtime_Instrumentation,
         System_Runtime_CompilerServices_NullableAttribute,
+        System_Runtime_CompilerServices_NullableContextAttribute,
+        System_Runtime_CompilerServices_NullablePublicOnlyAttribute,
         System_Runtime_CompilerServices_ReferenceAssemblyAttribute,
 
         System_Runtime_CompilerServices_IsReadOnlyAttribute,
@@ -297,9 +301,11 @@ namespace Microsoft.CodeAnalysis
         System_Threading_Tasks_ValueTask,
         System_Runtime_CompilerServices_AsyncIteratorMethodBuilder,
         System_Threading_CancellationToken,
+        System_Threading_CancellationTokenSource,
 
         System_InvalidOperationException,
         System_Runtime_CompilerServices_SwitchExpressionException,
+        System_Collections_Generic_IEqualityComparer_T,
 
         NextAvailable,
 
@@ -549,10 +555,10 @@ namespace Microsoft.CodeAnalysis
             "System.ValueTuple`3",
             "System.ValueTuple`4",
             "System.ValueTuple`5",
-            "System.ValueTuple`6",
 
             "", // extension marker
 
+            "System.ValueTuple`6",
             "System.ValueTuple`7",
             "System.ValueTuple`8",
 
@@ -561,6 +567,8 @@ namespace Microsoft.CodeAnalysis
             "Microsoft.CodeAnalysis.Runtime.Instrumentation",
 
             "System.Runtime.CompilerServices.NullableAttribute",
+            "System.Runtime.CompilerServices.NullableContextAttribute",
+            "System.Runtime.CompilerServices.NullablePublicOnlyAttribute",
             "System.Runtime.CompilerServices.ReferenceAssemblyAttribute",
 
             "System.Runtime.CompilerServices.IsReadOnlyAttribute",
@@ -594,9 +602,11 @@ namespace Microsoft.CodeAnalysis
             "System.Threading.Tasks.ValueTask",
             "System.Runtime.CompilerServices.AsyncIteratorMethodBuilder",
             "System.Threading.CancellationToken",
+            "System.Threading.CancellationTokenSource",
 
             "System.InvalidOperationException",
-            "System.Runtime.CompilerServices.SwitchExpressionException"
+            "System.Runtime.CompilerServices.SwitchExpressionException",
+            "System.Collections.Generic.IEqualityComparer`1",
         };
 
         private readonly static Dictionary<string, WellKnownType> s_nameToTypeIdMap = new Dictionary<string, WellKnownType>((int)Count);

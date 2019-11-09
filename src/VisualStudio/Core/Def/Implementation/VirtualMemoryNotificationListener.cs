@@ -3,6 +3,7 @@
 using System;
 using System.Composition;
 using System.Linq;
+using System.Runtime;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Editor.Shared.Options;
 using Microsoft.CodeAnalysis.Editor.Shared.Utilities;
@@ -38,16 +39,23 @@ namespace Microsoft.VisualStudio.LanguageServices
 
         [ImportingConstructor]
         [Obsolete(MefConstruction.ImportingConstructorMessage, error: true)]
-        private VirtualMemoryNotificationListener(
+        public VirtualMemoryNotificationListener(
             IThreadingContext threadingContext,
             SVsServiceProvider serviceProvider,
             VisualStudioWorkspace workspace)
             : base(threadingContext, assertIsForeground: true)
         {
             _workspace = workspace;
-            _workspace.WorkspaceChanged += OnWorkspaceChanged;
-
             _workspaceCacheService = workspace.Services.GetService<IWorkspaceCacheService>() as WorkspaceCacheService;
+
+            if (GCSettings.IsServerGC)
+            {
+                // Server GC has been explicitly enabled, which tends to run with higher memory pressure than the
+                // default workstation GC. Allow this case without triggering frequent feature shutdown.
+                return;
+            }
+
+            _workspace.WorkspaceChanged += OnWorkspaceChanged;
 
             var shell = (IVsShell)serviceProvider.GetService(typeof(SVsShell));
             // Note: We never unhook this event sink. It lives for the lifetime of the host.
@@ -122,7 +130,7 @@ namespace Microsoft.VisualStudio.LanguageServices
         {
             // conditions
             // 1. if available memory is less than the threshold and 
-            // 2. if full solution analysis memory monitor is on (user can set it off using registery, when he does, we will never show info bar) and
+            // 2. if full solution analysis memory monitor is on (user can set it off using registry, when he does, we will never show info bar) and
             // 3. if our full solution analysis option is on (not user full solution analysis option, but our internal one) and
             // 4. if infobar is never shown to users for this solution
             return availableMemory < MemoryThreshold &&

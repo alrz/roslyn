@@ -2,7 +2,6 @@
 
 using System.Diagnostics;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Roslyn.Utilities;
 
 namespace Microsoft.CodeAnalysis.CSharp
 {
@@ -110,7 +109,12 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
         }
 
-        internal static bool IsVariableDeclarationInitialization(this SyntaxNode node)
+        /// <summary>
+        /// Is this a context in which a stackalloc expression could be converted to the corresponding pointer
+        /// type? The only context that permits it is the initialization of a local variable declaration (when
+        /// the declaration appears as a statement or as the first part of a for loop).
+        /// </summary>
+        internal static bool IsLocalVariableDeclarationInitializationForPointerStackalloc(this SyntaxNode node)
         {
             Debug.Assert(node != null);
 
@@ -128,15 +132,25 @@ namespace Microsoft.CodeAnalysis.CSharp
                 return false;
             }
 
-            return variableDeclarator.Parent.IsKind(SyntaxKind.VariableDeclaration);
+            SyntaxNode variableDeclaration = variableDeclarator.Parent;
+            if (!variableDeclaration.IsKind(SyntaxKind.VariableDeclaration))
+            {
+                return false;
+            }
+
+            return
+                variableDeclaration.Parent.IsKind(SyntaxKind.LocalDeclarationStatement) ||
+                variableDeclaration.Parent.IsKind(SyntaxKind.ForStatement);
         }
 
         /// <summary>
-        /// Because the instruction cannot have any values on the stack before CLR execution.
-        /// Limit it to assignments and conditional expressions for now.
-        /// https://github.com/dotnet/roslyn/issues/22046
+        /// Because the instruction cannot have any values on the stack before CLR execution
+        /// we limited it to assignments and conditional expressions in C# 7.
+        /// See https://github.com/dotnet/roslyn/issues/22046.
+        /// In C# 8 we relaxed
+        /// that by rewriting the code to move it to the statement level where the stack is empty.
         /// </summary>
-        internal static bool IsLegalSpanStackAllocPosition(this SyntaxNode node)
+        internal static bool IsLegalCSharp73SpanStackAllocPosition(this SyntaxNode node)
         {
             Debug.Assert(node != null);
 
@@ -178,20 +192,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         }
 
         internal static CSharpSyntaxNode AnonymousFunctionBody(this SyntaxNode lambda)
-        {
-            switch (lambda.Kind())
-            {
-                case SyntaxKind.SimpleLambdaExpression:
-                    return ((SimpleLambdaExpressionSyntax)lambda).Body;
-                case SyntaxKind.ParenthesizedLambdaExpression:
-                    return ((ParenthesizedLambdaExpressionSyntax)lambda).Body;
-                case SyntaxKind.AnonymousMethodExpression:
-                    return ((AnonymousMethodExpressionSyntax)lambda).Block;
-
-                default:
-                    throw ExceptionUtilities.UnexpectedValue(lambda.Kind());
-            }
-        }
+            => ((AnonymousFunctionExpressionSyntax)lambda).Body;
 
         /// <summary>
         /// Given an initializer expression infer the name of anonymous property or tuple element.

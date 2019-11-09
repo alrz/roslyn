@@ -1,13 +1,13 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis.Operations;
 using Microsoft.CodeAnalysis.PooledObjects;
+using Microsoft.CodeAnalysis.Shared.Extensions;
 
 namespace Microsoft.CodeAnalysis.FlowAnalysis.SymbolUsageAnalysis
 {
@@ -36,6 +36,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.SymbolUsageAnalysis
 
                 _allocatedBasicBlockAnalysisDatas = ArrayBuilder<BasicBlockAnalysisData>.GetInstance();
                 CurrentBlockAnalysisData = CreateBlockAnalysisData();
+                AdditionalConditionalBranchAnalysisData = CreateBlockAnalysisData();
             }
 
             /// <summary>
@@ -73,6 +74,11 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.SymbolUsageAnalysis
             public BasicBlockAnalysisData CurrentBlockAnalysisData { get; }
 
             /// <summary>
+            /// Block analysis data used for an additional conditional branch.
+            /// </summary>
+            public BasicBlockAnalysisData AdditionalConditionalBranchAnalysisData { get; }
+
+            /// <summary>
             /// Creates an immutable <see cref="SymbolUsageResult"/> for the current analysis data.
             /// </summary>
             public SymbolUsageResult ToResult()
@@ -81,6 +87,11 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.SymbolUsageAnalysis
 
             public BasicBlockAnalysisData AnalyzeLocalFunctionInvocation(IMethodSymbol localFunction, CancellationToken cancellationToken)
             {
+                Debug.Assert(localFunction.IsLocalFunction());
+
+                // Use the original definition of the local function for flow analysis.
+                localFunction = localFunction.OriginalDefinition;
+
                 if (!LambdaOrLocalFunctionsBeingAnalyzed.Add(localFunction))
                 {
                     ResetState();
@@ -154,9 +165,12 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.SymbolUsageAnalysis
             public BasicBlockAnalysisData CreateBlockAnalysisData()
             {
                 var instance = BasicBlockAnalysisData.GetInstance();
-                _allocatedBasicBlockAnalysisDatas.Add(instance);
+                TrackAllocatedBlockAnalysisData(instance);
                 return instance;
             }
+
+            public void TrackAllocatedBlockAnalysisData(BasicBlockAnalysisData allocatedData)
+                => _allocatedBasicBlockAnalysisDatas.Add(allocatedData);
 
             public void OnReadReferenceFound(ISymbol symbol)
             {

@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.Test.Utilities;
 using Microsoft.VisualStudio.IntegrationTest.Utilities;
 using Roslyn.Test.Utilities;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Roslyn.VisualStudio.IntegrationTests.CSharp
 {
@@ -13,12 +14,12 @@ namespace Roslyn.VisualStudio.IntegrationTests.CSharp
     {
         protected override string LanguageName => LanguageNames.CSharp;
 
-        public CSharpQuickInfo(VisualStudioInstanceFactory instanceFactory)
-            : base(instanceFactory, nameof(CSharpQuickInfo))
+        public CSharpQuickInfo(VisualStudioInstanceFactory instanceFactory, ITestOutputHelper testOutputHelper)
+            : base(instanceFactory, testOutputHelper, nameof(CSharpQuickInfo))
         {
         }
 
-        [WpfFact, Trait(Traits.Feature, Traits.Features.QuickInfo)]
+        [WpfFact(Skip = "https://github.com/dotnet/roslyn/issues/38301"), Trait(Traits.Feature, Traits.Features.QuickInfo)]
         public void QuickInfo_MetadataDocumentation()
         {
             SetUpEditor(@"

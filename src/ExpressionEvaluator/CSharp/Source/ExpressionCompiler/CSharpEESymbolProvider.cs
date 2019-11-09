@@ -6,6 +6,7 @@ using System.Reflection.Metadata;
 using Microsoft.CodeAnalysis.CSharp.Symbols;
 using Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE;
 using Microsoft.CodeAnalysis.ExpressionEvaluator;
+using Microsoft.CodeAnalysis.Symbols;
 
 namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
 {
@@ -38,7 +39,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
             {
                 kind = LocalDeclarationKind.FixedVariable;
                 refKind = RefKind.None;
-                type = new PointerTypeSymbol(TypeSymbolWithAnnotations.Create(info.Type));
+                type = new PointerTypeSymbol(TypeWithAnnotations.Create(info.Type));
             }
             else
             {
@@ -85,7 +86,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
         }
 
         /// <exception cref="BadImageFormatException"></exception>
-        public override IAssemblySymbol GetReferencedAssembly(AssemblyReferenceHandle handle)
+        public override IAssemblySymbolInternal GetReferencedAssembly(AssemblyReferenceHandle handle)
         {
             int index = _metadataDecoder.Module.GetAssemblyReferenceIndexOrThrow(handle);
             var assembly = _metadataDecoder.ModuleSymbol.GetReferencedAssemblySymbol(index);

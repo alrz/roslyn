@@ -39,7 +39,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                                     append(") ");
                                     if (catchBlock.ExceptionFilterOpt != null)
                                     {
-                                        append("... exception filter ommitted ...");
+                                        append("... exception filter omitted ...");
                                     }
                                     appendLine("");
 
@@ -79,7 +79,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                             {
                                 if (local is SynthesizedLocal synthesized)
                                 {
-                                    appendLine($"{local.Type.ToDisplayString()} {name(synthesized)};");
+                                    appendLine($"{local.TypeWithAnnotations.ToDisplayString()} {name(synthesized)};");
                                 }
                                 else
                                 {
@@ -321,6 +321,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                             append(" }");
                             break;
                         }
+                    case BoundDefaultLiteral _:
                     case BoundDefaultExpression _:
                         {
                             append("default");

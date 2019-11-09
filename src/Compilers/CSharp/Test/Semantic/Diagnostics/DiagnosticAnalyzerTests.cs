@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.CSharp.Test.Utilities;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -706,7 +708,7 @@ public class B
             var analyzer = new CSharpCompilerDiagnosticAnalyzer();
             foreach (var descriptor in analyzer.SupportedDiagnostics)
             {
-                Assert.Equal(descriptor.IsEnabledByDefault, true);
+                Assert.True(descriptor.IsEnabledByDefault);
 
                 if (descriptor.IsNotConfigurable())
                 {
@@ -2766,7 +2768,7 @@ namespace N5
         }
 
         [Fact]
-        private void TestSymbolStartAnalyzer_MultipleAnalyzers_AllSymbolKinds()
+        public void TestSymbolStartAnalyzer_MultipleAnalyzers_AllSymbolKinds()
         {
             testCore("SymbolStartTopLevelRuleId", topLevel: true);
             testCore("SymbolStartRuleId", topLevel: false);
@@ -2912,6 +2914,256 @@ namespace N5
                 Diagnostic("SymbolStartRuleId").WithArguments("P1", "Analyzer4").WithLocation(1, 1),
                 Diagnostic("SymbolStartRuleId").WithArguments("e1", "Analyzer5").WithLocation(1, 1),
                 Diagnostic("SymbolStartRuleId").WithArguments("f1", "Analyzer6").WithLocation(1, 1));
+        }
+
+        [Fact, WorkItem(32702, "https://github.com/dotnet/roslyn/issues/32702")]
+        public void TestInvocationInPartialMethod()
+        {
+            string source1 = @"
+static partial class B
+{
+    static partial void PartialMethod();
+}";
+            string source2 = @"
+static partial class B
+{
+    static partial void PartialMethod()
+    {
+        M();
+    }
+
+    private static void M() { }
+}";
+
+            var compilation = CreateCompilationWithMscorlib45(new[] { source1, source2 });
+            compilation.VerifyDiagnostics();
+
+            var analyzers = new DiagnosticAnalyzer[] { new SymbolStartAnalyzer(topLevelAction: false, SymbolKind.NamedType, OperationKind.Invocation) };
+
+            var expected = new[] {
+                Diagnostic("OperationRuleId").WithArguments("B", "PartialMethod", "M()", "Analyzer1").WithLocation(1, 1),
+                Diagnostic("SymbolStartRuleId").WithArguments("B", "Analyzer1").WithLocation(1, 1)
+            };
+
+            compilation.VerifyAnalyzerDiagnostics(analyzers, expected: expected);
+        }
+
+        [Fact, WorkItem(32702, "https://github.com/dotnet/roslyn/issues/32702")]
+        public void TestFieldReferenceInPartialMethod()
+        {
+            string source1 = @"
+static partial class B
+{
+    static partial void PartialMethod();
+}";
+            string source2 = @"
+static partial class B
+{
+    static partial void PartialMethod()
+    {
+        var x = _field;
+    }
+
+    private static int _field = 0;
+}";
+
+            var compilation = CreateCompilationWithMscorlib45(new[] { source1, source2 });
+            compilation.VerifyDiagnostics();
+
+            var analyzers = new DiagnosticAnalyzer[] { new SymbolStartAnalyzer(topLevelAction: true, SymbolKind.NamedType, OperationKind.FieldReference) };
+
+            var expected = new[] {
+                Diagnostic("OperationRuleId").WithArguments("B", "PartialMethod", "_field", "Analyzer1").WithLocation(1, 1),
+                Diagnostic("SymbolStartTopLevelRuleId").WithArguments("B", "Analyzer1").WithLocation(1, 1)
+            };
+
+            compilation.VerifyAnalyzerDiagnostics(analyzers, expected: expected);
+        }
+
+        [Fact, WorkItem(922802, "https://dev.azure.com/devdiv/DevDiv/_workitems/edit/922802")]
+        public async Task TestAnalysisScopeForGetAnalyzerSemanticDiagnosticsAsync()
+        {
+            string source1 = @"
+partial class B
+{
+    private int _field1 = 1;
+}";
+            string source2 = @"
+partial class B
+{
+    private int _field2 = 2;
+}";
+            string source3 = @"
+class C
+{
+    private int _field3 = 3;
+}";
+
+            var compilation = CreateCompilationWithMscorlib45(new[] { source1, source2, source3 });
+            var tree1 = compilation.SyntaxTrees[0];
+            var semanticModel1 = compilation.GetSemanticModel(tree1);
+            var analyzer1 = new SymbolStartAnalyzer(topLevelAction: true, SymbolKind.Field, analyzerId: 1);
+            var analyzer2 = new SymbolStartAnalyzer(topLevelAction: true, SymbolKind.Field, analyzerId: 2);
+            var compilationWithAnalyzers = compilation.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(analyzer1, analyzer2));
+
+            // Invoke "GetAnalyzerSemanticDiagnosticsAsync" for a single analyzer on a single tree and
+            // ensure that the API respects the requested analysis scope:
+            // 1. It should never force analyze the non-requested analyzer.
+            // 2. It should only analyze the requested tree. If the requested tree has partial type declaration(s),
+            //    then it should also analyze additional trees with other partial declarations for partial types in the original tree,
+            //    but not other tree.
+            var tree1SemanticDiagnostics = await compilationWithAnalyzers.GetAnalyzerSemanticDiagnosticsAsync(semanticModel1, filterSpan: null, ImmutableArray.Create<DiagnosticAnalyzer>(analyzer1), CancellationToken.None);
+            Assert.Equal(2, analyzer1.SymbolsStarted.Count);
+            var sortedSymbolNames = analyzer1.SymbolsStarted.Select(s => s.Name).ToImmutableSortedSet();
+            Assert.Equal("_field1", sortedSymbolNames[0]);
+            Assert.Equal("_field2", sortedSymbolNames[1]);
+            Assert.Empty(analyzer2.SymbolsStarted);
+            Assert.Empty(tree1SemanticDiagnostics);
+        }
+
+        [Fact]
+        public void TestAnalyzerCallbacksWithSuppressedFile_SymbolAction()
+        {
+            var tree1 = Parse("partial class A { }");
+            var tree2 = Parse("partial class A { private class B { } }");
+            var compilation = CreateCompilationWithMscorlib45(new[] { tree1, tree2 });
+            compilation.VerifyDiagnostics();
+
+            // Verify analyzer diagnostics and callbacks without suppression.
+            var namedTypeAnalyzer = new NamedTypeAnalyzer(NamedTypeAnalyzer.AnalysisKind.Symbol);
+            compilation.VerifyAnalyzerDiagnostics(new DiagnosticAnalyzer[] { namedTypeAnalyzer },
+                expected: new[] {
+                    Diagnostic(NamedTypeAnalyzer.RuleId, "A").WithArguments("A").WithLocation(1, 15),
+                    Diagnostic(NamedTypeAnalyzer.RuleId, "B").WithArguments("B").WithLocation(1, 33)
+                });
+
+            Assert.Equal("A, B", namedTypeAnalyzer.GetSortedSymbolCallbacksString());
+
+            // Verify suppressed analyzer diagnostic and callback with suppression on second file.
+            var suppressingOptions = ImmutableDictionary<string, ReportDiagnostic>.Empty.Add(NamedTypeAnalyzer.RuleId, ReportDiagnostic.Suppress);
+            tree2 = tree2.WithDiagnosticOptions(suppressingOptions);
+            compilation = CreateCompilationWithMscorlib45(new[] { tree1, tree2 });
+            compilation.VerifyDiagnostics();
+
+            namedTypeAnalyzer = new NamedTypeAnalyzer(NamedTypeAnalyzer.AnalysisKind.Symbol);
+            compilation.VerifyAnalyzerDiagnostics(new DiagnosticAnalyzer[] { namedTypeAnalyzer },
+                expected: new[] {
+                    Diagnostic(NamedTypeAnalyzer.RuleId, "A").WithArguments("A").WithLocation(1, 15)
+                });
+
+            Assert.Equal("A", namedTypeAnalyzer.GetSortedSymbolCallbacksString());
+
+            // Verify analyzer diagnostics and callbacks for non-configurable diagnostic even suppression on second file.
+            namedTypeAnalyzer = new NamedTypeAnalyzer(NamedTypeAnalyzer.AnalysisKind.Symbol, configurable: false);
+            compilation.VerifyAnalyzerDiagnostics(new DiagnosticAnalyzer[] { namedTypeAnalyzer },
+                expected: new[] {
+                    Diagnostic(NamedTypeAnalyzer.RuleId, "A").WithArguments("A").WithLocation(1, 15),
+                    Diagnostic(NamedTypeAnalyzer.RuleId, "B").WithArguments("B").WithLocation(1, 33)
+                });
+
+            Assert.Equal("A, B", namedTypeAnalyzer.GetSortedSymbolCallbacksString());
+        }
+
+        [Fact]
+        public void TestAnalyzerCallbacksWithSuppressedFile_SymbolStartEndAction()
+        {
+            var tree1 = Parse("partial class A { }");
+            var tree2 = Parse("partial class A { private class B { } }");
+            var compilation = CreateCompilationWithMscorlib45(new[] { tree1, tree2 });
+            compilation.VerifyDiagnostics();
+
+            // Verify analyzer diagnostics and callbacks without suppression.
+            var namedTypeAnalyzer = new NamedTypeAnalyzer(NamedTypeAnalyzer.AnalysisKind.SymbolStartEnd);
+            compilation.VerifyAnalyzerDiagnostics(new DiagnosticAnalyzer[] { namedTypeAnalyzer },
+                expected: new[] {
+                    Diagnostic(NamedTypeAnalyzer.RuleId, "A").WithArguments("A").WithLocation(1, 15),
+                    Diagnostic(NamedTypeAnalyzer.RuleId, "B").WithArguments("B").WithLocation(1, 33)
+                });
+
+            Assert.Equal("A, B", namedTypeAnalyzer.GetSortedSymbolCallbacksString());
+
+            // Verify same callbacks even with suppression on second file when using GeneratedCodeAnalysisFlags.Analyze.
+            var suppressingOptions = ImmutableDictionary<string, ReportDiagnostic>.Empty.Add(NamedTypeAnalyzer.RuleId, ReportDiagnostic.Suppress);
+            tree2 = tree2.WithDiagnosticOptions(suppressingOptions);
+            compilation = CreateCompilationWithMscorlib45(new[] { tree1, tree2 });
+            compilation.VerifyDiagnostics();
+
+            namedTypeAnalyzer = new NamedTypeAnalyzer(NamedTypeAnalyzer.AnalysisKind.SymbolStartEnd, GeneratedCodeAnalysisFlags.Analyze);
+            compilation.VerifyAnalyzerDiagnostics(new DiagnosticAnalyzer[] { namedTypeAnalyzer },
+                expected: new[] {
+                    Diagnostic(NamedTypeAnalyzer.RuleId, "A").WithArguments("A").WithLocation(1, 15)
+                });
+
+            Assert.Equal("A, B", namedTypeAnalyzer.GetSortedSymbolCallbacksString());
+
+            // Verify suppressed analyzer diagnostic and callback with suppression on second file when not using GeneratedCodeAnalysisFlags.Analyze.
+            namedTypeAnalyzer = new NamedTypeAnalyzer(NamedTypeAnalyzer.AnalysisKind.SymbolStartEnd, GeneratedCodeAnalysisFlags.None);
+            compilation.VerifyAnalyzerDiagnostics(new DiagnosticAnalyzer[] { namedTypeAnalyzer },
+                expected: new[] {
+                    Diagnostic(NamedTypeAnalyzer.RuleId, "A").WithArguments("A").WithLocation(1, 15)
+                });
+
+            Assert.Equal("A", namedTypeAnalyzer.GetSortedSymbolCallbacksString());
+
+            // Verify analyzer diagnostics and callbacks for non-configurable diagnostics even with with suppression on second file when not using GeneratedCodeAnalysisFlags.Analyze.
+            namedTypeAnalyzer = new NamedTypeAnalyzer(NamedTypeAnalyzer.AnalysisKind.SymbolStartEnd, configurable: false);
+            compilation.VerifyAnalyzerDiagnostics(new DiagnosticAnalyzer[] { namedTypeAnalyzer },
+                expected: new[] {
+                    Diagnostic(NamedTypeAnalyzer.RuleId, "A").WithArguments("A").WithLocation(1, 15),
+                    Diagnostic(NamedTypeAnalyzer.RuleId, "B").WithArguments("B").WithLocation(1, 33)
+                });
+
+            Assert.Equal("A, B", namedTypeAnalyzer.GetSortedSymbolCallbacksString());
+        }
+
+        [Fact]
+        public void TestAnalyzerCallbacksWithSuppressedFile_CompilationStartEndAction()
+        {
+            var tree1 = Parse("partial class A { }");
+            var tree2 = Parse("partial class A { private class B { } }");
+            var compilation = CreateCompilationWithMscorlib45(new[] { tree1, tree2 });
+            compilation.VerifyDiagnostics();
+
+            // Verify analyzer diagnostics and callbacks without suppression.
+            var namedTypeAnalyzer = new NamedTypeAnalyzer(NamedTypeAnalyzer.AnalysisKind.CompilationStartEnd);
+            compilation.VerifyAnalyzerDiagnostics(new DiagnosticAnalyzer[] { namedTypeAnalyzer },
+                expected: new[] {
+                    Diagnostic(NamedTypeAnalyzer.RuleId).WithArguments("A, B").WithLocation(1, 1)
+                });
+
+            Assert.Equal("A, B", namedTypeAnalyzer.GetSortedSymbolCallbacksString());
+
+            // Verify same diagnostics and callbacks even with suppression on second file when using GeneratedCodeAnalysisFlags.Analyze.
+            var suppressingOptions = ImmutableDictionary<string, ReportDiagnostic>.Empty.Add(NamedTypeAnalyzer.RuleId, ReportDiagnostic.Suppress);
+            tree2 = tree2.WithDiagnosticOptions(suppressingOptions);
+            compilation = CreateCompilationWithMscorlib45(new[] { tree1, tree2 });
+            compilation.VerifyDiagnostics();
+
+            namedTypeAnalyzer = new NamedTypeAnalyzer(NamedTypeAnalyzer.AnalysisKind.CompilationStartEnd, GeneratedCodeAnalysisFlags.Analyze);
+            compilation.VerifyAnalyzerDiagnostics(new DiagnosticAnalyzer[] { namedTypeAnalyzer },
+                expected: new[] {
+                    Diagnostic(NamedTypeAnalyzer.RuleId).WithArguments("A, B").WithLocation(1, 1)
+                });
+
+            Assert.Equal("A, B", namedTypeAnalyzer.GetSortedSymbolCallbacksString());
+
+            // Verify suppressed analyzer diagnostic and callback with suppression on second file when not using GeneratedCodeAnalysisFlags.Analyze.
+            namedTypeAnalyzer = new NamedTypeAnalyzer(NamedTypeAnalyzer.AnalysisKind.CompilationStartEnd, GeneratedCodeAnalysisFlags.None);
+            compilation.VerifyAnalyzerDiagnostics(new DiagnosticAnalyzer[] { namedTypeAnalyzer },
+                expected: new[] {
+                    Diagnostic(NamedTypeAnalyzer.RuleId).WithArguments("A").WithLocation(1, 1)
+                });
+
+            Assert.Equal("A", namedTypeAnalyzer.GetSortedSymbolCallbacksString());
+
+            // Verify analyzer diagnostics and callbacks for non-configurable diagnostics even with suppression on second file.
+            namedTypeAnalyzer = new NamedTypeAnalyzer(NamedTypeAnalyzer.AnalysisKind.CompilationStartEnd, configurable: false);
+            compilation.VerifyAnalyzerDiagnostics(new DiagnosticAnalyzer[] { namedTypeAnalyzer },
+                expected: new[] {
+                    Diagnostic(NamedTypeAnalyzer.RuleId).WithArguments("A, B").WithLocation(1, 1)
+                });
+
+            Assert.Equal("A, B", namedTypeAnalyzer.GetSortedSymbolCallbacksString());
         }
     }
 }

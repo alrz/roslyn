@@ -5,6 +5,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis.CSharp.Emit;
 using Microsoft.CodeAnalysis.CSharp.Symbols;
 using Microsoft.CodeAnalysis.PooledObjects;
+using Microsoft.CodeAnalysis.Symbols;
 
 namespace Microsoft.CodeAnalysis.CSharp
 {
@@ -20,7 +21,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             var intType = container.DeclaringCompilation.GetSpecialType(SpecialType.System_Int32);
             _parameters = ImmutableArray.Create<ParameterSymbol>(
-                SynthesizedParameterSymbol.Create(this, TypeSymbolWithAnnotations.Create(intType), 0, RefKind.None, GeneratedNames.MakeStateMachineStateFieldName()));
+                SynthesizedParameterSymbol.Create(this, TypeWithAnnotations.Create(intType), 0, RefKind.None, GeneratedNames.MakeStateMachineStateFieldName()));
         }
 
         internal override void AddSynthesizedAttributes(PEModuleBuilder moduleBuilder, ref ArrayBuilder<SynthesizedAttributeData> attributes)
@@ -41,7 +42,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             get { return Accessibility.Public; }
         }
 
-        IMethodSymbol ISynthesizedMethodBodyImplementationSymbol.Method
+        IMethodSymbolInternal ISynthesizedMethodBodyImplementationSymbol.Method
         {
             get { return ((ISynthesizedMethodBodyImplementationSymbol)this.ContainingSymbol).Method; }
         }

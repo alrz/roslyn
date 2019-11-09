@@ -37,7 +37,7 @@ class A {
             Assert.False(a.HasComplete(CompletionPart.StartBaseType));
             Assert.False(x.HasComplete(CompletionPart.Type));
 
-            var xType = x.Type;
+            var xType = x.TypeWithAnnotations;
             Assert.True(x.HasComplete(CompletionPart.Type));
             Assert.False(a.HasComplete(CompletionPart.StartBaseType));
 
@@ -45,13 +45,13 @@ class A {
             Assert.False(a.HasComplete(CompletionPart.StartBaseType));
             Assert.False(y.HasComplete(CompletionPart.Type));
 
-            var yType = y.Type;
+            var yType = y.TypeWithAnnotations;
             Assert.True(y.HasComplete(CompletionPart.Type));
             Assert.False(a.HasComplete(CompletionPart.StartBaseType)); // needed to look in A's base for y's type
 
             var f = a.GetMember<MethodSymbol>("F");
             Assert.False(f.HasComplete(CompletionPart.StartMethodChecks));
-            Assert.Equal(false, f.ReturnsVoid);
+            Assert.False(f.ReturnsVoid);
             Assert.True(f.HasComplete(CompletionPart.StartMethodChecks));
             Assert.True(f.HasComplete(CompletionPart.FinishMethodChecks));
         }
@@ -76,13 +76,13 @@ class A {
             Assert.True(a.HasComplete(CompletionPart.Members)); // getting one member completes the whole set
             Assert.False(a.HasComplete(CompletionPart.StartBaseType));
 
-            var pType = p.Type;
+            var pType = p.TypeWithAnnotations;
             var pParameters = p.Parameters;
             Assert.False(p.HasComplete(CompletionPart.Type));
             Assert.False(p.HasComplete(CompletionPart.Parameters));
 
             p = a.GetMember<PropertySymbol>("this[]");
-            pType = p.Type;
+            pType = p.TypeWithAnnotations;
             pParameters = p.Parameters;
             Assert.False(p.HasComplete(CompletionPart.Type));
             Assert.False(p.HasComplete(CompletionPart.Parameters));

@@ -1,5 +1,7 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
+#nullable enable
+
 using System.Collections.Generic;
 
 namespace Roslyn.Utilities
@@ -16,5 +18,7 @@ namespace Roslyn.Utilities
             key = keyValuePair.Key;
             value = keyValuePair.Value;
         }
+
+        public static KeyValuePair<TKey, TValue> ToKeyValuePair<TKey, TValue>(this (TKey, TValue) tuple) => Create(tuple.Item1, tuple.Item2);
     }
 }
