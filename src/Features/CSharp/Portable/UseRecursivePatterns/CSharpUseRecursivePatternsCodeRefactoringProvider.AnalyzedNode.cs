@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
-using Microsoft.CodeAnalysis.CSharp.Extensions;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.PooledObjects;
 using Microsoft.CodeAnalysis.Simplification;
@@ -273,9 +272,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
 
             public override PatternSyntax AsPatternSyntax()
                 => DeclarationPattern(Type, DiscardDesignation(GetToken(SyntaxKind.UnderscoreToken)));
-
-            public static AnalyzedNode? Create(TypeSyntax? type)
-                => type is null ? null : new TypePattern(type);
         }
 
         // Represents a variable designation in a var-pattern.
@@ -350,9 +346,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
                 => PositionalPatternClause(SeparatedList(
                     Subpatterns.Select(sub => Subpattern(sub.NameColonOpt, sub.Pattern.AsPatternSyntax())),
                     GetSeparators(Subpatterns.Length - 1, multiline: false)));
-
-            public static AnalyzedNode? Create(IEnumerable<(NameColonSyntax? NameColon, AnalyzedNode)>? subpatterns)
-                => subpatterns is null ? null : new PositionalPattern(subpatterns.ToImmutableArray());
         }
 
         // Helpers

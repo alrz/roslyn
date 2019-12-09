@@ -189,14 +189,6 @@ namespace Microsoft.CodeAnalysis
             }
         }
 
-        public static void AddRangeIfNotNull<T>(this ArrayBuilder<T> builder, IEnumerable<T>? value)
-        {
-            if (value != null)
-            {
-                builder.AddRange(value);
-            }
-        }
-
 #nullable disable
         public static void FreeAll<T>(this ArrayBuilder<T> builder, Func<T, ArrayBuilder<T>> getNested)
         {

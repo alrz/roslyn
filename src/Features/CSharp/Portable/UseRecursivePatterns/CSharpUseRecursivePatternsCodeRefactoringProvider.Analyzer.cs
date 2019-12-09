@@ -2,6 +2,7 @@
 
 #nullable enable
 
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis.CSharp.Extensions;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -82,10 +83,21 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             public override AnalyzedNode VisitRecursivePattern(RecursivePatternSyntax node)
             {
                 var nodes = ArrayBuilder<AnalyzedNode>.GetInstance();
-                nodes.AddIfNotNull(TypePattern.Create(node.Type));
-                nodes.AddIfNotNull(PositionalPattern.Create(node.PositionalPatternClause?.Subpatterns.Select(sub => (sub.NameColon, Visit(sub.Pattern)!))));
-                nodes.AddRangeIfNotNull(node.PropertyPatternClause?.Subpatterns.Select(sub => new PatternMatch(sub.NameColon!.Name, Visit(sub.Pattern)!)));
-                nodes.AddIfNotNull(Visit(node.Designation));
+
+                if (node.Type is object)
+                    nodes.Add(new TypePattern(node.Type));
+
+                var positionalSubpatterns = node.PositionalPatternClause?.Subpatterns.Select(sub => (sub.NameColon, Visit(sub.Pattern)!));
+                if (positionalSubpatterns is object)
+                    nodes.Add(new PositionalPattern(positionalSubpatterns.ToImmutableArray()));
+
+                var propertySubpatterns = node.PropertyPatternClause?.Subpatterns.Select(sub => new PatternMatch(sub.NameColon!.Name, Visit(sub.Pattern)!));
+                if (propertySubpatterns is object)
+                    nodes.AddRange(propertySubpatterns);
+
+                if (node.Designation is object)
+                    nodes.Add(Visit(node.Designation)!);
+
                 var result = nodes.AggregateOrDefault((left, right) => new Conjunction(left, right)) ?? NotNullPattern.Instance;
                 nodes.Free();
                 return result;
