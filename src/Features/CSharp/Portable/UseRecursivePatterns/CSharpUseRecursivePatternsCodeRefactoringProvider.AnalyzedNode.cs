@@ -200,7 +200,13 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
                     AsPropertyPatternClauseSyntax(ImmutableArray.Create(AsSubpatternSyntax())), null);
 
             public override ExpressionSyntax AsExpressionSyntax()
-                => IsPatternExpression(Expression, Pattern.AsPatternSyntax());
+                => Pattern switch
+                {
+                    ConstantPattern { BooleanValue: true } => Expression,
+                    ConstantPattern { BooleanValue: false } => PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, Expression.Parenthesize()),
+                    ConstantPattern p => BinaryExpression(SyntaxKind.EqualsExpression, Expression, p.Expression),
+                    _ => IsPatternExpression(Expression, Pattern.AsPatternSyntax())
+                };
         }
 
         private sealed class ConstantPattern : AnalyzedNode

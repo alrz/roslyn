@@ -665,7 +665,7 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.UseRecursivePatterns
                 Name: ""System"",
                 Kind: SymbolKind.Namespace
             } declContainer
-        } && type.GetArity() is 0;
+        } && type.GetArity() == 0;
     }
     enum SymbolKind { Namespace }
 }");
