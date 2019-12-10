@@ -2,9 +2,11 @@
 
 #nullable enable
 
+using Microsoft.CodeAnalysis.CSharp.Extensions;
 using Microsoft.CodeAnalysis.CSharp.ExtractMethod;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.PooledObjects;
+using Microsoft.CodeAnalysis.Shared.Extensions;
 using Roslyn.Utilities;
 
 namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
@@ -330,11 +332,19 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
                     case CastExpressionSyntax node:
                         return VisitPatternMatch(node.Expression, VisitConjunction(new TypePattern(node.Type), pattern));
 
-                    case MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } node
+                    case MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } node:
                         // The expression on the left must no be a type or namespace,
                         // because something like `TypeOrNamespace is P` is not valid.
-                        when !(_semanticModel.GetSymbolInfo(node.Expression).Symbol is INamespaceOrTypeSymbol):
-                        return VisitPatternMatch(node.Expression, VisitPatternMatchCore(node.Name, pattern));
+                        var symbol = _semanticModel.GetSymbolInfo(node.Expression).Symbol;
+                        if (symbol is INamespaceOrTypeSymbol)
+                        {
+                            break;
+                        }
+
+                        return VisitPatternMatch(node.Expression,
+                            symbol?.GetSymbolType()?.IsNullable() == true
+                                ? GetNullableMemberAccessPattern(node, pattern)
+                                : VisitPatternMatchCore(node.Name, pattern));
 
                     case BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } node:
                         // Marking as non-trivial because we want to offer the fix for something like:
@@ -343,10 +353,26 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
                         //
                         _isNonTrivial = true;
                         return VisitPatternMatch(node.Left, VisitConjunction(new TypePattern((TypeSyntax)node.Right), pattern));
-
-                    default:
-                        return null;
                 }
+
+                return null;
+            }
+
+            private static AnalyzedNode? GetNullableMemberAccessPattern(MemberAccessExpressionSyntax node, AnalyzedNode pattern)
+            {
+                const string ValuePropertyName = nameof(System.Nullable<int>.Value);
+                const string HasValuePropertyName = nameof(System.Nullable<int>.HasValue);
+
+                return ((node.Name as IdentifierNameSyntax)?.Identifier.ValueText, pattern) switch
+                {
+                    (ValuePropertyName, _)
+                        => pattern,
+                    (HasValuePropertyName, ConstantPattern { BooleanValue: true })
+                        => NotNullPattern.Instance,
+                    (HasValuePropertyName, ConstantPattern { BooleanValue: false })
+                        => new ConstantPattern(LiteralExpression(SyntaxKind.NullLiteralExpression)),
+                    _ => null,
+                };
             }
         }
     }

@@ -14,7 +14,7 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.UseRecursivePatterns
            => new CSharpUseRecursivePatternsCodeRefactoringProvider();
 
         [Fact]
-        public async Task Test1()
+        public async Task Test01()
         {
             await TestInRegularAndScriptAsync(
 @"class C
@@ -34,7 +34,7 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.UseRecursivePatterns
         }
 
         [Fact]
-        public async Task Test2()
+        public async Task Test02()
         {
             await TestInRegularAndScriptAsync(
 @"class C
@@ -63,7 +63,7 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.UseRecursivePatterns
         }
 
         [Fact]
-        public async Task Test3()
+        public async Task Test03()
         {
             await TestInRegularAndScriptAsync(
 @"class C
@@ -90,7 +90,7 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.UseRecursivePatterns
         }
 
         [Fact]
-        public async Task Test4()
+        public async Task Test04()
         {
             await TestInRegularAndScriptAsync(
 @"class C
@@ -117,7 +117,7 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.UseRecursivePatterns
         }
 
         [Fact]
-        public async Task Test5()
+        public async Task Test05()
         {
             await TestInRegularAndScriptAsync(
 @"class C
@@ -137,7 +137,7 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.UseRecursivePatterns
         }
 
         [Fact]
-        public async Task Test6()
+        public async Task Test06()
         {
             await TestInRegularAndScriptAsync(
 @"class C
@@ -157,7 +157,7 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.UseRecursivePatterns
         }
 
         [Fact]
-        public async Task Test7()
+        public async Task Test07()
         {
             await TestInRegularAndScriptAsync(
 @"class C
@@ -188,7 +188,7 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.UseRecursivePatterns
         }
 
         [Fact]
-        public async Task Test8()
+        public async Task Test08()
         {
             await TestInRegularAndScriptAsync(
 @"class C
@@ -211,7 +211,7 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.UseRecursivePatterns
         }
 
         [Fact]
-        public async Task Test9()
+        public async Task Test09()
         {
             await TestInRegularAndScriptAsync(
 @"class C
@@ -729,6 +729,93 @@ this.OutputKind.IsNetModule() == other.OutputKind.IsNetModule();
     }
     const object otherMetadataImportOptions = null;
     const object otherReferencesSupersedeLowerVersions = null;
+}");
+        }
+
+        [Fact]
+        public async Task Test29()
+        {
+            await TestInRegularAndScriptAsync(
+@"struct Conversion
+{
+    public bool IsImplicit;
+
+    static bool M(Conversion? conversion)
+    {
+        return conversion.HasValue [||]&& conversion.Value.IsImplicit;
+    }
+}",
+@"struct Conversion
+{
+    public bool IsImplicit;
+
+    static bool M(Conversion? conversion)
+    {
+        return conversion is { IsImplicit: true };
+    }
+}");
+        }
+
+        [Fact]
+        public async Task Test30()
+        {
+            await TestInRegularAndScriptAsync(
+@"struct Conversion
+{
+    public bool IsImplicit;
+
+    static bool M(Conversion? conversion)
+    {
+        return true == conversion.HasValue [||]&& conversion.Value.IsImplicit;
+    }
+}",
+@"struct Conversion
+{
+    public bool IsImplicit;
+
+    static bool M(Conversion? conversion)
+    {
+        return conversion is { IsImplicit: true };
+    }
+}");
+        }
+
+        [Fact]
+        public async Task Test31()
+        {
+            await TestMissingAsync(
+@"struct Conversion
+{
+    public bool IsImplicit;
+
+    static bool M(Conversion? conversion)
+    {
+        return !conversion.HasValue [||]&& conversion.Value.IsImplicit;
+    }
+}");
+        }
+
+        [Fact]
+        public async Task Test32()
+        {
+            await TestInRegularAndScriptAsync(
+@"class C
+{
+    public int? NullableField;
+
+    static bool M(C c)
+    {
+        return c != null [||]&& !c.NullableField.HasValue;
+    }
+}",
+@"class C
+{
+    public int? NullableField;
+
+    static bool M(C c)
+    {
+        return c is { NullableField: null };
+    }
 }");
         }
     }

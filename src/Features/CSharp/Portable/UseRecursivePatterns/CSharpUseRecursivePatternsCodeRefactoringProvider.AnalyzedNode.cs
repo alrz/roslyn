@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
+using Microsoft.CodeAnalysis.CSharp.Extensions;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.PooledObjects;
 using Microsoft.CodeAnalysis.Simplification;
@@ -206,10 +207,17 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
         {
             public readonly ExpressionSyntax Expression;
 
+            public bool? BooleanValue => Expression.Kind() switch
+            {
+                SyntaxKind.TrueLiteralExpression => true,
+                SyntaxKind.FalseLiteralExpression => false,
+                _ => (bool?)null,
+            };
+
             public override NodeKind Kind => NodeKind.ConstantPattern;
 
             public ConstantPattern(ExpressionSyntax expression)
-                => Expression = expression;
+                => Expression = expression.WalkDownParentheses();
 
             public override PatternSyntax AsPatternSyntax()
                 => ConstantPattern(Expression.WithoutTrivia());
