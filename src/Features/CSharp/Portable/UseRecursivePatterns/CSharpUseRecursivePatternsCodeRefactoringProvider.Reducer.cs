@@ -163,13 +163,17 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
                 {
                     // Mark as non-trivial, since if the expression is found on either side, we will merge it to a single node.
                     _isNonTrivial = true;
-                    return Conjunction.Create(VisitConjunction(conjunction.Left, match), conjunction.Right);
+                    var left = VisitConjunction(conjunction.Left, match);
+                    return VisitConjunction(left, conjunction.Right) ??
+                           Conjunction.Create(left, conjunction.Right);
                 }
 
                 if (conjunction.Right.Contains(match.Expression))
                 {
                     _isNonTrivial = true;
-                    return Conjunction.Create(conjunction.Left, VisitConjunction(conjunction.Right, match));
+                    var right = VisitConjunction(conjunction.Right, match);
+                    return VisitConjunction(conjunction.Left, right) ??
+                           Conjunction.Create(conjunction.Left, right);
                 }
 
                 // Otherwise, return both nodes, e.g. this could be another property pattern on the same object.

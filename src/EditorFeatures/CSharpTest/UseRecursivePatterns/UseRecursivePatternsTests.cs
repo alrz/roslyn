@@ -724,8 +724,7 @@ namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.UseRecursivePatterns
         {
             MetadataImportOptions: otherMetadataImportOptions,
             ReferencesSupersedeLowerVersions: otherReferencesSupersedeLowerVersions
-        } &&
-this.OutputKind.IsNetModule() == other.OutputKind.IsNetModule();
+        } && this.OutputKind.IsNetModule() == other.OutputKind.IsNetModule();
     }
     const object otherMetadataImportOptions = null;
     const object otherReferencesSupersedeLowerVersions = null;
@@ -816,6 +815,121 @@ this.OutputKind.IsNetModule() == other.OutputKind.IsNetModule();
     {
         return c is { NullableField: null };
     }
+}");
+        }
+
+        [Fact]
+        public async Task Test33()
+        {
+            await TestInRegularAndScriptAsync(
+@"class C
+{
+    static bool M(Token token)
+    {
+        return token.Parent [||]is GenericNameSyntax genericName && genericName.TypeArgumentList != null &&
+               genericName.TypeArgumentList.LessThanToken == null && !genericName.TypeArgumentList.GreaterThanToken.IsMissing;
+    }
+}
+class GenericNameSyntax
+{
+    public TypeArgumentList TypeArgumentList;
+}
+class TypeArgumentList
+{
+    public Token LessThanToken;
+    public Token GreaterThanToken;
+}
+class Token
+{
+    public bool IsMissing;
+    public object Parent;
+}",
+@"class C
+{
+    static bool M(Token token)
+    {
+        return token is
+        {
+            Parent: GenericNameSyntax
+            {
+                TypeArgumentList:
+                {
+                    GreaterThanToken: { IsMissing: false },
+                    LessThanToken: null
+                }
+            } genericName
+        };
+    }
+}
+class GenericNameSyntax
+{
+    public TypeArgumentList TypeArgumentList;
+}
+class TypeArgumentList
+{
+    public Token LessThanToken;
+    public Token GreaterThanToken;
+}
+class Token
+{
+    public bool IsMissing;
+    public object Parent;
+}");
+        }
+
+        [Fact]
+        public async Task Test34()
+        {
+            await TestInRegularAndScriptAsync(
+@"class C
+{
+    static bool M(Token token, Token lessThanToken)
+    {
+        return token.Parent [||]is GenericNameSyntax genericName && genericName.TypeArgumentList != null &&
+               genericName.TypeArgumentList.LessThanToken == lessThanToken && !genericName.TypeArgumentList.GreaterThanToken.IsMissing;
+    }
+}
+class GenericNameSyntax
+{
+    public TypeArgumentList TypeArgumentList;
+}
+class TypeArgumentList
+{
+    public Token LessThanToken;
+    public Token GreaterThanToken;
+}
+class Token
+{
+    public bool IsMissing;
+    public object Parent;
+}",
+@"class C
+{
+    static bool M(Token token, Token lessThanToken)
+    {
+        return token is
+        {
+            Parent: GenericNameSyntax
+            {
+                TypeArgumentList: { GreaterThanToken: { IsMissing: false } }
+            } genericName
+        } &&
+               genericName.TypeArgumentList.LessThanToken == lessThanToken;
+    }
+}
+class GenericNameSyntax
+{
+    public TypeArgumentList TypeArgumentList;
+}
+class TypeArgumentList
+{
+    public Token LessThanToken;
+    public Token GreaterThanToken;
+}
+class Token
+{
+    public bool IsMissing;
+    public object Parent;
 }");
         }
     }

@@ -149,9 +149,12 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             }
 
             private static BinaryExpressionSyntax GetLogicalAndExpression(ExpressionSyntax left, ExpressionSyntax right)
-                => BinaryExpression(SyntaxKind.LogicalAndExpression, left: left, right: right.WithTrailingTrivia(),
-                    operatorToken: GetToken(SyntaxKind.AmpersandAmpersandToken,
-                        newlineAfter: (right is IsPatternExpressionSyntax p ? p.Expression : right).Span.Length > 50));
+            {
+                var newlineAfter = right.HasLeadingTrivia &&
+                                   (right is IsPatternExpressionSyntax p ? p.Expression : right).Span.Length > 50;
+                var operatorToken = GetToken(SyntaxKind.AmpersandAmpersandToken, newlineAfter: newlineAfter);
+                return BinaryExpression(SyntaxKind.LogicalAndExpression, left, operatorToken, right);
+            }
 
             public override ExpressionSyntax AsExpressionSyntax()
                 => GetLogicalAndExpression(Left.AsExpressionSyntax(), Right.AsExpressionSyntax());
@@ -197,7 +200,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
 
             public override PatternSyntax AsPatternSyntax()
                 => RecursivePattern(null, null,
-                    AsPropertyPatternClauseSyntax(ImmutableArray.Create(AsSubpatternSyntax())), null);
+                    AsPropertyPatternClauseSyntax(new[] { AsSubpatternSyntax() }), null);
 
             public override ExpressionSyntax AsExpressionSyntax()
                 => Pattern switch
