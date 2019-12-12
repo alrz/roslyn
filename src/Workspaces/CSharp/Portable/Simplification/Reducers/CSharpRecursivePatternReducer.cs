@@ -26,10 +26,10 @@ namespace Microsoft.CodeAnalysis.CSharp.Simplification
 
         private static SyntaxNode SimplifyNode(RecursivePatternSyntax node, SemanticModel semanticModel, OptionSet optionSet, CancellationToken cancellationToken)
         {
-            switch (node.Type, node.PositionalPatternClause, node.PropertyPatternClause)
+            switch (node.PropertyPatternClause, node.Type, node.PositionalPatternClause)
             {
-                case ({ }, _, { Subpatterns: { Count: 0 } }):
-                case (_, { }, { Subpatterns: { Count: 0 } }):
+                case ({ Subpatterns: { Count: 0 } }, { }, _):
+                case ({ Subpatterns: { Count: 0 } }, _, { Subpatterns: var subpatterns }) when subpatterns.Count > 1:
                     return node.Update(node.Type, node.PositionalPatternClause, null, node.Designation);
                 default:
                     return node;
