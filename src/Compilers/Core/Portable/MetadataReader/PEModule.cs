@@ -1087,6 +1087,17 @@ namespace Microsoft.CodeAnalysis
             return null;
         }
 
+        internal string TryGetCallerArgumentExpressionArgumnetName(EntityHandle token)
+        {
+            AttributeInfo info = FindTargetAttribute(token, AttributeDescription.CallerArgumentExpressionAttribute);
+            if (info.HasValue)
+            {
+                return TryExtractCallerArgumnetExpressionDataFromAttribute(info);
+            }
+
+            return null;
+        }
+
         internal bool HasMaybeNullWhenOrNotNullWhenOrDoesNotReturnIfAttribute(EntityHandle token, AttributeDescription description, out bool when)
         {
             Debug.Assert(description.Namespace == "System.Diagnostics.CodeAnalysis");
@@ -1247,6 +1258,22 @@ namespace Microsoft.CodeAnalysis
                     // ObsoleteAttribute(string, bool)
                     return TryExtractValueFromAttribute(attributeInfo.Handle, out var obsoleteData, s_attributeObsoleteDataExtractor) ?
                         obsoleteData :
+                        null;
+
+                default:
+                    throw ExceptionUtilities.UnexpectedValue(attributeInfo.SignatureIndex);
+            }
+        }
+
+        private string TryExtractCallerArgumnetExpressionDataFromAttribute(AttributeInfo attributeInfo)
+        {
+            Debug.Assert(attributeInfo.HasValue);
+
+            switch (attributeInfo.SignatureIndex)
+            {
+                case 0: // CallerArgumnetExpressionAttribue(String)
+                    return TryExtractValueFromAttribute(attributeInfo.Handle, out var argumnetName, s_attributeStringValueExtractor) ?
+                        argumnetName :
                         null;
 
                 default:

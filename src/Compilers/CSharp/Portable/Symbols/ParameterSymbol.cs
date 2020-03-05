@@ -391,6 +391,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
         internal abstract bool IsCallerMemberName { get; }
 
+        // TODO(caller-info): encapsulate this and the three above in CallerInfoAttributeData
+        internal abstract int CallerArgumentExpressionParameterIndex { get; }
+
         internal abstract FlowAnalysisAnnotations FlowAnalysisAnnotations { get; }
 
         internal abstract ImmutableHashSet<string> NotNullIfParameterNotNull { get; }

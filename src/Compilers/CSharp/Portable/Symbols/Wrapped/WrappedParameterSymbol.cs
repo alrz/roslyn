@@ -151,6 +151,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             get { return _underlyingParameter.IsCallerMemberName; }
         }
 
+        internal override int CallerArgumentExpressionParameterIndex => _underlyingParameter.CallerArgumentExpressionParameterIndex;
+
         internal override FlowAnalysisAnnotations FlowAnalysisAnnotations
         {
             // https://github.com/dotnet/roslyn/issues/30073: Consider moving to leaf types
