@@ -8,16 +8,18 @@ using Microsoft.CodeAnalysis.CodeStyle;
 using Microsoft.CodeAnalysis.CSharp.CodeStyle;
 using Microsoft.CodeAnalysis.CSharp.ConvertSwitchStatementToExpression;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Editor.UnitTests.CodeActions;
 using Microsoft.CodeAnalysis.Test.Utilities;
 using Microsoft.CodeAnalysis.Testing;
 using Roslyn.Test.Utilities;
 using Xunit;
-using VerifyCS = Microsoft.CodeAnalysis.Editor.UnitTests.CodeActions.CSharpCodeFixVerifier<
-    Microsoft.CodeAnalysis.CSharp.ConvertSwitchStatementToExpression.ConvertSwitchStatementToExpressionDiagnosticAnalyzer,
-    Microsoft.CodeAnalysis.CSharp.ConvertSwitchStatementToExpression.ConvertSwitchStatementToExpressionCodeFixProvider>;
 
 namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.ConvertSwitchStatementToExpression
 {
+    using VerifyCS = CSharpCodeFixVerifier<
+        ConvertSwitchStatementToExpressionDiagnosticAnalyzer,
+        ConvertSwitchStatementToExpressionCodeFixProvider>;
+
     public class ConvertSwitchStatementToExpressionTests
     {
         [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsConvertSwitchStatementToExpression)]
@@ -1810,6 +1812,115 @@ class Program
         {
             0 => true ? ref mem[mem[addr]] : ref mem[mem[addr]],
             _ => throw new Exception(),
+        };
+    }
+}");
+        }
+
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsConvertSwitchStatementToExpression)]
+        public async Task TestShouldCastOnImplicitConversionMismatch_01()
+        {
+            await VerifyCS.VerifyCodeFixAsync(
+@"class Program
+{
+    static dynamic CastToType(dynamic value, int type)
+    {
+        [|switch|] (type)
+        {
+            case 1:
+                return (byte)value;
+            case 2:
+                return (double)value;
+            case 3:
+                return (short)value;
+            default:
+                throw null;
+        }
+    }
+}",
+@"class Program
+{
+    static dynamic CastToType(dynamic value, int type)
+    {
+        return type switch
+        {
+            1 => (dynamic)(byte)value,
+            2 => (dynamic)(double)value,
+            3 => (dynamic)(short)value,
+            _ => throw null,
+        };
+    }
+}");
+        }
+
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsConvertSwitchStatementToExpression)]
+        public async Task TestShouldCastOnImplicitConversionMismatch_02()
+        {
+            await VerifyCS.VerifyCodeFixAsync(
+@"class Program
+{
+    static void CastToType(dynamic value, int type, out dynamic ret)
+    {     
+        [|switch|] (type)
+        {
+            case 1:
+                ret = (byte)value; break;
+            case 2:
+                ret = (double)value; break;
+            case 3:
+                ret = (short)value; break;
+            default:
+                throw null;
+        }
+    }
+}",
+@"class Program
+{
+    static void CastToType(dynamic value, int type, out dynamic ret)
+    {
+        ret = type switch
+        {
+            1 => (dynamic)(byte)value,
+            2 => (dynamic)(double)value,
+            3 => (dynamic)(short)value,
+            _ => throw null,
+        };
+    }
+}");
+        }
+
+        [Fact, Trait(Traits.Feature, Traits.Features.CodeActionsConvertSwitchStatementToExpression)]
+        public async Task TestShouldCastOnImplicitConversionMismatch_03()
+        {
+            await VerifyCS.VerifyCodeFixAsync(
+@"class Program
+{
+    static void CastToType(dynamic value, int type)
+    {     
+        dynamic ret;
+        [|switch|] (type)
+        {
+            case 1:
+                ret = (byte)value; break;
+            case 2:
+                ret = (double)value; break;
+            case 3:
+                ret = (short)value; break;
+            default:
+                throw null;
+        }
+    }
+}",
+@"class Program
+{
+    static void CastToType(dynamic value, int type)
+    {
+        dynamic ret = type switch
+        {
+            1 => (dynamic)(byte)value,
+            2 => (dynamic)(double)value,
+            3 => (dynamic)(short)value,
+            _ => throw null,
         };
     }
 }");

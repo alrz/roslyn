@@ -19,6 +19,7 @@ using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.PooledObjects;
 using Microsoft.CodeAnalysis.Shared.Extensions;
 using Microsoft.CodeAnalysis.Text;
+using Roslyn.Utilities;
 
 namespace Microsoft.CodeAnalysis.CSharp.ConvertSwitchStatementToExpression
 {
@@ -27,6 +28,8 @@ namespace Microsoft.CodeAnalysis.CSharp.ConvertSwitchStatementToExpression
     [ExportCodeFixProvider(LanguageNames.CSharp), Shared]
     internal sealed partial class ConvertSwitchStatementToExpressionCodeFixProvider : SyntaxEditorBasedCodeFixProvider
     {
+        private static readonly SyntaxAnnotation s_switchExpressionAnnotation = new SyntaxAnnotation();
+
         [ImportingConstructor]
         public ConvertSwitchStatementToExpressionCodeFixProvider()
         {
@@ -68,21 +71,34 @@ namespace Microsoft.CodeAnalysis.CSharp.ConvertSwitchStatementToExpression
                 var declaratorToRemoveLocationOpt = diagnostic.AdditionalLocations.ElementAtOrDefault(1);
                 var semanticModel = await document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
 
-                SyntaxNode declaratorToRemoveNodeOpt = null;
                 ITypeSymbol declaratorToRemoveTypeOpt = null;
 
                 if (declaratorToRemoveLocationOpt != null)
                 {
-                    declaratorToRemoveNodeOpt = declaratorToRemoveLocationOpt.FindNode(cancellationToken);
-                    declaratorToRemoveTypeOpt = semanticModel.GetDeclaredSymbol(declaratorToRemoveNodeOpt).GetSymbolType();
+                    var declaratorToRemoveNode = declaratorToRemoveLocationOpt.FindNode(cancellationToken);
+                    declaratorToRemoveTypeOpt = semanticModel.GetDeclaredSymbol(declaratorToRemoveNode).GetSymbolType();
                 }
 
                 var switchStatement = (SwitchStatementSyntax)switchLocation.FindNode(cancellationToken);
-                var switchExpression = Rewriter.Rewrite(switchStatement, declaratorToRemoveTypeOpt, nodeToGenerate,
+                var rewrittenStatement = Rewriter.Rewrite(switchStatement, declaratorToRemoveTypeOpt, nodeToGenerate,
                     shouldMoveNextStatementToSwitchExpression: shouldRemoveNextStatement,
-                    generateDeclaration: declaratorToRemoveLocationOpt is object);
+                    generateDeclaration: declaratorToRemoveLocationOpt is object, s_switchExpressionAnnotation);
 
-                editor.ReplaceNode(switchStatement, switchExpression.WithAdditionalAnnotations(Formatter.Annotation));
+                var switchExpression = rewrittenStatement.GetAnnotatedNodes<SwitchExpressionSyntax>(s_switchExpressionAnnotation).Single();
+                var incompatibleType = GetSwitchTypeIfIncompatible();
+                if (incompatibleType is object)
+                {
+                    rewrittenStatement = rewrittenStatement.ReplaceNodes(switchExpression.Arms,
+                        (switchArmNode, _) =>
+                        {
+                            var expr = switchArmNode.Expression;
+                            return expr.IsKind(SyntaxKind.ThrowExpression)
+                                ? switchArmNode 
+                                : switchArmNode.WithExpression(expr.Cast(incompatibleType));
+                        });
+                }
+
+                editor.ReplaceNode(switchStatement, rewrittenStatement.WithAdditionalAnnotations(Formatter.Annotation));
 
                 if (declaratorToRemoveLocationOpt is object)
                 {
@@ -95,6 +111,32 @@ namespace Microsoft.CodeAnalysis.CSharp.ConvertSwitchStatementToExpression
                     var nextStatement = switchStatement.GetNextStatement();
                     Debug.Assert(nextStatement.IsKind(SyntaxKind.ThrowStatement, SyntaxKind.ReturnStatement));
                     editor.RemoveNode(nextStatement);
+                }
+
+                ITypeSymbol GetSwitchTypeIfIncompatible()
+                {
+                    if (semanticModel.TryGetSpeculativeSemanticModel(switchStatement.SpanStart, rewrittenStatement, out var speculativeModel))
+                    {
+                        var switchType = speculativeModel.GetTypeInfo(switchExpression).ConvertedType;
+                        if (switchType is null)
+                            return null;
+
+                        foreach (var switchArm in switchExpression.Arms)
+                        {
+                            var switchArmType = speculativeModel.GetTypeInfo(switchArm.Expression).ConvertedType;
+                            if (switchArmType is null)
+                                return null;
+
+                            if (!switchType.Equals(switchArmType) &&
+                                !switchArmType.IsReferenceType &&
+                                !switchArmType.IsNullable())
+                            {
+                                return switchType;
+                            }
+                        }
+                    }
+
+                    return null;
                 }
             }
         }
