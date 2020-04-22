@@ -670,7 +670,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
 
             // Are there any top-level return statements?
-            if (root.DescendantNodes(n => n is GlobalStatementSyntax || n is StatementSyntax || n is CompilationUnitSyntax).Any(n => n.IsKind(SyntaxKind.ReturnStatement)))
+            if (root.DescendantNodes(n => n is GlobalStatementSyntax or StatementSyntax or CompilationUnitSyntax).Any(n => n.IsKind(SyntaxKind.ReturnStatement)))
             {
                 return true;
             }
@@ -1281,7 +1281,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
             else if (_externAliasTargets.TryGetValue(aliasName, out @namespace))
             {
-                return !(@namespace is MissingNamespaceSymbol);
+                return @namespace is not MissingNamespaceSymbol;
             }
 
             ArrayBuilder<NamespaceSymbol>? builder = null;
@@ -1395,7 +1395,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// </summary>
         internal new NamedTypeSymbol GetSpecialType(SpecialType specialType)
         {
-            if (specialType <= SpecialType.None || specialType > SpecialType.Count)
+            if (specialType is <= SpecialType.None or > SpecialType.Count)
             {
                 throw new ArgumentOutOfRangeException(nameof(specialType), $"Unexpected SpecialType: '{(int)specialType}'.");
             }
@@ -1703,7 +1703,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     // https://github.com/dotnet/roslyn/issues/18964
                     foreach (var diagnostic in noMainFoundDiagnostics.AsEnumerable())
                     {
-                        if (diagnostic.Code == (int)ErrorCode.WRN_InvalidMainSig || diagnostic.Code == (int)ErrorCode.WRN_MainCantBeGeneric)
+                        if (diagnostic.Code is (int)ErrorCode.WRN_InvalidMainSig or (int)ErrorCode.WRN_MainCantBeGeneric)
                         {
                             diagnostics.Add(diagnostic);
                         }
@@ -1771,7 +1771,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 return false;
             }
 
-            if (!(method.ReturnType is NamedTypeSymbol namedType))
+            if (method.ReturnType is not NamedTypeSymbol namedType)
             {
                 return false;
             }
@@ -3457,7 +3457,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         internal override AnalyzerDriver AnalyzerForLanguage(ImmutableArray<DiagnosticAnalyzer> analyzers, AnalyzerManager analyzerManager)
         {
             Func<SyntaxNode, SyntaxKind> getKind = node => node.Kind();
-            Func<SyntaxTrivia, bool> isComment = trivia => trivia.Kind() == SyntaxKind.SingleLineCommentTrivia || trivia.Kind() == SyntaxKind.MultiLineCommentTrivia;
+            Func<SyntaxTrivia, bool> isComment = trivia => trivia.Kind() is SyntaxKind.SingleLineCommentTrivia or SyntaxKind.MultiLineCommentTrivia;
             return new AnalyzerDriver<SyntaxKind>(analyzers, getKind, analyzerManager, isComment);
         }
 

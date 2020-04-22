@@ -486,8 +486,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             get
             {
                 CheckDefinitionInvariant();
-                return this.MethodKind == MethodKind.Constructor
-                    || this.MethodKind == MethodKind.StaticConstructor;
+                return this.MethodKind is MethodKind.Constructor
+                    or MethodKind.StaticConstructor;
             }
         }
 

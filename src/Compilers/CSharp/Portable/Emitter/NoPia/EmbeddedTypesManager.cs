@@ -363,10 +363,10 @@ namespace Microsoft.CodeAnalysis.CSharp.Emit.NoPia
 
             if (!isInterface)
             {
-                Debug.Assert(namedType.TypeKind == TypeKind.Struct || namedType.TypeKind == TypeKind.Enum || namedType.TypeKind == TypeKind.Delegate);
+                Debug.Assert(namedType.TypeKind is TypeKind.Struct or TypeKind.Enum or TypeKind.Delegate);
                 // For structures, enums and delegates we embed all members.
 
-                if (namedType.TypeKind == TypeKind.Struct || namedType.TypeKind == TypeKind.Enum)
+                if (namedType.TypeKind is TypeKind.Struct or TypeKind.Enum)
                 {
                     // TODO: When building debug versions in the IDE, the compiler will insert some extra members
                     // that support ENC. These make no sense in local types, so we will skip them. We have to

@@ -414,11 +414,11 @@ namespace Microsoft.CodeAnalysis.CSharp
             SymbolKind symbolKind = symbol.Kind;
 
             System.Diagnostics.Debug.Assert(
-                symbolKind == SymbolKind.NamedType ||
-                symbolKind == SymbolKind.Field ||
-                symbolKind == SymbolKind.Property ||
-                symbolKind == SymbolKind.Event ||
-                symbolKind == SymbolKind.Method);
+                symbolKind is SymbolKind.NamedType or
+SymbolKind.Field or
+SymbolKind.Property or
+SymbolKind.Event or
+SymbolKind.Method);
             System.Diagnostics.Debug.Assert(!symbol.IsAccessor());
 
             if (!CheckForDeclarationWithoutAssemblyDeclaration(symbol, compliance))
@@ -878,7 +878,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             Debug.Assert(sameNameSymbols.Count > 0);
             Debug.Assert(symbol.Name == symbolName);
 
-            bool isMethodOrProperty = symbol.Kind == SymbolKind.Method || symbol.Kind == SymbolKind.Property;
+            bool isMethodOrProperty = symbol.Kind is SymbolKind.Method or SymbolKind.Property;
 
             foreach (Symbol other in sameNameSymbols)
             {

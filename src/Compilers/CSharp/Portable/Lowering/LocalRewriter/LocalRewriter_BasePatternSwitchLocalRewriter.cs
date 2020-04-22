@@ -328,7 +328,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     }
                 }
 
-                ImmutableArray<BoundDecisionDagNode> nodesToLower = sortedNodes.WhereAsArray(n => n.Kind != BoundKind.WhenDecisionDagNode && n.Kind != BoundKind.LeafDecisionDagNode);
+                ImmutableArray<BoundDecisionDagNode> nodesToLower = sortedNodes.WhereAsArray(n => n.Kind is not BoundKind.WhenDecisionDagNode and not BoundKind.LeafDecisionDagNode);
                 var loweredNodes = PooledHashSet<BoundDecisionDagNode>.GetInstance();
                 for (int i = 0, length = nodesToLower.Length; i < length; i++)
                 {

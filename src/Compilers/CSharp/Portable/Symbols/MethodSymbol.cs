@@ -364,7 +364,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         /// </summary>
         public virtual ImmutableArray<CSharpAttributeData> GetReturnTypeAttributes()
         {
-            Debug.Assert(!(this is IAttributeTargetSymbol)); //such types must override
+            Debug.Assert(this is not IAttributeTargetSymbol); //such types must override
 
             // Return an empty array by default.
             // Sub-classes that can have return type attributes must

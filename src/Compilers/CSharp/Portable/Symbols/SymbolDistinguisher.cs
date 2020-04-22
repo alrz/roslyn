@@ -190,7 +190,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 return containingAssembly.Identity.ToString();
             }
 
-            Debug.Assert(unwrappedSymbol.Kind == SymbolKind.DynamicType || unwrappedSymbol.Kind == SymbolKind.ErrorType);
+            Debug.Assert(unwrappedSymbol.Kind is SymbolKind.DynamicType or SymbolKind.ErrorType);
             return null;
         }
 

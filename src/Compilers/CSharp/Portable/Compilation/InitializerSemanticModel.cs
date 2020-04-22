@@ -30,7 +30,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                                      int speculatedPosition = 0) :
             base(syntax, symbol, rootBinder, containingSemanticModelOpt, parentSemanticModelOpt, snapshotManagerOpt: null, parentRemappedSymbolsOpt, speculatedPosition)
         {
-            Debug.Assert(!(syntax is ConstructorInitializerSyntax));
+            Debug.Assert(syntax is not ConstructorInitializerSyntax);
         }
 
         /// <summary>

@@ -99,7 +99,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             }
 
             // check to see if it looks like a recursive pattern.
-            if (tk == SyntaxKind.OpenParenToken || tk == SyntaxKind.OpenBraceToken)
+            if (tk is SyntaxKind.OpenParenToken or SyntaxKind.OpenBraceToken)
             {
                 var resetPoint = this.GetResetPoint();
                 try
@@ -202,7 +202,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     case ParseTypeMode.FirstElementOfPossibleTupleLiteral:
                         return this.CurrentToken.Kind == SyntaxKind.CommaToken;
                     case ParseTypeMode.AfterTupleComma:
-                        return this.CurrentToken.Kind == SyntaxKind.CommaToken || this.CurrentToken.Kind == SyntaxKind.CloseParenToken;
+                        return this.CurrentToken.Kind is SyntaxKind.CommaToken or SyntaxKind.CloseParenToken;
                     default:
                         // The other case where we disambiguate between a declaration and expression is before the `in` of a foreach loop.
                         // There we err on the side of accepting a declaration.
@@ -553,8 +553,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             SyntaxKind openKind,
             SyntaxKind closeKind)
         {
-            Debug.Assert(openKind == SyntaxKind.OpenParenToken || openKind == SyntaxKind.OpenBraceToken);
-            Debug.Assert(closeKind == SyntaxKind.CloseParenToken || closeKind == SyntaxKind.CloseBraceToken);
+            Debug.Assert(openKind is SyntaxKind.OpenParenToken or SyntaxKind.OpenBraceToken);
+            Debug.Assert(closeKind is SyntaxKind.CloseParenToken or SyntaxKind.CloseBraceToken);
             Debug.Assert((openKind == SyntaxKind.OpenParenToken) == (closeKind == SyntaxKind.CloseParenToken));
             Debug.Assert(openKind == this.CurrentToken.Kind);
 
@@ -573,9 +573,9 @@ tryAgain:
                     int lastTokenPosition = -1;
                     while (IsMakingProgress(ref lastTokenPosition))
                     {
-                        if (this.CurrentToken.Kind == SyntaxKind.CloseParenToken ||
-                            this.CurrentToken.Kind == SyntaxKind.CloseBraceToken ||
-                            this.CurrentToken.Kind == SyntaxKind.SemicolonToken)
+                        if (this.CurrentToken.Kind is SyntaxKind.CloseParenToken or
+SyntaxKind.CloseBraceToken or
+SyntaxKind.SemicolonToken)
                         {
                             break;
                         }

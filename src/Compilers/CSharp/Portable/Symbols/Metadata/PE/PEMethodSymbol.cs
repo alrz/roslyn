@@ -689,7 +689,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE
         /// </summary>
         internal bool SetAssociatedProperty(PEPropertySymbol propertySymbol, MethodKind methodKind)
         {
-            Debug.Assert((methodKind == MethodKind.PropertyGet) || (methodKind == MethodKind.PropertySet));
+            Debug.Assert(methodKind is MethodKind.PropertyGet or MethodKind.PropertySet);
             return this.SetAssociatedPropertyOrEvent(propertySymbol, methodKind);
         }
 
@@ -699,7 +699,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE
         /// </summary>
         internal bool SetAssociatedEvent(PEEventSymbol eventSymbol, MethodKind methodKind)
         {
-            Debug.Assert((methodKind == MethodKind.EventAdd) || (methodKind == MethodKind.EventRemove));
+            Debug.Assert(methodKind is MethodKind.EventAdd or MethodKind.EventRemove);
             return this.SetAssociatedPropertyOrEvent(eventSymbol, methodKind);
         }
 
@@ -716,9 +716,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE
 
                 // NOTE: may be overwriting an existing value.
                 Debug.Assert(
-                    _packedFlags.MethodKind == default(MethodKind) ||
-                    _packedFlags.MethodKind == MethodKind.Ordinary ||
-                    _packedFlags.MethodKind == MethodKind.ExplicitInterfaceImplementation);
+                    _packedFlags.MethodKind is default(MethodKind) or
+MethodKind.Ordinary or
+MethodKind.ExplicitInterfaceImplementation);
 
                 _packedFlags.MethodKind = methodKind;
                 return true;

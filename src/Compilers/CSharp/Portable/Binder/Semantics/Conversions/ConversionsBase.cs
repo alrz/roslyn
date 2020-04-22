@@ -424,7 +424,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         public static Conversion FastClassifyConversion(TypeSymbol source, TypeSymbol target)
         {
             ConversionKind convKind = ConversionEasyOut.ClassifyConversion(source, target);
-            if (convKind != ConversionKind.ImplicitNullable && convKind != ConversionKind.ExplicitNullable)
+            if (convKind is not ConversionKind.ImplicitNullable and not ConversionKind.ExplicitNullable)
             {
                 return Conversion.GetTrivialConversion(convKind);
             }
@@ -1108,17 +1108,17 @@ namespace Microsoft.CodeAnalysis.CSharp
                 switch (destination.GetSpecialTypeSafe())
                 {
                     case SpecialType.System_Byte:
-                        return byte.MinValue <= value && value <= byte.MaxValue;
+                        return value is >= byte.MinValue and <= byte.MaxValue;
                     case SpecialType.System_SByte:
-                        return sbyte.MinValue <= value && value <= sbyte.MaxValue;
+                        return value is >= sbyte.MinValue and <= sbyte.MaxValue;
                     case SpecialType.System_Int16:
-                        return short.MinValue <= value && value <= short.MaxValue;
+                        return value is >= short.MinValue and <= short.MaxValue;
                     case SpecialType.System_UInt32:
                         return uint.MinValue <= value;
                     case SpecialType.System_UInt64:
                         return (int)ulong.MinValue <= value;
                     case SpecialType.System_UInt16:
-                        return ushort.MinValue <= value && value <= ushort.MaxValue;
+                        return value is >= ushort.MinValue and <= ushort.MaxValue;
                     default:
                         return false;
                 }
@@ -3121,7 +3121,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             // We also support System.MulticastDelegate in the implementation, in spite of it not being mentioned in the spec.
             if (destination.IsDelegateType())
             {
-                if (source.SpecialType == SpecialType.System_Delegate || source.SpecialType == SpecialType.System_MulticastDelegate)
+                if (source.SpecialType is SpecialType.System_Delegate or SpecialType.System_MulticastDelegate)
                 {
                     return true;
                 }
@@ -3264,11 +3264,11 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 var specialDefinition = ((TypeSymbol)source.OriginalDefinition).SpecialType;
 
-                if (specialDefinition == SpecialType.System_Collections_Generic_IList_T ||
-                    specialDefinition == SpecialType.System_Collections_Generic_ICollection_T ||
-                    specialDefinition == SpecialType.System_Collections_Generic_IEnumerable_T ||
-                    specialDefinition == SpecialType.System_Collections_Generic_IReadOnlyList_T ||
-                    specialDefinition == SpecialType.System_Collections_Generic_IReadOnlyCollection_T)
+                if (specialDefinition is SpecialType.System_Collections_Generic_IList_T or
+SpecialType.System_Collections_Generic_ICollection_T or
+SpecialType.System_Collections_Generic_IEnumerable_T or
+SpecialType.System_Collections_Generic_IReadOnlyList_T or
+SpecialType.System_Collections_Generic_IReadOnlyCollection_T)
                 {
                     var sourceElement = ((NamedTypeSymbol)source).TypeArgumentWithDefinitionUseSiteDiagnostics(0, ref useSiteDiagnostics).Type;
                     var destinationElement = destinationArray.ElementType;
@@ -3313,7 +3313,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             // SPEC: An unboxing conversion exists from the types object and System.ValueType to any non-nullable-value-type, 
             var specialTypeSource = source.SpecialType;
 
-            if (specialTypeSource == SpecialType.System_Object || specialTypeSource == SpecialType.System_ValueType)
+            if (specialTypeSource is SpecialType.System_Object or SpecialType.System_ValueType)
             {
                 if (destination.IsValueType && !destination.IsNullableType())
                 {
@@ -3374,7 +3374,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             Debug.Assert((object)source != null);
             Debug.Assert((object)destination != null);
 
-            if (!(source is PointerTypeSymbol))
+            if (source is not PointerTypeSymbol)
             {
                 return false;
             }
@@ -3405,7 +3405,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             Debug.Assert((object)source != null);
             Debug.Assert((object)destination != null);
 
-            if (!(destination is PointerTypeSymbol))
+            if (destination is not PointerTypeSymbol)
             {
                 return false;
             }

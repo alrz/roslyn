@@ -228,7 +228,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax
                 case SyntaxKind.ElseKeyword:
                     return nextToken.Kind() != SyntaxKind.IfKeyword ? 1 : 0;
                 case SyntaxKind.ColonToken:
-                    if (currentToken.Parent is LabeledStatementSyntax || currentToken.Parent is SwitchLabelSyntax)
+                    if (currentToken.Parent is LabeledStatementSyntax or SwitchLabelSyntax)
                     {
                         return 1;
                     }
@@ -735,7 +735,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax
                 return true;
             }
 
-            if (trivia.Kind() == SyntaxKind.PreprocessingMessageTrivia || trivia.Kind() == SyntaxKind.DisabledTextTrivia)
+            if (trivia.Kind() is SyntaxKind.PreprocessingMessageTrivia or SyntaxKind.DisabledTextTrivia)
             {
                 var text = trivia.ToFullString();
                 return text.Length > 0 && SyntaxFacts.IsNewLine(text.Last());
@@ -835,14 +835,14 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax
                         return parentDepth + 1;
                     }
 
-                    if (node is MemberDeclarationSyntax ||
-                        node is AccessorDeclarationSyntax ||
-                        node is TypeParameterConstraintClauseSyntax ||
-                        node is SwitchSectionSyntax ||
-                        node is UsingDirectiveSyntax ||
-                        node is ExternAliasDirectiveSyntax ||
-                        node is QueryExpressionSyntax ||
-                        node is QueryContinuationSyntax)
+                    if (node is MemberDeclarationSyntax or
+AccessorDeclarationSyntax or
+TypeParameterConstraintClauseSyntax or
+SwitchSectionSyntax or
+UsingDirectiveSyntax or
+ExternAliasDirectiveSyntax or
+QueryExpressionSyntax or
+QueryContinuationSyntax)
                     {
                         return parentDepth + 1;
                     }

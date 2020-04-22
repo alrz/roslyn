@@ -37,7 +37,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             bool addRefReadOnlyModifier,
             DiagnosticBag declarationDiagnostics)
         {
-            Debug.Assert(!(owner is LambdaSymbol)); // therefore we don't need to deal with discard parameters
+            Debug.Assert(owner is not LambdaSymbol); // therefore we don't need to deal with discard parameters
 
             var name = identifier.ValueText;
             var locations = ImmutableArray.Create<Location>(new SourceLocation(identifier));
@@ -106,7 +106,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 Debug.Assert(location != null);
             }
 #endif
-            Debug.Assert((owner.Kind == SymbolKind.Method) || (owner.Kind == SymbolKind.Property));
+            Debug.Assert(owner.Kind is SymbolKind.Method or SymbolKind.Property);
             this.parameterType = parameterType;
             _refKind = refKind;
             _name = name;
@@ -140,7 +140,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             }
 
             // Local functions should never have custom modifiers
-            Debug.Assert(!(ContainingSymbol is LocalFunctionSymbol));
+            Debug.Assert(ContainingSymbol is not LocalFunctionSymbol);
 
             return new SourceComplexParameterSymbolWithCustomModifiersPrecedingByRef(
                 this.ContainingSymbol,

@@ -177,9 +177,9 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 SyntaxNode syntax = node.Syntax;
 
-                if (!(syntax is ExpressionSyntax))
+                if (syntax is not ExpressionSyntax)
                 {
-                    syntax = syntax.DescendantNodes(n => !(n is ExpressionSyntax)).OfType<ExpressionSyntax>().FirstOrDefault() ?? syntax;
+                    syntax = syntax.DescendantNodes(n => n is not ExpressionSyntax).OfType<ExpressionSyntax>().FirstOrDefault() ?? syntax;
                 }
 
                 return syntax.GetFirstToken().GetLocation();

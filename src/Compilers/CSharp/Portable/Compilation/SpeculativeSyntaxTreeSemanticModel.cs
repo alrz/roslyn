@@ -36,7 +36,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             Debug.Assert(parentSemanticModel is SyntaxTreeSemanticModel);
             Debug.Assert(root != null);
-            Debug.Assert(root is TypeSyntax || root is CrefSyntax);
+            Debug.Assert(root is TypeSyntax or CrefSyntax);
             Debug.Assert(rootBinder != null);
             Debug.Assert(rootBinder.IsSemanticModelBinder);
 

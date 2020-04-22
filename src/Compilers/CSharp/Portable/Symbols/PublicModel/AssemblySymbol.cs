@@ -80,7 +80,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.PublicModel
                 {
                     IVTConclusion conclusion = identity.PerformIVTCheck(assemblyWantingAccess.Identity.PublicKey, key);
                     Debug.Assert(conclusion != IVTConclusion.NoRelationshipClaimed);
-                    if (conclusion == IVTConclusion.Match || conclusion == IVTConclusion.OneSignedOneNot)
+                    if (conclusion is IVTConclusion.Match or IVTConclusion.OneSignedOneNot)
                     {
                         return true;
                     }

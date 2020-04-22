@@ -1150,7 +1150,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                         asm = candidateAssembly as SourceAssemblySymbol;
                     }
 
-                    Debug.Assert(!(asm is RetargetingAssemblySymbol));
+                    Debug.Assert(asm is not RetargetingAssemblySymbol);
 
                     return ReferenceEquals(asm, Compilation.Assembly);
                 }

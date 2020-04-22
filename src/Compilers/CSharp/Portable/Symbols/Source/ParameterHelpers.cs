@@ -388,7 +388,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             // CONSIDER: reported on the parameter name, or on the value of the initializer?
             // CONSIDER: Consider making this consistent.
 
-            if (refKind == RefKind.Ref || refKind == RefKind.Out)
+            if (refKind is RefKind.Ref or RefKind.Out)
             {
                 // error CS1741: A ref or out parameter cannot have a default value
                 diagnostics.Add(ErrorCode.ERR_RefOutDefaultValue, refnessKeyword.GetLocation());

@@ -61,7 +61,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         //       after some folding/propagation/algebraic transformations.
         public static bool IsDefaultValue(this BoundExpression node)
         {
-            if (node.Kind == BoundKind.DefaultExpression || node.Kind == BoundKind.DefaultLiteral)
+            if (node.Kind is BoundKind.DefaultExpression or BoundKind.DefaultLiteral)
             {
                 return true;
             }

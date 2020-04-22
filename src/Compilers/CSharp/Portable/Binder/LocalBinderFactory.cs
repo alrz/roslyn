@@ -137,7 +137,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         private LocalBinderFactory(Symbol containingMemberOrLambda, SyntaxNode root, Binder enclosing, ArrayBuilder<SyntaxNode> methodsWithYields)
         {
             Debug.Assert((object)containingMemberOrLambda != null);
-            Debug.Assert(containingMemberOrLambda.Kind != SymbolKind.Local && containingMemberOrLambda.Kind != SymbolKind.RangeVariable && containingMemberOrLambda.Kind != SymbolKind.Parameter);
+            Debug.Assert(containingMemberOrLambda.Kind is not SymbolKind.Local and not SymbolKind.RangeVariable and not SymbolKind.Parameter);
 
             _map = new SmallDictionary<SyntaxNode, Binder>(ReferenceEqualityComparer.Instance);
             _containingMemberOrLambda = containingMemberOrLambda;

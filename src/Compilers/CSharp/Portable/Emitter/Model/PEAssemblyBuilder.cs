@@ -409,7 +409,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Emit
             var userDefinedAttribute = _sourceAssembly.SourceModule.LookupTopLevelMetadataType(ref attributeMetadataName);
             Debug.Assert((object)userDefinedAttribute.ContainingModule == _sourceAssembly.SourceModule);
 
-            if (!(userDefinedAttribute is MissingMetadataTypeSymbol))
+            if (userDefinedAttribute is not MissingMetadataTypeSymbol)
             {
                 diagnostics.Add(ErrorCode.ERR_TypeReserved, userDefinedAttribute.Locations[0], description.FullName);
             }

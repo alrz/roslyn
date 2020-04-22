@@ -48,7 +48,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             : base(owner, parameterType, ordinal, refKind, name, locations)
         {
             Debug.Assert((syntaxRef == null) || (syntaxRef.GetSyntax().IsKind(SyntaxKind.Parameter)));
-            Debug.Assert(!(owner is LambdaSymbol)); // therefore we're not dealing with discard parameters
+            Debug.Assert(owner is not LambdaSymbol); // therefore we're not dealing with discard parameters
 
             _lazyHasOptionalAttribute = ThreeState.Unknown;
             _syntaxRef = syntaxRef;

@@ -396,7 +396,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                 // There is no reason why we can't compare instances of delegate types that are identity convertible.
                 // We can't perform + or - operation on them since it is not clear what the return type of such operation should be.
-                bool useIdentityConversion = kind == BinaryOperatorKind.Equal || kind == BinaryOperatorKind.NotEqual;
+                bool useIdentityConversion = kind is BinaryOperatorKind.Equal or BinaryOperatorKind.NotEqual;
 
                 if (!(useIdentityConversion ? Conversions.HasIdentityConversion(leftType, rightType) : leftType.Equals(rightType)))
                 {
@@ -667,7 +667,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             // are applicable.
             kind = kind.OperatorWithLogical();
             var operators = ArrayBuilder<BinaryOperatorSignature>.GetInstance();
-            bool isEquality = kind == BinaryOperatorKind.Equal || kind == BinaryOperatorKind.NotEqual;
+            bool isEquality = kind is BinaryOperatorKind.Equal or BinaryOperatorKind.NotEqual;
             if (isEquality && useOnlyReferenceEquality(Conversions, left, right, ref useSiteDiagnostics))
             {
                 // As a special case, if the reference equality operator is applicable (and it
@@ -1119,7 +1119,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                 // SPEC: If Mp has more specific parameter types than Mq then Mp is better than Mq.
                 BetterResult result = MoreSpecificOperator(op1, op2, ref useSiteDiagnostics);
-                if (result == BetterResult.Left || result == BetterResult.Right)
+                if (result is BetterResult.Left or BetterResult.Right)
                 {
                     return result;
                 }

@@ -206,7 +206,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             ArrayBuilder<MethodSymbol> operators = ArrayBuilder<MethodSymbol>.GetInstance();
             foreach (MethodSymbol candidate in candidates.OfType<MethodSymbol>())
             {
-                if (candidate.MethodKind == MethodKind.UserDefinedOperator || candidate.MethodKind == MethodKind.Conversion)
+                if (candidate.MethodKind is MethodKind.UserDefinedOperator or MethodKind.Conversion)
                 {
                     operators.Add(candidate);
                 }
@@ -376,7 +376,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             get
             {
                 var kind = TypeKind;
-                return kind != TypeKind.Enum && kind != TypeKind.Struct && kind != TypeKind.Error;
+                return kind is not TypeKind.Enum and not TypeKind.Struct and not TypeKind.Error;
             }
         }
 
@@ -390,7 +390,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             get
             {
                 var kind = TypeKind;
-                return kind == TypeKind.Struct || kind == TypeKind.Enum;
+                return kind is TypeKind.Struct or TypeKind.Enum;
             }
         }
 
@@ -1487,7 +1487,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             {
                 int arity = Arity;
 
-                if (arity >= 0 && arity < ValueTupleRestPosition)
+                if (arity is >= 0 and < ValueTupleRestPosition)
                 {
                     tupleCardinality = arity;
                     return true;

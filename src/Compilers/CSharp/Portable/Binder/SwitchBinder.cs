@@ -462,7 +462,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         internal BoundStatement BindGotoCaseOrDefault(GotoStatementSyntax node, Binder gotoBinder, DiagnosticBag diagnostics)
         {
-            Debug.Assert(node.Kind() == SyntaxKind.GotoCaseStatement || node.Kind() == SyntaxKind.GotoDefaultStatement);
+            Debug.Assert(node.Kind() is SyntaxKind.GotoCaseStatement or SyntaxKind.GotoDefaultStatement);
             BoundExpression gotoCaseExpressionOpt = null;
 
             // Prevent cascading diagnostics

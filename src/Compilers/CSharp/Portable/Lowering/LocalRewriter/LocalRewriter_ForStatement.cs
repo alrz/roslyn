@@ -51,7 +51,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             GeneratedLabelSymbol continueLabel,
             bool hasErrors)
         {
-            Debug.Assert(original.Kind == BoundKind.ForStatement || original.Kind == BoundKind.ForEachStatement);
+            Debug.Assert(original.Kind is BoundKind.ForStatement or BoundKind.ForEachStatement);
             Debug.Assert(rewrittenBody != null);
 
             // The sequence point behavior exhibited here is different from that of the native compiler.  In the native

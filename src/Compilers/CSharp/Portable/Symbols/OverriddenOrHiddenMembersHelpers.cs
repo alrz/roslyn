@@ -81,7 +81,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         /// </remarks>
         private static OverriddenOrHiddenMembersResult MakeOverriddenOrHiddenMembersWorker(Symbol member)
         {
-            Debug.Assert(member.Kind == SymbolKind.Method || member.Kind == SymbolKind.Property || member.Kind == SymbolKind.Event);
+            Debug.Assert(member.Kind is SymbolKind.Method or SymbolKind.Property or SymbolKind.Event);
 
             if (!CanOverrideOrHide(member))
             {

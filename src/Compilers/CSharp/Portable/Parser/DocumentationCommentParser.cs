@@ -186,9 +186,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
         private XmlNodeSyntax ParseXmlText()
         {
             var textTokens = _pool.Allocate();
-            while (this.CurrentToken.Kind == SyntaxKind.XmlTextLiteralToken
-                || this.CurrentToken.Kind == SyntaxKind.XmlTextLiteralNewLineToken
-                || this.CurrentToken.Kind == SyntaxKind.XmlEntityLiteralToken)
+            while (this.CurrentToken.Kind is SyntaxKind.XmlTextLiteralToken
+                or SyntaxKind.XmlTextLiteralNewLineToken
+                or SyntaxKind.XmlEntityLiteralToken)
             {
                 textTokens.Add(this.EatToken());
             }
@@ -347,12 +347,12 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                         p => p.CurrentToken.Kind != SyntaxKind.IdentifierName,
 
                     // abort condition (looks like something we might understand later)
-                        p => p.CurrentToken.Kind == SyntaxKind.GreaterThanToken
-                            || p.CurrentToken.Kind == SyntaxKind.SlashGreaterThanToken
-                            || p.CurrentToken.Kind == SyntaxKind.LessThanToken
-                            || p.CurrentToken.Kind == SyntaxKind.LessThanSlashToken
-                            || p.CurrentToken.Kind == SyntaxKind.EndOfDocumentationCommentToken
-                            || p.CurrentToken.Kind == SyntaxKind.EndOfFileToken,
+                        p => p.CurrentToken.Kind is SyntaxKind.GreaterThanToken
+                            or SyntaxKind.SlashGreaterThanToken
+                            or SyntaxKind.LessThanToken
+                            or SyntaxKind.LessThanSlashToken
+                            or SyntaxKind.EndOfDocumentationCommentToken
+                            or SyntaxKind.EndOfFileToken,
 
                         XmlParseErrorCode.XML_InvalidToken
                         );
@@ -606,10 +606,10 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     ? LexerMode.XmlAttributeTextQuote
                     : LexerMode.XmlAttributeTextDoubleQuote);
 
-                while (this.CurrentToken.Kind == SyntaxKind.XmlTextLiteralToken
-                    || this.CurrentToken.Kind == SyntaxKind.XmlTextLiteralNewLineToken
-                    || this.CurrentToken.Kind == SyntaxKind.XmlEntityLiteralToken
-                    || this.CurrentToken.Kind == SyntaxKind.LessThanToken)
+                while (this.CurrentToken.Kind is SyntaxKind.XmlTextLiteralToken
+                    or SyntaxKind.XmlTextLiteralNewLineToken
+                    or SyntaxKind.XmlEntityLiteralToken
+                    or SyntaxKind.LessThanToken)
                 {
                     var token = this.EatToken();
                     if (token.Kind == SyntaxKind.LessThanToken)
@@ -725,9 +725,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             var lessThanExclamationMinusMinusToken = this.EatToken(SyntaxKind.XmlCommentStartToken);
             var saveMode = this.SetMode(LexerMode.XmlCommentText);
             var textTokens = _pool.Allocate<SyntaxToken>();
-            while (this.CurrentToken.Kind == SyntaxKind.XmlTextLiteralToken
-                || this.CurrentToken.Kind == SyntaxKind.XmlTextLiteralNewLineToken
-                || this.CurrentToken.Kind == SyntaxKind.MinusMinusToken)
+            while (this.CurrentToken.Kind is SyntaxKind.XmlTextLiteralToken
+                or SyntaxKind.XmlTextLiteralNewLineToken
+                or SyntaxKind.MinusMinusToken)
             {
                 var token = this.EatToken();
                 if (token.Kind == SyntaxKind.MinusMinusToken)
@@ -752,8 +752,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             var startCDataToken = this.EatToken(SyntaxKind.XmlCDataStartToken);
             var saveMode = this.SetMode(LexerMode.XmlCDataSectionText);
             var textTokens = new SyntaxListBuilder<SyntaxToken>(10);
-            while (this.CurrentToken.Kind == SyntaxKind.XmlTextLiteralToken
-               || this.CurrentToken.Kind == SyntaxKind.XmlTextLiteralNewLineToken)
+            while (this.CurrentToken.Kind is SyntaxKind.XmlTextLiteralToken
+               or SyntaxKind.XmlTextLiteralNewLineToken)
             {
                 textTokens.Add(this.EatToken());
             }
@@ -775,8 +775,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 
             this.SetMode(LexerMode.XmlProcessingInstructionText); //this mode consumes text
             var textTokens = new SyntaxListBuilder<SyntaxToken>(10);
-            while (this.CurrentToken.Kind == SyntaxKind.XmlTextLiteralToken
-               || this.CurrentToken.Kind == SyntaxKind.XmlTextLiteralNewLineToken)
+            while (this.CurrentToken.Kind is SyntaxKind.XmlTextLiteralToken
+               or SyntaxKind.XmlTextLiteralNewLineToken)
             {
                 var textToken = this.EatToken();
 
@@ -1073,8 +1073,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
         /// </summary>
         private ConversionOperatorMemberCrefSyntax ParseConversionOperatorMemberCref()
         {
-            Debug.Assert(CurrentToken.Kind == SyntaxKind.ExplicitKeyword ||
-                CurrentToken.Kind == SyntaxKind.ImplicitKeyword);
+            Debug.Assert(CurrentToken.Kind is SyntaxKind.ExplicitKeyword or
+SyntaxKind.ImplicitKeyword);
             SyntaxToken implicitOrExplicit = EatToken();
 
             SyntaxToken operatorKeyword = EatToken(SyntaxKind.OperatorKeyword);

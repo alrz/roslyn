@@ -133,11 +133,11 @@ namespace Microsoft.CodeAnalysis.CSharp
         internal static string GetDocumentationCommentXml(Symbol symbol, bool processIncludes, CancellationToken cancellationToken)
         {
             Debug.Assert(
-                symbol.Kind == SymbolKind.Event ||
-                symbol.Kind == SymbolKind.Field ||
-                symbol.Kind == SymbolKind.Method ||
-                symbol.Kind == SymbolKind.NamedType ||
-                symbol.Kind == SymbolKind.Property);
+                symbol.Kind is SymbolKind.Event or
+SymbolKind.Field or
+SymbolKind.Method or
+SymbolKind.NamedType or
+SymbolKind.Property);
 
             CSharpCompilation compilation = symbol.DeclaringCompilation;
             Debug.Assert(compilation != null);

@@ -86,9 +86,9 @@ namespace Microsoft.CodeAnalysis.CSharp
                 {
                     if (containingNamespace.IsGlobalNamespace)
                     {
-                        Debug.Assert(format.GlobalNamespaceStyle == SymbolDisplayGlobalNamespaceStyle.Included ||
-                                          format.GlobalNamespaceStyle == SymbolDisplayGlobalNamespaceStyle.Omitted ||
-                                          format.GlobalNamespaceStyle == SymbolDisplayGlobalNamespaceStyle.OmittedAsContaining);
+                        Debug.Assert(format.GlobalNamespaceStyle is SymbolDisplayGlobalNamespaceStyle.Included or
+SymbolDisplayGlobalNamespaceStyle.Omitted or
+SymbolDisplayGlobalNamespaceStyle.OmittedAsContaining);
 
                         if (format.GlobalNamespaceStyle == SymbolDisplayGlobalNamespaceStyle.Included)
                         {

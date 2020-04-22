@@ -182,7 +182,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         /// <summary>
         /// True if the type is not null.
         /// </summary>
-        internal bool HasType => !(DefaultType is null);
+        internal bool HasType => DefaultType is not null;
 
         public TypeWithAnnotations SetIsAnnotated(CSharpCompilation compilation)
         {

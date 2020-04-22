@@ -447,8 +447,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                 case SyntaxKind.DeclarationExpression:
                     var declaration = (DeclarationExpressionSyntax)syntax;
                     var designationKind = declaration.Designation.Kind();
-                    if (designationKind == SyntaxKind.ParenthesizedVariableDesignation ||
-                        designationKind == SyntaxKind.DiscardDesignation)
+                    if (designationKind is SyntaxKind.ParenthesizedVariableDesignation or
+SyntaxKind.DiscardDesignation)
                     {
                         return null;
                     }

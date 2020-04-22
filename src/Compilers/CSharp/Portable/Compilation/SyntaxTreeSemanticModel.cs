@@ -252,7 +252,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                     // NOTE: We don't need to call GetSymbolInfoForSymbol because the symbols
                     // can only be parameters or type parameters.
-                    Debug.Assert(symbols.All(s => s.Kind == SymbolKind.TypeParameter || s.Kind == SymbolKind.Parameter));
+                    Debug.Assert(symbols.All(s => s.Kind is SymbolKind.TypeParameter or SymbolKind.Parameter));
 
                     switch (symbols.Length)
                     {

@@ -37,7 +37,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Retargeting
             : base(underlyingTypeParameter)
         {
             Debug.Assert((object)retargetingModule != null);
-            Debug.Assert(!(underlyingTypeParameter is RetargetingTypeParameterSymbol));
+            Debug.Assert(underlyingTypeParameter is not RetargetingTypeParameterSymbol);
 
             _retargetingModule = retargetingModule;
         }

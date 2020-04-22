@@ -106,7 +106,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                 // We follow the "good" path in the decision dag. We depend on it being nicely linear in structure.
                 // If we add "or" patterns that assumption breaks down.
-                while (node.Kind != BoundKind.LeafDecisionDagNode && node.Kind != BoundKind.WhenDecisionDagNode)
+                while (node.Kind is not BoundKind.LeafDecisionDagNode and not BoundKind.WhenDecisionDagNode)
                 {
                     switch (node)
                     {

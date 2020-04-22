@@ -15,7 +15,7 @@ namespace Microsoft.CodeAnalysis.CSharp
     {
         public static bool IsDynamic(this ConversionKind conversionKind)
         {
-            return conversionKind == ImplicitDynamic || conversionKind == ExplicitDynamic;
+            return conversionKind is ImplicitDynamic or ExplicitDynamic;
         }
 
         // Is the particular conversion an implicit conversion?

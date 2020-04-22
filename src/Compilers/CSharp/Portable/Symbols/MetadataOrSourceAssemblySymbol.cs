@@ -87,7 +87,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             else
             {
                 Interlocked.Increment(ref _cachedSpecialTypes);
-                Debug.Assert(_cachedSpecialTypes > 0 && _cachedSpecialTypes <= (int)SpecialType.Count);
+                Debug.Assert(_cachedSpecialTypes is > 0 and <= (int)SpecialType.Count);
             }
         }
 
@@ -215,7 +215,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 result = potentialGiverOfAccess.Identity.PerformIVTCheck(this.PublicKey, key);
                 Debug.Assert(result != IVTConclusion.NoRelationshipClaimed);
 
-                if (result == IVTConclusion.Match || result == IVTConclusion.OneSignedOneNot)
+                if (result is IVTConclusion.Match or IVTConclusion.OneSignedOneNot)
                 {
                     break;
                 }

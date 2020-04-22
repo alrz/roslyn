@@ -126,9 +126,9 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
                         default:
                             Debug.Assert(fromPredefTypeKind.IsNumeric());
                             Debug.Assert(
-                                toPredefTypeKind == Microsoft.Cci.PrimitiveTypeCode.IntPtr ||
-                                toPredefTypeKind == Microsoft.Cci.PrimitiveTypeCode.UIntPtr ||
-                                toPredefTypeKind == Microsoft.Cci.PrimitiveTypeCode.Pointer);
+                                toPredefTypeKind is Microsoft.Cci.PrimitiveTypeCode.IntPtr or
+Microsoft.Cci.PrimitiveTypeCode.UIntPtr or
+Microsoft.Cci.PrimitiveTypeCode.Pointer);
                             break;
                     }
 #endif
@@ -344,7 +344,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
                 if (parameters.Length != 2) continue;
                 if (parameters[0].Type.SpecialType != SpecialType.System_Object) continue;
                 var p1t = parameters[1].Type.SpecialType;
-                if (p1t == SpecialType.System_IntPtr || p1t == SpecialType.System_UIntPtr)
+                if (p1t is SpecialType.System_IntPtr or SpecialType.System_UIntPtr)
                 {
                     return m;
                 }

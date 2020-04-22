@@ -39,7 +39,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             ArrayBuilder<Symbol> lookupSymbols = lookupResult.Symbols;
 
-            Debug.Assert(lookupSymbols[0].Kind == SymbolKind.TypeParameter || lookupSymbols[0].Kind == SymbolKind.Parameter);
+            Debug.Assert(lookupSymbols[0].Kind is SymbolKind.TypeParameter or SymbolKind.Parameter);
             Debug.Assert(lookupSymbols.All(sym => sym.Kind == lookupSymbols[0].Kind));
 
             // We can sort later when we disambiguate.

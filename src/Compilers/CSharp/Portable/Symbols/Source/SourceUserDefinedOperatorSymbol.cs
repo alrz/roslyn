@@ -45,7 +45,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             CheckForBlockAndExpressionBody(
                 syntax.Body, syntax.ExpressionBody, syntax, diagnostics);
 
-            if (name != WellKnownMemberNames.EqualityOperatorName && name != WellKnownMemberNames.InequalityOperatorName)
+            if (name is not WellKnownMemberNames.EqualityOperatorName and not WellKnownMemberNames.InequalityOperatorName)
             {
                 CheckFeatureAvailabilityAndRuntimeSupport(syntax, location, hasBody: syntax.Body != null || syntax.ExpressionBody != null, diagnostics: diagnostics);
             }

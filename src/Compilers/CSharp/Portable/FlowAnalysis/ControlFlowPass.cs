@@ -119,7 +119,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             // there is no need to scan the contents of an expression, as expressions
             // do not contribute to reachability analysis (except for constants, which
             // are handled by the caller).
-            if (!(node is BoundExpression))
+            if (node is not BoundExpression)
             {
                 return base.Visit(node);
             }

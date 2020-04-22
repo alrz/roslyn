@@ -881,7 +881,7 @@ hasRelatedInterfaces:
                     // In that case we consider the unmanaged constraint to be satisfied as if we were compiling with the latest
                     // language version.  The net effect of this is that in some IDE scenarios completion might consider an
                     // extension method to be applicable, but then when you try to use it the IDE tells you to upgrade your language version.
-                    if (!(currentCompilation is null))
+                    if (currentCompilation is not null)
                     {
                         var csDiagnosticInfo = MessageID.IDS_FeatureUnmanagedConstructedTypes.GetFeatureAvailabilityDiagnosticInfo(currentCompilation);
                         if (csDiagnosticInfo != null)

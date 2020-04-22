@@ -45,7 +45,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Retargeting
             : base(underlyingType, tupleData)
         {
             Debug.Assert((object)retargetingModule != null);
-            Debug.Assert(!(underlyingType is RetargetingNamedTypeSymbol));
+            Debug.Assert(underlyingType is not RetargetingNamedTypeSymbol);
 
             _retargetingModule = retargetingModule;
         }

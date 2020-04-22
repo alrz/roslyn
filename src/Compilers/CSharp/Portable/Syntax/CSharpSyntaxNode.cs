@@ -415,7 +415,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             while (curr != null)
             {
                 // Don't return a trivia token unless we're in the scope of a cref or name attribute.
-                if (curr.Kind() == SyntaxKind.XmlCrefAttribute || curr.Kind() == SyntaxKind.XmlNameAttribute)
+                if (curr.Kind() is SyntaxKind.XmlCrefAttribute or SyntaxKind.XmlNameAttribute)
                 {
                     return LookupPosition.IsInXmlAttributeValue(position, (XmlAttributeSyntax)curr)
                         ? triviaToken
@@ -540,7 +540,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             if (this.Kind() == SyntaxKind.Block)
             {
                 var parent = this.Parent;
-                if (parent is MemberDeclarationSyntax || parent is AccessorDeclarationSyntax)
+                if (parent is MemberDeclarationSyntax or AccessorDeclarationSyntax)
                 {
                     return true;
                 }

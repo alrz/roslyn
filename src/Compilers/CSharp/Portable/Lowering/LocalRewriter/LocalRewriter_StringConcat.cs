@@ -38,9 +38,9 @@ namespace Microsoft.CodeAnalysis.CSharp
         private BoundExpression RewriteStringConcatenation(SyntaxNode syntax, BinaryOperatorKind operatorKind, BoundExpression loweredLeft, BoundExpression loweredRight, TypeSymbol type)
         {
             Debug.Assert(
-                operatorKind == BinaryOperatorKind.StringConcatenation ||
-                operatorKind == BinaryOperatorKind.StringAndObjectConcatenation ||
-                operatorKind == BinaryOperatorKind.ObjectAndStringConcatenation);
+                operatorKind is BinaryOperatorKind.StringConcatenation or
+BinaryOperatorKind.StringAndObjectConcatenation or
+BinaryOperatorKind.ObjectAndStringConcatenation);
 
             if (_inExpressionLambda)
             {

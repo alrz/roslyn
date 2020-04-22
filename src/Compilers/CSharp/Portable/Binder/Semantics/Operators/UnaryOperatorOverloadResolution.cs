@@ -186,7 +186,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             BetterResult better = BetterConversionFromExpression(operand, op1.OperandType, op2.OperandType, ref useSiteDiagnostics);
 
-            if (better == BetterResult.Left || better == BetterResult.Right)
+            if (better is BetterResult.Left or BetterResult.Right)
             {
                 return better;
             }

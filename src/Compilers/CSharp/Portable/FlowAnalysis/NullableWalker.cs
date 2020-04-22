@@ -637,7 +637,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             bool parameterHasBadState(ParameterSymbol parameter, bool sense, LocalState stateWhen)
             {
                 var refKind = parameter.RefKind;
-                if (refKind != RefKind.Out && refKind != RefKind.Ref)
+                if (refKind is not RefKind.Out and not RefKind.Ref)
                 {
                     return false;
                 }
@@ -673,8 +673,8 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             int getSlotForFieldOrProperty(Symbol member)
             {
-                if (member.Kind != SymbolKind.Field &&
-                    member.Kind != SymbolKind.Property)
+                if (member.Kind is not SymbolKind.Field and
+not SymbolKind.Property)
                 {
                     return -1;
                 }
@@ -1450,7 +1450,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     AreParameterAnnotationsCompatible(RefKind.Out, overriddenType, overriddenAnnotations, overridingType, overridingAnnotations);
             }
 
-            if (refKind == RefKind.None || refKind == RefKind.In)
+            if (refKind is RefKind.None or RefKind.In)
             {
                 // pre-condition attributes
                 // Check whether we can assign a value from overridden parameter to overriding
@@ -1795,7 +1795,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     continue;
                 }
                 var member = variable.Symbol;
-                Debug.Assert(member.Kind == SymbolKind.Field || member.Kind == SymbolKind.Property || member.Kind == SymbolKind.Event);
+                Debug.Assert(member.Kind is SymbolKind.Field or SymbolKind.Property or SymbolKind.Event);
                 InheritNullableStateOfMember(targetSlot, valueSlot, member, isDefaultValue: false, skipSlot);
             }
         }
@@ -1820,7 +1820,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private void EnterParameters()
         {
-            if (!(_symbol is MethodSymbol methodSymbol))
+            if (_symbol is not MethodSymbol methodSymbol)
             {
                 return;
             }
@@ -2434,9 +2434,9 @@ namespace Microsoft.CodeAnalysis.CSharp
             ImmutableArray<VisitArgumentResult> argumentResults,
             BoundExpression initializerOpt)
         {
-            Debug.Assert(node.Kind == BoundKind.ObjectCreationExpression ||
-                node.Kind == BoundKind.DynamicObjectCreationExpression ||
-                node.Kind == BoundKind.NewT);
+            Debug.Assert(node.Kind is BoundKind.ObjectCreationExpression or
+BoundKind.DynamicObjectCreationExpression or
+BoundKind.NewT);
             var argumentTypes = argumentResults.SelectAsArray(ar => ar.RValueType);
 
             int slot = -1;
@@ -3038,7 +3038,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 }
 
                 BinaryOperatorKind op = binary.OperatorKind.Operator();
-                if (op != BinaryOperatorKind.Equal && op != BinaryOperatorKind.NotEqual)
+                if (op is not BinaryOperatorKind.Equal and not BinaryOperatorKind.NotEqual)
                 {
                     return false;
                 }
@@ -3179,7 +3179,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             BinaryOperatorKind op = binary.OperatorKind.Operator();
 
-            if (op == BinaryOperatorKind.Equal || op == BinaryOperatorKind.NotEqual)
+            if (op is BinaryOperatorKind.Equal or BinaryOperatorKind.NotEqual)
             {
                 // learn from null constant
                 BoundExpression operandComparedToNull = null;
@@ -3456,7 +3456,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     yield return member;
 
                 // All types inherit members from their effective bases
-                for (NamedTypeSymbol baseType = effectiveBase(type); !(baseType is null); baseType = baseType.BaseTypeNoUseSiteDiagnostics)
+                for (NamedTypeSymbol baseType = effectiveBase(type); baseType is not null; baseType = baseType.BaseTypeNoUseSiteDiagnostics)
                     foreach (var member in baseType.GetMembers())
                         yield return member;
 
@@ -5723,7 +5723,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private void TrackNullableStateOfNullableConversion(BoundConversion node)
         {
-            Debug.Assert(node.ConversionKind == ConversionKind.ImplicitNullable || node.ConversionKind == ConversionKind.ExplicitNullable);
+            Debug.Assert(node.ConversionKind is ConversionKind.ImplicitNullable or ConversionKind.ExplicitNullable);
 
             var operand = node.Operand;
             var operandType = operand.Type;
@@ -5758,7 +5758,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             ParameterSymbol parameterOpt,
             bool reportWarnings)
         {
-            Debug.Assert(conversion.Kind == ConversionKind.ImplicitTuple || conversion.Kind == ConversionKind.ExplicitTuple);
+            Debug.Assert(conversion.Kind is ConversionKind.ImplicitTuple or ConversionKind.ExplicitTuple);
             Debug.Assert(slot > 0);
             Debug.Assert(valueSlot > 0);
 
@@ -6353,7 +6353,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             Debug.Assert(conversionOperand != null);
             Debug.Assert(targetTypeWithNullability.HasType);
             Debug.Assert(diagnosticLocation != null);
-            Debug.Assert(conversion.Kind == ConversionKind.ExplicitUserDefined || conversion.Kind == ConversionKind.ImplicitUserDefined);
+            Debug.Assert(conversion.Kind is ConversionKind.ExplicitUserDefined or ConversionKind.ImplicitUserDefined);
 
             TypeSymbol targetType = targetTypeWithNullability.Type;
 

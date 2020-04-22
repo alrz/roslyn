@@ -249,7 +249,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                         if (loweredLeft.ConstantValue == ConstantValue.True) return loweredRight;
                         if (loweredLeft.ConstantValue == ConstantValue.False) return loweredLeft;
 
-                        if (loweredRight.Kind == BoundKind.Local || loweredRight.Kind == BoundKind.Parameter)
+                        if (loweredRight.Kind is BoundKind.Local or BoundKind.Parameter)
                         {
                             operatorKind &= ~BinaryOperatorKind.Logical;
                         }
@@ -261,7 +261,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                         if (loweredLeft.ConstantValue == ConstantValue.False) return loweredRight;
                         if (loweredLeft.ConstantValue == ConstantValue.True) return loweredLeft;
 
-                        if (loweredRight.Kind == BoundKind.Local || loweredRight.Kind == BoundKind.Parameter)
+                        if (loweredRight.Kind is BoundKind.Local or BoundKind.Parameter)
                         {
                             operatorKind &= ~BinaryOperatorKind.Logical;
                         }
@@ -515,8 +515,8 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                 // for all operators null-in means null-out
                 // except for the Equal/NotEqual since null == null ==> true
-                if (operatorKind.Operator() == BinaryOperatorKind.NotEqual ||
-                    operatorKind.Operator() == BinaryOperatorKind.Equal)
+                if (operatorKind.Operator() is BinaryOperatorKind.NotEqual or
+BinaryOperatorKind.Equal)
                 {
                     Debug.Assert(loweredLeft.Type is { });
                     whenNullOpt = RewriteLiftedBinaryOperator(syntax, operatorKind, _factory.Default(loweredLeft.Type), loweredRight, type, method);
@@ -554,7 +554,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             bool isCompoundAssignment,
             BoundUnaryOperator? applyParentUnaryOperator)
         {
-            Debug.Assert(operatorKind.Operator() == BinaryOperatorKind.And || operatorKind.Operator() == BinaryOperatorKind.Or);
+            Debug.Assert(operatorKind.Operator() is BinaryOperatorKind.And or BinaryOperatorKind.Or);
 
             // Dynamic logical && and || operators are lowered as follows:
             //   left && right  ->  IsFalse(left) ? left : And(left, right)
@@ -804,7 +804,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 BoundExpression maybeNull = leftAlwaysNull ? right : left;
 
-                if (operatorKind == BinaryOperatorKind.Equal || operatorKind == BinaryOperatorKind.NotEqual)
+                if (operatorKind is BinaryOperatorKind.Equal or BinaryOperatorKind.NotEqual)
                 {
                     BoundExpression callHasValue = MakeNullableHasValue(syntax, maybeNull);
                     BoundExpression result = operatorKind == BinaryOperatorKind.Equal ?
@@ -1115,7 +1115,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 method: method);
 
             BoundExpression consequence;
-            if (operatorKind == BinaryOperatorKind.Equal || operatorKind == BinaryOperatorKind.NotEqual)
+            if (operatorKind is BinaryOperatorKind.Equal or BinaryOperatorKind.NotEqual)
             {
                 // tempx.HasValue ? tempX.GetValueOrDefault() == tempY.GetValueOrDefault() : true
                 consequence = RewriteConditionalOperator(
@@ -1376,7 +1376,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
 
             // Boolean & and | operators have completely different codegen in non-trivial cases.
-            if (kind == BinaryOperatorKind.LiftedBoolAnd || kind == BinaryOperatorKind.LiftedBoolOr)
+            if (kind is BinaryOperatorKind.LiftedBoolAnd or BinaryOperatorKind.LiftedBoolOr)
             {
                 return LowerLiftedBooleanOperator(syntax, kind, left, right);
             }
@@ -1867,7 +1867,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         private BoundExpression RewriteDelegateOperation(SyntaxNode syntax, BinaryOperatorKind operatorKind, BoundExpression loweredLeft, BoundExpression loweredRight, TypeSymbol type, SpecialMember member)
         {
             MethodSymbol method;
-            if (operatorKind == BinaryOperatorKind.DelegateEqual || operatorKind == BinaryOperatorKind.DelegateNotEqual)
+            if (operatorKind is BinaryOperatorKind.DelegateEqual or BinaryOperatorKind.DelegateNotEqual)
             {
                 method = (MethodSymbol)_compilation.Assembly.GetSpecialTypeMember(member);
                 if (loweredRight.IsLiteralNull() ||
@@ -1927,8 +1927,8 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private BoundExpression MakeNullCheck(SyntaxNode syntax, BoundExpression rewrittenExpr, BinaryOperatorKind operatorKind)
         {
-            Debug.Assert((operatorKind == BinaryOperatorKind.Equal) || (operatorKind == BinaryOperatorKind.NotEqual) ||
-                (operatorKind == BinaryOperatorKind.NullableNullEqual) || (operatorKind == BinaryOperatorKind.NullableNullNotEqual));
+            Debug.Assert(operatorKind is BinaryOperatorKind.Equal or BinaryOperatorKind.NotEqual or
+BinaryOperatorKind.NullableNullEqual or BinaryOperatorKind.NullableNullNotEqual);
 
             TypeSymbol? exprType = rewrittenExpr.Type;
 

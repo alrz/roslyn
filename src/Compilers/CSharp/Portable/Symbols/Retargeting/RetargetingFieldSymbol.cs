@@ -34,7 +34,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Retargeting
             : base(underlyingField)
         {
             Debug.Assert((object)retargetingModule != null);
-            Debug.Assert(!(underlyingField is RetargetingFieldSymbol));
+            Debug.Assert(underlyingField is not RetargetingFieldSymbol);
 
             _retargetingModule = retargetingModule;
         }

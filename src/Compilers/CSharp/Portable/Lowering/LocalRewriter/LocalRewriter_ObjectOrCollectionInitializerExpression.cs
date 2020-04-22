@@ -152,7 +152,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             Debug.Assert(addMethod.Name == "Add");
             Debug.Assert(addMethod.Parameters
                 .Skip(addMethod.IsExtensionMethod ? 1 : 0)
-                .All(p => p.RefKind == RefKind.None || p.RefKind == RefKind.In));
+                .All(p => p.RefKind is RefKind.None or RefKind.In));
             Debug.Assert(initializer.Arguments.Any());
             Debug.Assert(rewrittenReceiver != null || _inExpressionLambda);
 
@@ -245,7 +245,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
 
             BoundKind rhsKind = assignment.Right.Kind;
-            bool isRhsNestedInitializer = rhsKind == BoundKind.ObjectInitializerExpression || rhsKind == BoundKind.CollectionInitializerExpression;
+            bool isRhsNestedInitializer = rhsKind is BoundKind.ObjectInitializerExpression or BoundKind.CollectionInitializerExpression;
 
             BoundExpression rewrittenAccess;
             switch ((rewrittenLeft ?? assignment.Left).Kind)

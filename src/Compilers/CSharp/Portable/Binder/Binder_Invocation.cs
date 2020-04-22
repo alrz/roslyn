@@ -454,7 +454,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                         continue;
                     }
 
-                    if (arg.Kind == BoundKind.Lambda || arg.Kind == BoundKind.UnboundLambda)
+                    if (arg.Kind is BoundKind.Lambda or BoundKind.UnboundLambda)
                     {
                         // Cannot use a lambda expression as an argument to a dynamically dispatched operation without first casting it to a delegate or expression tree type.
                         Error(diagnostics, ErrorCode.ERR_BadDynamicMethodArgLambda, arg.Syntax);

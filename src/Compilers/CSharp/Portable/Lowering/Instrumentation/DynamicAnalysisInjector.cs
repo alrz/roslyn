@@ -129,7 +129,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private static bool IsExcludedFromCodeCoverage(MethodSymbol method)
         {
-            Debug.Assert(method.MethodKind != MethodKind.LocalFunction && method.MethodKind != MethodKind.AnonymousFunction);
+            Debug.Assert(method.MethodKind is not MethodKind.LocalFunction and not MethodKind.AnonymousFunction);
 
             var containingType = method.ContainingType;
             while ((object)containingType != null)

@@ -140,7 +140,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             foreach (var variable in variablesToHoist)
             {
-                Debug.Assert(variable.Kind == SymbolKind.Local || variable.Kind == SymbolKind.Parameter);
+                Debug.Assert(variable.Kind is SymbolKind.Local or SymbolKind.Parameter);
 
                 if (variable.Kind == SymbolKind.Local)
                 {

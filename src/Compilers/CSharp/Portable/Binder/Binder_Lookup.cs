@@ -63,7 +63,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             var binder = this.LookupSymbolsInternal(result, name, arity, basesBeingResolved, options, diagnose: false, useSiteDiagnostics: ref useSiteDiagnostics);
             Debug.Assert((binder != null) || result.IsClear);
 
-            if (result.Kind != LookupResultKind.Viable && result.Kind != LookupResultKind.Empty)
+            if (result.Kind is not LookupResultKind.Viable and not LookupResultKind.Empty)
             {
                 result.Clear();
                 // retry to get diagnosis
@@ -800,7 +800,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 {
                     // Fields can't be present in the HashSet because they can't be compared
                     // with a MemberSignatureComparer
-                    if (sym.Kind == SymbolKind.Method || sym.Kind == SymbolKind.Property)
+                    if (sym.Kind is SymbolKind.Method or SymbolKind.Property)
                     {
                         allMembers.Add(sym);
                     }
@@ -837,7 +837,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 foreach (var sym in result.Symbols)
                 {
-                    if (sym.Kind == SymbolKind.Method || sym.Kind == SymbolKind.Property)
+                    if (sym.Kind is SymbolKind.Method or SymbolKind.Property)
                     {
                         allMembers.Remove(sym);
                         conflictingMembers.Remove(sym);

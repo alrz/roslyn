@@ -154,7 +154,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             base.PropertySetter(node, receiver, setter, value);
 
-            if (receiver is null || receiver is BoundThisReference)
+            if (receiver is null or BoundThisReference)
             {
                 ApplyMemberPostConditions(setter.ContainingType, setter.NotNullMembers, notNullWhenTrueMembers: default, notNullWhenFalseMembers: default);
             }

@@ -170,7 +170,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// </summary>
         internal static BoundBlock ConstructAutoPropertyAccessorBody(SourceMemberMethodSymbol accessor)
         {
-            Debug.Assert(accessor.MethodKind == MethodKind.PropertyGet || accessor.MethodKind == MethodKind.PropertySet);
+            Debug.Assert(accessor.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet);
 
             var property = (SourcePropertySymbol)accessor.AssociatedSymbol;
             CSharpSyntaxNode syntax = property.CSharpSyntaxNode;
@@ -520,7 +520,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             var syntax = block.Syntax;
 
             Debug.Assert(method.MethodKind == MethodKind.Destructor);
-            Debug.Assert(syntax.Kind() == SyntaxKind.Block || syntax.Kind() == SyntaxKind.ArrowExpressionClause);
+            Debug.Assert(syntax.Kind() is SyntaxKind.Block or SyntaxKind.ArrowExpressionClause);
 
             // If this is a destructor and a base type has a Finalize method (see GetBaseTypeFinalizeMethod for exact 
             // requirements), then we need to call that method in a finally block.  Otherwise, just return block as-is.

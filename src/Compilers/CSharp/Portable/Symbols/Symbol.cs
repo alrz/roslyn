@@ -184,10 +184,10 @@ namespace Microsoft.CodeAnalysis.CSharp
                     case SymbolKind.ErrorType:
                         return null;
                     case SymbolKind.Assembly:
-                        Debug.Assert(!(this is SourceAssemblySymbol), "SourceAssemblySymbol must override DeclaringCompilation");
+                        Debug.Assert(this is not SourceAssemblySymbol, "SourceAssemblySymbol must override DeclaringCompilation");
                         return null;
                     case SymbolKind.NetModule:
-                        Debug.Assert(!(this is SourceModuleSymbol), "SourceModuleSymbol must override DeclaringCompilation");
+                        Debug.Assert(this is not SourceModuleSymbol, "SourceModuleSymbol must override DeclaringCompilation");
                         return null;
                 }
 
@@ -714,7 +714,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// </remarks>
         internal CharSet? GetEffectiveDefaultMarshallingCharSet()
         {
-            Debug.Assert(this.Kind == SymbolKind.NamedType || this.Kind == SymbolKind.Method);
+            Debug.Assert(this.Kind is SymbolKind.NamedType or SymbolKind.Method);
             return this.ContainingModule.DefaultMarshallingCharSet;
         }
 
@@ -949,9 +949,9 @@ namespace Microsoft.CodeAnalysis.CSharp
             // Unlike VB the C# Dev11 compiler reports only a single unification error/warning.
             // By dropping the location we effectively merge all unification use-site errors that have the same error code into a single error.
             // The error message clearly explains how to fix the problem and reporting the error for each location wouldn't add much value. 
-            if (info.Code == (int)ErrorCode.WRN_UnifyReferenceBldRev ||
-                info.Code == (int)ErrorCode.WRN_UnifyReferenceMajMin ||
-                info.Code == (int)ErrorCode.ERR_AssemblyMatchBadVersion)
+            if (info.Code is (int)ErrorCode.WRN_UnifyReferenceBldRev or
+(int)ErrorCode.WRN_UnifyReferenceMajMin or
+(int)ErrorCode.ERR_AssemblyMatchBadVersion)
             {
                 location = NoLocation.Singleton;
             }

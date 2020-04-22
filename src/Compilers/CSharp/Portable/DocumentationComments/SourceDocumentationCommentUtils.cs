@@ -43,7 +43,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 while ((object)curr != null)
                 {
                     SyntaxKind kind = curr.Kind();
-                    if (kind == SyntaxKind.FieldDeclaration || kind == SyntaxKind.EventFieldDeclaration)
+                    if (kind is SyntaxKind.FieldDeclaration or SyntaxKind.EventFieldDeclaration)
                     {
                         break;
                     }

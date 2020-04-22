@@ -16,7 +16,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
     {
         private void EmitStackAllocInitializers(TypeSymbol type, BoundArrayInitialization inits)
         {
-            Debug.Assert(type is PointerTypeSymbol || type is NamedTypeSymbol);
+            Debug.Assert(type is PointerTypeSymbol or NamedTypeSymbol);
 
             var elementType = (type.TypeKind == TypeKind.Pointer
                 ? ((PointerTypeSymbol)type).PointedAtTypeWithAnnotations
@@ -100,7 +100,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
 
             foreach (var init in inits)
             {
-                Debug.Assert(!(init is BoundArrayInitialization), "Nested initializers are not allowed for stackalloc");
+                Debug.Assert(init is not BoundArrayInitialization, "Nested initializers are not allowed for stackalloc");
 
                 initCount += 1;
                 if (init.ConstantValue != null)

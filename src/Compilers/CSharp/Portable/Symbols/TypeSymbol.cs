@@ -781,7 +781,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                                                                       bool ignoreImplementationInInterfaces, out bool implementationInInterfacesMightChangeResult)
         {
             Debug.Assert(!implementingType.IsInterfaceType());
-            Debug.Assert(interfaceMember.Kind == SymbolKind.Method || interfaceMember.Kind == SymbolKind.Property || interfaceMember.Kind == SymbolKind.Event);
+            Debug.Assert(interfaceMember.Kind is SymbolKind.Method or SymbolKind.Property or SymbolKind.Event);
             Debug.Assert(interfaceMember.IsImplementableInterfaceMember());
 
             NamedTypeSymbol interfaceType = interfaceMember.ContainingType;

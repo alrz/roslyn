@@ -232,7 +232,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 exitWhile:
 
             TextWindow.AdvanceChar(i - TextWindow.Offset);
-            Debug.Assert(state == QuickScanState.Bad || state == QuickScanState.Done, "can only exit with Bad or Done");
+            Debug.Assert(state is QuickScanState.Bad or QuickScanState.Done, "can only exit with Bad or Done");
 
             if (state == QuickScanState.Done)
             {

@@ -517,7 +517,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             // <param name="relativeMember">A reference to a well-known member type descriptor. Note however that the type in that descriptor is ignored here.</param>
             static Symbol? GetWellKnownMemberInType(NamedTypeSymbol type, WellKnownMember relativeMember)
             {
-                Debug.Assert(relativeMember >= WellKnownMember.System_ValueTuple_T1__Item1 && relativeMember <= WellKnownMember.System_ValueTuple_TRest__ctor);
+                Debug.Assert(relativeMember is >= WellKnownMember.System_ValueTuple_T1__Item1 and <= WellKnownMember.System_ValueTuple_TRest__ctor);
                 Debug.Assert(type.IsDefinition);
 
                 MemberDescriptor relativeDescriptor = WellKnownMembers.GetDescriptor(relativeMember);
@@ -572,7 +572,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         protected ArrayBuilder<Symbol>? AddOrWrapTupleMembers(ImmutableArray<Symbol> currentMembers)
         {
             Debug.Assert(IsTupleType);
-            Debug.Assert(currentMembers.All(m => !(m is TupleVirtualElementFieldSymbol)));
+            Debug.Assert(currentMembers.All(m => m is not TupleVirtualElementFieldSymbol));
 
             var elementTypes = TupleElementTypesWithAnnotations;
             var elementsMatchedByFields = ArrayBuilder<bool>.GetInstance(elementTypes.Length, fillWithValue: false);
@@ -826,7 +826,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
             static Symbol? GetWellKnownMemberInType(ImmutableArray<Symbol> members, WellKnownMember relativeMember)
             {
-                Debug.Assert(relativeMember >= WellKnownMember.System_ValueTuple_T1__Item1 && relativeMember <= WellKnownMember.System_ValueTuple_TRest__ctor);
+                Debug.Assert(relativeMember is >= WellKnownMember.System_ValueTuple_T1__Item1 and <= WellKnownMember.System_ValueTuple_TRest__ctor);
 
                 MemberDescriptor relativeDescriptor = WellKnownMembers.GetDescriptor(relativeMember);
                 return CSharpCompilation.GetRuntimeMember(members, relativeDescriptor, CSharpCompilation.SpecialMembersSignatureComparer.Instance,

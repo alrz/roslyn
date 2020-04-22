@@ -209,7 +209,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Emit
 
         private static void Append(PooledStringBuilder result, object value)
         {
-            Debug.Assert(!(value is ISymbol));
+            Debug.Assert(value is not ISymbol);
 
             var symbol = (value as ISymbolInternal)?.GetISymbol();
 

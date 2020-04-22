@@ -40,8 +40,8 @@ namespace Microsoft.CodeAnalysis.Operations
 
             // implicit receiver can be shared between multiple bound nodes.
             // always return cloned one
-            if (boundNode.Kind == BoundKind.ImplicitReceiver ||
-                boundNode.Kind == BoundKind.ObjectOrCollectionValuePlaceholder)
+            if (boundNode.Kind is BoundKind.ImplicitReceiver or
+BoundKind.ObjectOrCollectionValuePlaceholder)
             {
                 return OperationCloner.CloneOperation(CreateInternal(boundNode));
             }
@@ -1105,8 +1105,8 @@ namespace Microsoft.CodeAnalysis.Operations
         }
 
         private static bool IsMemberInitializer(BoundAssignmentOperator boundAssignmentOperator) =>
-            boundAssignmentOperator.Right?.Kind == BoundKind.ObjectInitializerExpression ||
-            boundAssignmentOperator.Right?.Kind == BoundKind.CollectionInitializerExpression;
+            boundAssignmentOperator.Right?.Kind is BoundKind.ObjectInitializerExpression or
+BoundKind.CollectionInitializerExpression;
 
         private ISimpleAssignmentOperation CreateBoundAssignmentOperatorOperation(BoundAssignmentOperator boundAssignmentOperator)
         {

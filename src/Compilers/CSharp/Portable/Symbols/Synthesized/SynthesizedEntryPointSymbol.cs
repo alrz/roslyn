@@ -328,7 +328,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             {
                 // There should be no way for a userMain to be passed in unless it already passed the 
                 // parameter checks for determining entrypoint validity.
-                Debug.Assert(userMain.ParameterCount == 0 || userMain.ParameterCount == 1);
+                Debug.Assert(userMain.ParameterCount is 0 or 1);
 
                 UserMain = userMain;
                 _userMainReturnTypeSyntax = userMain.ExtractReturnTypeSyntax();

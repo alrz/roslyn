@@ -319,7 +319,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Retargeting
 
                             if (signatureIndex != -1)
                             {
-                                Debug.Assert(signatureIndex == 0 || signatureIndex == 1);
+                                Debug.Assert(signatureIndex is 0 or 1);
 
                                 if (signatureIndex == 1 && attrData.CommonConstructorArguments.Length == 2)
                                 {

@@ -31,7 +31,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                    ImmutableArray.Create(syntax.Keyword.GetLocation()), explicitlyImplementedEventOpt, aliasQualifierOpt, isAdder: syntax.Kind() == SyntaxKind.AddAccessorDeclaration)
         {
             Debug.Assert(syntax != null);
-            Debug.Assert(syntax.Kind() == SyntaxKind.AddAccessorDeclaration || syntax.Kind() == SyntaxKind.RemoveAccessorDeclaration);
+            Debug.Assert(syntax.Kind() is SyntaxKind.AddAccessorDeclaration or SyntaxKind.RemoveAccessorDeclaration);
 
             CheckFeatureAvailabilityAndRuntimeSupport(syntax, this.Location, hasBody: true, diagnostics: diagnostics);
 

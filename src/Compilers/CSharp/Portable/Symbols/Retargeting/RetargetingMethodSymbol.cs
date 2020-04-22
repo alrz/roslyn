@@ -55,7 +55,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Retargeting
         {
             Debug.Assert((object)retargetingModule != null);
             Debug.Assert((object)underlyingMethod != null);
-            Debug.Assert(!(underlyingMethod is RetargetingMethodSymbol));
+            Debug.Assert(underlyingMethod is not RetargetingMethodSymbol);
 
             _retargetingModule = retargetingModule;
             _underlyingMethod = underlyingMethod;

@@ -22,9 +22,9 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// <returns>true if the character is a hexadecimal digit 0-9, A-F, a-f.</returns>
         internal static bool IsHexDigit(char c)
         {
-            return (c >= '0' && c <= '9') ||
-                   (c >= 'A' && c <= 'F') ||
-                   (c >= 'a' && c <= 'f');
+            return c is >= '0' and <= '9' or
+>= 'A' and <= 'F' or
+>= 'a' and <= 'f';
         }
 
         /// <summary>
@@ -44,7 +44,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// <returns>true if the Unicode character is a decimal digit.</returns>
         internal static bool IsDecDigit(char c)
         {
-            return c >= '0' && c <= '9';
+            return c is >= '0' and <= '9';
         }
 
         /// <summary>
@@ -156,11 +156,11 @@ namespace Microsoft.CodeAnalysis.CSharp
             //   Line separator character (U+2028)
             //   Paragraph separator character (U+2029)
 
-            return ch == '\r'
-                || ch == '\n'
-                || ch == '\u0085'
-                || ch == '\u2028'
-                || ch == '\u2029';
+            return ch is '\r'
+                or '\n'
+                or '\u0085'
+                or '\u2028'
+                or '\u2029';
         }
 
         /// <summary>

@@ -261,8 +261,8 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
 
             //visit the enclosing type if the style requires it
-            if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypes ||
-                format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
+            if (format.TypeQualificationStyle is SymbolDisplayTypeQualificationStyle.NameAndContainingTypes or
+SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
             {
                 if (IncludeNamedType(symbol.ContainingType))
                 {
@@ -415,8 +415,8 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             if (CanShowDelegateSignature(symbol))
             {
-                if (format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndParameters ||
-                    format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature)
+                if (format.DelegateStyle is SymbolDisplayDelegateStyle.NameAndParameters or
+SymbolDisplayDelegateStyle.NameAndSignature)
                 {
                     var method = symbol.DelegateInvokeMethod;
                     AddPunctuation(SyntaxKind.OpenParenToken);

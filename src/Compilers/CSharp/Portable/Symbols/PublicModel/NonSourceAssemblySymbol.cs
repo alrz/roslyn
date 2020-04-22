@@ -13,7 +13,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.PublicModel
         public NonSourceAssemblySymbol(Symbols.AssemblySymbol underlying)
         {
             Debug.Assert(underlying is object);
-            Debug.Assert(!(underlying is Symbols.SourceAssemblySymbol));
+            Debug.Assert(underlying is not Symbols.SourceAssemblySymbol);
             _underlying = underlying;
         }
 

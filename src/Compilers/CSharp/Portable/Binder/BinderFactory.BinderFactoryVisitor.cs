@@ -474,7 +474,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             private SourcePropertySymbol GetPropertySymbol(BasePropertyDeclarationSyntax basePropertyDeclarationSyntax, Binder outerBinder)
             {
-                Debug.Assert(basePropertyDeclarationSyntax.Kind() == SyntaxKind.PropertyDeclaration || basePropertyDeclarationSyntax.Kind() == SyntaxKind.IndexerDeclaration);
+                Debug.Assert(basePropertyDeclarationSyntax.Kind() is SyntaxKind.PropertyDeclaration or SyntaxKind.IndexerDeclaration);
 
                 if (basePropertyDeclarationSyntax == _memberDeclarationOpt)
                 {
@@ -979,7 +979,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             private Binder VisitXmlCrefAttributeInternal(XmlCrefAttributeSyntax parent, NodeUsage extraInfo)
             {
-                Debug.Assert(extraInfo == NodeUsage.Normal || extraInfo == NodeUsage.CrefParameterOrReturnType,
+                Debug.Assert(extraInfo is NodeUsage.Normal or NodeUsage.CrefParameterOrReturnType,
                     "Unexpected extraInfo " + extraInfo);
 
                 var key = CreateBinderCacheKey(parent, extraInfo);
@@ -1087,7 +1087,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                 // As in Dev11, we do not allow <param name="value"> on events.
                 SyntaxKind memberKind = memberSyntax.Kind();
-                if (memberKind == SyntaxKind.PropertyDeclaration || memberKind == SyntaxKind.IndexerDeclaration)
+                if (memberKind is SyntaxKind.PropertyDeclaration or SyntaxKind.IndexerDeclaration)
                 {
                     Binder outerBinder = VisitCore(memberSyntax.Parent);
 

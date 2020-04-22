@@ -515,7 +515,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
             // then the mathematical negation of x is not representable within the operand type. If this occurs within a checked context, 
             // a System.OverflowException is thrown; if it occurs within an unchecked context, 
             // the result is the value of the operand and the overflow is not reported.
-            Debug.Assert(type == UnaryOperatorKind.Int || type == UnaryOperatorKind.Long);
+            Debug.Assert(type is UnaryOperatorKind.Int or UnaryOperatorKind.Long);
 
             // ldc.i4.0
             // conv.i8  (when the operand is 64bit)

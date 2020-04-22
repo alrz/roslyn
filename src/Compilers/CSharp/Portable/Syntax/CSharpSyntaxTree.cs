@@ -328,7 +328,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 GeneratedCodeUtilities.IsGeneratedCode(
                     path,
                     root,
-                    isComment: trivia => trivia.Kind() == SyntaxKind.SingleLineCommentTrivia || trivia.Kind() == SyntaxKind.MultiLineCommentTrivia);
+                    isComment: trivia => trivia.Kind() is SyntaxKind.SingleLineCommentTrivia or SyntaxKind.MultiLineCommentTrivia);
 
             return new ParsedSyntaxTree(
                 textOpt: null,
@@ -666,7 +666,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 // Create the generated code status on demand
                 bool isGenerated = GeneratedCodeUtilities.IsGeneratedCode(
                            this,
-                           isComment: trivia => trivia.Kind() == SyntaxKind.SingleLineCommentTrivia || trivia.Kind() == SyntaxKind.MultiLineCommentTrivia,
+                           isComment: trivia => trivia.Kind() is SyntaxKind.SingleLineCommentTrivia or SyntaxKind.MultiLineCommentTrivia,
                            cancellationToken: default);
                 _lazyIsGeneratedCode = isGenerated.ToThreeState();
             }

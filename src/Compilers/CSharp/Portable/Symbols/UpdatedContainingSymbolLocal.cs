@@ -46,7 +46,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 return true;
             }
 
-            if (!(other is LocalSymbol otherLocal))
+            if (other is not LocalSymbol otherLocal)
             {
                 return false;
             }

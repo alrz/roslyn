@@ -638,7 +638,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
         private void CheckNewModifier(Symbol symbol, bool isNew, DiagnosticBag diagnostics)
         {
-            Debug.Assert(symbol.Kind == SymbolKind.Field || symbol.Kind == SymbolKind.NamedType);
+            Debug.Assert(symbol.Kind is SymbolKind.Field or SymbolKind.NamedType);
 
             // Do not give warnings about missing 'new' modifier for implicitly declared members,
             // e.g. backing fields for auto-properties

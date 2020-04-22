@@ -169,7 +169,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         protected override bool NeedsProxy(Symbol localOrParameter)
         {
-            Debug.Assert(localOrParameter.Kind == SymbolKind.Local || localOrParameter.Kind == SymbolKind.Parameter);
+            Debug.Assert(localOrParameter.Kind is SymbolKind.Local or SymbolKind.Parameter);
             return _hoistedVariables.Contains(localOrParameter);
         }
 
@@ -573,7 +573,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     //
                     //       It is allowed to spill ordinary `In` arguments by value if reference-preserving spilling is not possible.
                     //       The "strict" ones do not permit implicit copying, so the same situation should result in an error.
-                    if (refKind != RefKind.None && refKind != RefKind.In)
+                    if (refKind is not RefKind.None and not RefKind.In)
                     {
                         Debug.Assert(call.Method.RefKind != RefKind.None);
                         F.Diagnostics.Add(ErrorCode.ERR_RefReturningCallAndAwait, F.Syntax.Location, call.Method);
@@ -590,7 +590,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     //
                     //       It is allowed to spill ordinary `In` arguments by value if reference-preserving spilling is not possible.
                     //       The "strict" ones do not permit implicit copying, so the same situation should result in an error.
-                    if (refKind != RefKind.None && refKind != RefKind.RefReadOnly)
+                    if (refKind is not RefKind.None and not RefKind.RefReadOnly)
                     {
                         Debug.Assert(conditional.IsRef);
                         F.Diagnostics.Add(ErrorCode.ERR_RefConditionalAndAwait, F.Syntax.Location);

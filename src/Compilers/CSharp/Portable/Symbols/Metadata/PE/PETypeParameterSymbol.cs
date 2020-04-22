@@ -344,7 +344,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE
                 return fromTypes;
             }
 
-            Debug.Assert(fromNonTypeConstraints == null || fromNonTypeConstraints == true);
+            Debug.Assert(fromNonTypeConstraints is null or true);
             Debug.Assert(fromTypes != true);
             return fromNonTypeConstraints;
         }

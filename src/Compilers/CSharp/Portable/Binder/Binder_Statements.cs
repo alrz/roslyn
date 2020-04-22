@@ -1092,7 +1092,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             ImmutableArray<BoundExpression> arguments = BindDeclaratorArguments(declarator, localDiagnostics);
 
-            if (kind == LocalDeclarationKind.FixedVariable || kind == LocalDeclarationKind.UsingVariable)
+            if (kind is LocalDeclarationKind.FixedVariable or LocalDeclarationKind.UsingVariable)
             {
                 // CONSIDER: The error message is "you must provide an initializer in a fixed 
                 // CONSIDER: or using declaration". The error message could be targeted to 
@@ -1372,7 +1372,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             node.Left.CheckDeconstructionCompatibleArgument(diagnostics);
 
-            if (node.Left.Kind() == SyntaxKind.TupleExpression || node.Left.Kind() == SyntaxKind.DeclarationExpression)
+            if (node.Left.Kind() is SyntaxKind.TupleExpression or SyntaxKind.DeclarationExpression)
             {
                 return BindDeconstruction(node, diagnostics);
             }
@@ -1406,7 +1406,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 // We should now know that op1 is a valid lvalue
                 lhsRefKind = op1.GetRefKind();
-                if (lhsRefKind == RefKind.Ref || lhsRefKind == RefKind.Out)
+                if (lhsRefKind is RefKind.Ref or RefKind.Out)
                 {
                     rhsKind |= BindValueKind.Assignable;
                 }
@@ -1460,9 +1460,9 @@ namespace Microsoft.CodeAnalysis.CSharp
                 // If the result is a dynamic assignment operation (SetMember or SetIndex), 
                 // don't generate the boxing conversion to the dynamic type.
                 // Leave the values as they are, and deal with the conversions at runtime.
-                if (op1.Kind != BoundKind.DynamicIndexerAccess &&
-                    op1.Kind != BoundKind.DynamicMemberAccess &&
-                    op1.Kind != BoundKind.DynamicObjectInitializerMember)
+                if (op1.Kind is not BoundKind.DynamicIndexerAccess and
+not BoundKind.DynamicMemberAccess and
+not BoundKind.DynamicObjectInitializerMember)
                 {
                     op2 = conversion;
                 }
@@ -2142,7 +2142,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                                 nodeForSquiggle = ((ParenthesizedExpressionSyntax)nodeForSquiggle).Expression;
                             }
 
-                            if (nodeForSquiggle.Kind() == SyntaxKind.SimpleMemberAccessExpression || nodeForSquiggle.Kind() == SyntaxKind.PointerMemberAccessExpression)
+                            if (nodeForSquiggle.Kind() is SyntaxKind.SimpleMemberAccessExpression or SyntaxKind.PointerMemberAccessExpression)
                             {
                                 nodeForSquiggle = ((MemberAccessExpressionSyntax)nodeForSquiggle).Name;
                             }
@@ -3000,7 +3000,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         private void ReportCantConvertLambdaReturn(SyntaxNode syntax, DiagnosticBag diagnostics)
         {
             // Suppress this error if the lambda is a result of a query rewrite.
-            if (syntax.Parent is QueryClauseSyntax || syntax.Parent is SelectOrGroupClauseSyntax)
+            if (syntax.Parent is QueryClauseSyntax or SelectOrGroupClauseSyntax)
                 return;
 
             var lambda = this.ContainingMemberOrLambda as LambdaSymbol;
@@ -3059,7 +3059,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             // is not legal because it is a delegate-creation-expression and not an
             // object-creation-expression, but of course we don't know that syntactically.
 
-            if (expression.Kind == BoundKind.DelegateCreationExpression || expression.Kind == BoundKind.NameOfOperator)
+            if (expression.Kind is BoundKind.DelegateCreationExpression or BoundKind.NameOfOperator)
             {
                 return false;
             }
