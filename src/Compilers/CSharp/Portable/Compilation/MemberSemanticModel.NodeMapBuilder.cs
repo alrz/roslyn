@@ -80,7 +80,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                             //      since nothing is cached for the statement syntax.
                             if (existing[i].Kind != added[i].Kind)
                             {
-                                Debug.Assert(!(key is StatementSyntax), "!(key is StatementSyntax)");
+                                Debug.Assert(key is not StatementSyntax, "!(key is StatementSyntax)");
 
                                 // This also seems to be happening when we get equivalent BoundTypeExpression and BoundTypeOrValueExpression nodes.
                                 if (existing[i].Kind == BoundKind.TypeExpression && added[i].Kind == BoundKind.TypeOrValueExpression)

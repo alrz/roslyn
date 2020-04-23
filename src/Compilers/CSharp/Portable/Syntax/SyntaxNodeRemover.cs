@@ -437,8 +437,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax
                         {
                             _directivesToKeep.Add(directive);
                         }
-                        else if (directive.Kind() == SyntaxKind.DefineDirectiveTrivia ||
-                            directive.Kind() == SyntaxKind.UndefDirectiveTrivia)
+                        else if (directive.Kind() is SyntaxKind.DefineDirectiveTrivia or
+                            SyntaxKind.UndefDirectiveTrivia)
                         {
                             // always keep #define and #undef, even if we are only keeping unbalanced directives
                             _directivesToKeep.Add(directive);

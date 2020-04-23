@@ -18,7 +18,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
         private void ScanStringLiteral(ref TokenInfo info, bool allowEscapes = true)
         {
             var quoteCharacter = TextWindow.PeekChar();
-            if (quoteCharacter == '\'' || quoteCharacter == '"')
+            if (quoteCharacter is '\'' or '"')
             {
                 TextWindow.AdvanceChar();
                 _builder.Length = 0;

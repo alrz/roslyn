@@ -340,14 +340,14 @@ namespace Microsoft.CodeAnalysis.CSharp
         internal static CSharpSyntaxNode? GetContainingDeconstruction(this ExpressionSyntax expr)
         {
             var kind = expr.Kind();
-            if (kind != SyntaxKind.TupleExpression && kind != SyntaxKind.DeclarationExpression && kind != SyntaxKind.IdentifierName)
+            if (kind is not (SyntaxKind.TupleExpression or SyntaxKind.DeclarationExpression or SyntaxKind.IdentifierName))
             {
                 return null;
             }
 
             while (true)
             {
-                Debug.Assert(expr.Kind() == SyntaxKind.TupleExpression || expr.Kind() == SyntaxKind.DeclarationExpression || expr.Kind() == SyntaxKind.IdentifierName);
+                Debug.Assert(expr.Kind() is SyntaxKind.TupleExpression or SyntaxKind.DeclarationExpression or SyntaxKind.IdentifierName);
                 var parent = expr.Parent;
                 if (parent == null) { return null; }
 

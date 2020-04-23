@@ -1862,9 +1862,9 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
             //      int64 for Array.LongLength
             //      UIntPtr for synthetic code that needs just check if length != 0 - 
             //                  this is used in "fixed(int* ptr = arr)"
-            Debug.Assert(expression.Type.SpecialType == SpecialType.System_Int32 ||
-                expression.Type.SpecialType == SpecialType.System_Int64 ||
-                expression.Type.SpecialType == SpecialType.System_UIntPtr);
+            Debug.Assert(expression.Type.SpecialType is SpecialType.System_Int32 or
+                SpecialType.System_Int64 or
+                SpecialType.System_UIntPtr);
 
             // ldlen will null-check the expression so it must be "used"
             EmitExpression(expression.Expression, used: true);
@@ -3307,7 +3307,7 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
                 case BoundKind.Conversion:
                     var conversion = (BoundConversion)expr;
                     var conversionKind = conversion.ConversionKind;
-                    Debug.Assert(conversionKind != ConversionKind.NullLiteral && conversionKind != ConversionKind.DefaultLiteral);
+                    Debug.Assert(conversionKind is not (ConversionKind.NullLiteral or ConversionKind.DefaultLiteral));
 
                     if (conversionKind.IsImplicitConversion() &&
                         conversionKind != ConversionKind.MethodGroup &&

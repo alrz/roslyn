@@ -24,7 +24,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// </summary>
         public virtual ImmutableArray<CSharpAttributeData> GetAttributes()
         {
-            Debug.Assert(!(this is IAttributeTargetSymbol)); //such types must override
+            Debug.Assert(this is not IAttributeTargetSymbol); //such types must override
 
             // Return an empty array by default.
             // Sub-classes that can have custom attributes must

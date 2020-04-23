@@ -17,7 +17,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         internal static BoundTypeOrInstanceInitializers RewriteConstructor(ImmutableArray<BoundInitializer> boundInitializers, MethodSymbol method)
         {
             Debug.Assert(!boundInitializers.IsDefault);
-            Debug.Assert((method.MethodKind == MethodKind.Constructor) || (method.MethodKind == MethodKind.StaticConstructor));
+            Debug.Assert(method.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor);
 
             var sourceMethod = method as SourceMemberMethodSymbol;
             var syntax = ((object)sourceMethod != null) ? sourceMethod.SyntaxNode : method.GetNonNullSyntaxNode();

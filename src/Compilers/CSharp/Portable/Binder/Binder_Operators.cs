@@ -234,7 +234,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// </remarks>
         private BoundExpression BindEventAssignment(AssignmentExpressionSyntax node, BoundEventAccess left, BoundExpression right, BinaryOperatorKind opKind, DiagnosticBag diagnostics)
         {
-            Debug.Assert(opKind == BinaryOperatorKind.Addition || opKind == BinaryOperatorKind.Subtraction);
+            Debug.Assert(opKind is BinaryOperatorKind.Addition or BinaryOperatorKind.Subtraction);
 
             bool hasErrors = false;
 
@@ -508,7 +508,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             bool leftNull = left.IsLiteralNull();
             bool rightNull = right.IsLiteralNull();
-            bool isEquality = kind == BinaryOperatorKind.Equal || kind == BinaryOperatorKind.NotEqual;
+            bool isEquality = kind is BinaryOperatorKind.Equal or BinaryOperatorKind.NotEqual;
             if (isEquality && leftNull && rightNull)
             {
                 return new BoundLiteral(node, ConstantValue.Create(kind == BinaryOperatorKind.Equal), GetSpecialType(SpecialType.System_Boolean, diagnostics, node));
@@ -631,7 +631,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 var signature = best.Signature;
 
-                bool isObjectEquality = signature.Kind == BinaryOperatorKind.ObjectEqual || signature.Kind == BinaryOperatorKind.ObjectNotEqual;
+                bool isObjectEquality = signature.Kind is BinaryOperatorKind.ObjectEqual or BinaryOperatorKind.ObjectNotEqual;
 
                 bool leftNull = left.IsLiteralNull();
                 bool rightNull = right.IsLiteralNull();
@@ -737,7 +737,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private BoundExpression BindConditionalLogicalOperator(BinaryExpressionSyntax node, DiagnosticBag diagnostics)
         {
-            Debug.Assert(node.Kind() == SyntaxKind.LogicalOrExpression || node.Kind() == SyntaxKind.LogicalAndExpression);
+            Debug.Assert(node.Kind() is SyntaxKind.LogicalOrExpression or SyntaxKind.LogicalAndExpression);
 
             // Do not blow the stack due to a deep recursion on the left.
 
@@ -776,7 +776,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             BinaryOperatorKind kind = SyntaxKindToBinaryOperatorKind(node.Kind());
 
-            Debug.Assert(kind == BinaryOperatorKind.LogicalAnd || kind == BinaryOperatorKind.LogicalOr);
+            Debug.Assert(kind is BinaryOperatorKind.LogicalAnd or BinaryOperatorKind.LogicalOr);
 
             // Let's take an easy out here. The vast majority of the time the operands will
             // both be bool. This is the only situation in which the expression can be a
@@ -1198,7 +1198,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private bool IsDefaultLiteralAllowedInBinaryOperator(BinaryOperatorKind kind, BoundExpression left, BoundExpression right)
         {
-            bool isEquality = kind == BinaryOperatorKind.Equal || kind == BinaryOperatorKind.NotEqual;
+            bool isEquality = kind is BinaryOperatorKind.Equal or BinaryOperatorKind.NotEqual;
             if (isEquality)
             {
                 return !left.IsLiteralDefault() || !right.IsLiteralDefault();
@@ -1675,7 +1675,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             if (kind.IsLifted())
             {
                 BinaryOperatorKind op = kind.Operator();
-                if (op == BinaryOperatorKind.Equal || op == BinaryOperatorKind.NotEqual)
+                if (op is BinaryOperatorKind.Equal or BinaryOperatorKind.NotEqual)
                 {
                     if (left.Kind == BoundKind.Conversion && right.Kind == BoundKind.Conversion)
                     {
@@ -3454,7 +3454,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             // SPEC: The left hand side must be either the null literal or it must have a type. Lambdas and method groups do not have a type,
             // SPEC: so using one is an error.
-            if (leftOperand.Kind == BoundKind.UnboundLambda || leftOperand.Kind == BoundKind.MethodGroup)
+            if (leftOperand.Kind is BoundKind.UnboundLambda or BoundKind.MethodGroup)
             {
                 return GenerateNullCoalescingBadBinaryOpsError(node, leftOperand, rightOperand, Conversion.NoConversion, diagnostics);
             }

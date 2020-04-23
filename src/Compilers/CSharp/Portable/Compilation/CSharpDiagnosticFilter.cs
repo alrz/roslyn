@@ -230,7 +230,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                         // When doing suppress-all-warnings, don't lower severity for anything other than warning and info.
                         // We shouldn't suppress hidden diagnostics here because then features that use hidden diagnostics to
                         // display a lightbulb would stop working if someone has suppress-all-warnings (/nowarn) specified in their project.
-                        if (severity == DiagnosticSeverity.Warning || severity == DiagnosticSeverity.Info)
+                        if (severity is DiagnosticSeverity.Warning or DiagnosticSeverity.Info)
                         {
                             report = ReportDiagnostic.Suppress;
                         }

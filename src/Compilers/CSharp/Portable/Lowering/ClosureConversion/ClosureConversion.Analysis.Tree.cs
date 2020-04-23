@@ -585,9 +585,9 @@ namespace Microsoft.CodeAnalysis.CSharp
                 private void AddIfCaptured(Symbol symbol, SyntaxNode syntax)
                 {
                     Debug.Assert(
-                        symbol.Kind == SymbolKind.Local ||
-                        symbol.Kind == SymbolKind.Parameter ||
-                        symbol.Kind == SymbolKind.Method);
+                        symbol.Kind is SymbolKind.Local or
+                        SymbolKind.Parameter or
+                        SymbolKind.Method);
 
                     if (_currentFunction == null)
                     {

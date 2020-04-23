@@ -324,7 +324,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         public static bool IsShift(this BinaryOperatorKind kind)
         {
             BinaryOperatorKind type = kind.Operator();
-            return type == BinaryOperatorKind.LeftShift || type == BinaryOperatorKind.RightShift;
+            return type is BinaryOperatorKind.LeftShift or BinaryOperatorKind.RightShift;
         }
 
         public static ExpressionType ToExpressionType(this BinaryOperatorKind kind, bool isCompoundAssignment)

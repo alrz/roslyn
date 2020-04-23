@@ -2093,7 +2093,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// </summary>
         internal static CSharpSyntaxNode? GetStandaloneNode(CSharpSyntaxNode? node)
         {
-            if (node == null || !(node is ExpressionSyntax || node is CrefSyntax))
+            if (node is null or not (ExpressionSyntax or CrefSyntax))
             {
                 return node;
             }
@@ -2220,8 +2220,8 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             var currentNode = node;
 
-            Debug.Assert(currentNode.Kind() == SyntaxKind.MemberBindingExpression ||
-                         currentNode.Kind() == SyntaxKind.ElementBindingExpression);
+            Debug.Assert(currentNode.Kind() is SyntaxKind.MemberBindingExpression or
+                         SyntaxKind.ElementBindingExpression);
 
             // In a well formed tree, the corresponding access node should be one of the ancestors
             // and its "?" token should precede the binding syntax.
@@ -2540,7 +2540,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// <summary>Creates a new SwitchStatementSyntax instance.</summary>
         public static SwitchStatementSyntax SwitchStatement(ExpressionSyntax expression, SyntaxList<SwitchSectionSyntax> sections)
         {
-            bool needsParens = !(expression is TupleExpressionSyntax);
+            bool needsParens = expression is not TupleExpressionSyntax;
             var openParen = needsParens ? SyntaxFactory.Token(SyntaxKind.OpenParenToken) : default;
             var closeParen = needsParens ? SyntaxFactory.Token(SyntaxKind.CloseParenToken) : default;
             return SyntaxFactory.SwitchStatement(

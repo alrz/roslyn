@@ -39,8 +39,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                     if (targetExpressionSyntax != null)
                     {
                         // We rely on this in the GetBinder call below.
-                        Debug.Assert(targetExpressionSyntax.Parent.Kind() == SyntaxKind.LockStatement ||
-                                     targetExpressionSyntax.Parent.Kind() == SyntaxKind.UsingStatement);
+                        Debug.Assert(targetExpressionSyntax.Parent.Kind() is SyntaxKind.LockStatement or
+                                     SyntaxKind.UsingStatement);
 
                         // For some reason, dev11 only warnings about locals and parameters.  If you do the same thing
                         // with a field of a local or parameter (e.g. lock(p.x)), there's no warning when you modify

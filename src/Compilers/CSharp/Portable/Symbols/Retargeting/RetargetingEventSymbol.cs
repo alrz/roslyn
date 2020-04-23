@@ -35,7 +35,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Retargeting
             : base(underlyingEvent)
         {
             RoslynDebug.Assert((object)retargetingModule != null);
-            Debug.Assert(!(underlyingEvent is RetargetingEventSymbol));
+            Debug.Assert(underlyingEvent is not RetargetingEventSymbol);
 
             _retargetingModule = retargetingModule;
         }

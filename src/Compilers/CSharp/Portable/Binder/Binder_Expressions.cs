@@ -32,7 +32,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             var memberOpt = this.ContainingMemberOrLambda?.ContainingNonLambdaMember();
             if (memberOpt?.IsStatic == true)
             {
-                inStaticContext = memberOpt.Kind == SymbolKind.Field || memberOpt.Kind == SymbolKind.Method || memberOpt.Kind == SymbolKind.Property;
+                inStaticContext = memberOpt.Kind is SymbolKind.Field or SymbolKind.Method or SymbolKind.Property;
                 return false;
             }
 
@@ -386,7 +386,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             out BoundExpression valueBeforeConversion)
         {
             Debug.Assert(this.InParameterDefaultValue);
-            Debug.Assert(this.ContainingMemberOrLambda.Kind == SymbolKind.Method || this.ContainingMemberOrLambda.Kind == SymbolKind.Property);
+            Debug.Assert(this.ContainingMemberOrLambda.Kind is SymbolKind.Method or SymbolKind.Property);
 
             // UNDONE: The binding and conversion has to be executed in a checked context.
             Binder defaultValueBinder = this.GetBinder(defaultValueSyntax);
@@ -1378,7 +1378,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 }
                 else
                 {
-                    bool isNamedType = (symbol.Kind == SymbolKind.NamedType) || (symbol.Kind == SymbolKind.ErrorType);
+                    bool isNamedType = symbol.Kind is SymbolKind.NamedType or SymbolKind.ErrorType;
 
                     if (hasTypeArguments && isNamedType)
                     {
@@ -2736,7 +2736,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             NameColonSyntax nameColonSyntax,
             RefKind refKind)
         {
-            Debug.Assert(argumentSyntax is ArgumentSyntax || argumentSyntax is AttributeArgumentSyntax);
+            Debug.Assert(argumentSyntax is ArgumentSyntax or AttributeArgumentSyntax);
 
             bool hasRefKinds = result.RefKinds.Any();
             if (refKind != RefKind.None)
@@ -3504,7 +3504,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private bool ReportBadStackAllocPosition(SyntaxNode node, DiagnosticBag diagnostics)
         {
-            Debug.Assert(node is StackAllocArrayCreationExpressionSyntax || node is ImplicitStackAllocArrayCreationExpressionSyntax);
+            Debug.Assert(node is StackAllocArrayCreationExpressionSyntax or ImplicitStackAllocArrayCreationExpressionSyntax);
             bool inLegalPosition = true;
 
             // If we are using a language version that does not restrict the position of a stackalloc expression, skip that test.
@@ -3680,7 +3680,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             // By the time we get here we definitely have int, long, uint or ulong.  Obviously the
             // latter two are never negative.
-            Debug.Assert(type == SpecialType.System_UInt32 || type == SpecialType.System_UInt64);
+            Debug.Assert(type is SpecialType.System_UInt32 or SpecialType.System_UInt64);
 
             return false;
         }
@@ -3749,8 +3749,8 @@ namespace Microsoft.CodeAnalysis.CSharp
             // SPEC ERROR: This is what we now do in Roslyn.
 
             Debug.Assert((object)constructor != null);
-            Debug.Assert(constructor.MethodKind == MethodKind.Constructor ||
-                constructor.MethodKind == MethodKind.StaticConstructor); // error scenario: constructor initializer on static constructor
+            Debug.Assert(constructor.MethodKind is MethodKind.Constructor or
+                MethodKind.StaticConstructor); // error scenario: constructor initializer on static constructor
             Debug.Assert(diagnostics != null);
 
             NamedTypeSymbol containingType = constructor.ContainingType;
@@ -4435,7 +4435,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             BoundKind boundMemberKind = boundMember.Kind;
             SyntaxKind rhsKind = namedAssignment.Right.Kind();
-            bool isRhsNestedInitializer = rhsKind == SyntaxKind.ObjectInitializerExpression || rhsKind == SyntaxKind.CollectionInitializerExpression;
+            bool isRhsNestedInitializer = rhsKind is SyntaxKind.ObjectInitializerExpression or SyntaxKind.CollectionInitializerExpression;
             BindValueKind valueKind = isRhsNestedInitializer ? BindValueKind.RValue : BindValueKind.Assignable;
 
             ImmutableArray<BoundExpression> arguments = ImmutableArray<BoundExpression>.Empty;
@@ -4914,7 +4914,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         private bool IsConstructorAccessible(MethodSymbol constructor, ref HashSet<DiagnosticInfo> useSiteDiagnostics, bool allowProtectedConstructorsOfBaseType = false)
         {
             Debug.Assert((object)constructor != null);
-            Debug.Assert(constructor.MethodKind == MethodKind.Constructor || constructor.MethodKind == MethodKind.StaticConstructor);
+            Debug.Assert(constructor.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor);
 
             NamedTypeSymbol containingType = this.ContainingType;
             if ((object)containingType != null)
@@ -5169,7 +5169,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             Debug.Assert(interfaceType.IsInterfaceType());
             Debug.Assert((object)coClassType != null);
             Debug.Assert(TypeSymbol.Equals(interfaceType.ComImportCoClass, coClassType, TypeCompareKind.ConsiderEverything2));
-            Debug.Assert(coClassType.TypeKind == TypeKind.Class || coClassType.TypeKind == TypeKind.Error);
+            Debug.Assert(coClassType.TypeKind is TypeKind.Class or TypeKind.Error);
 
             if (coClassType.IsErrorType())
             {
@@ -5531,11 +5531,11 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                 // C# literals can't be of type byte, sbyte, short, ushort:
                 Debug.Assert(
-                    specialType != SpecialType.None &&
-                    specialType != SpecialType.System_Byte &&
-                    specialType != SpecialType.System_SByte &&
-                    specialType != SpecialType.System_Int16 &&
-                    specialType != SpecialType.System_UInt16);
+                    specialType is not (SpecialType.None or
+                    SpecialType.System_Byte or
+                    SpecialType.System_SByte or
+                    SpecialType.System_Int16 or
+                    SpecialType.System_UInt16));
 
                 cv = ConstantValue.Create(value, specialType);
                 type = GetSpecialType(specialType, diagnostics, node);
@@ -6867,7 +6867,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     }
                 }
 
-                if ((kind == SymbolKind.Method) || (kind == SymbolKind.Property))
+                if (kind is SymbolKind.Method or SymbolKind.Property)
                 {
                     // SPEC VIOLATION: The spec states "Members that include an override modifier are excluded from the set"
                     // SPEC VIOLATION: However, we are not going to do that here; we will keep the overriding member

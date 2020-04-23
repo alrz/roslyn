@@ -865,7 +865,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 return false; // No input types.
             }
 
-            if (argument.Kind != BoundKind.UnboundLambda && argument.Kind != BoundKind.MethodGroup)
+            if (argument.Kind is not (BoundKind.UnboundLambda or BoundKind.MethodGroup))
             {
                 return false; // No input types.
             }
@@ -919,7 +919,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 return false;
             }
 
-            if (argument.Kind != BoundKind.UnboundLambda && argument.Kind != BoundKind.MethodGroup)
+            if (argument.Kind is not (BoundKind.UnboundLambda or BoundKind.MethodGroup))
             {
                 return false;
             }
@@ -2796,7 +2796,7 @@ OuterBreak:
             VarianceKind variance,
             ref HashSet<DiagnosticInfo> useSiteDiagnostics)
         {
-            Debug.Assert(variance == VarianceKind.In || variance == VarianceKind.Out);
+            Debug.Assert(variance is VarianceKind.In or VarianceKind.Out);
             // SPEC:   For each lower (upper) bound U of Xi all types to which there is not an
             // SPEC:   implicit conversion from (to) U are removed from the candidate set.
             var comparison = conversions.IncludeNullability ? TypeCompareKind.ConsiderEverything : TypeCompareKind.IgnoreNullableModifiersForReferenceTypes;

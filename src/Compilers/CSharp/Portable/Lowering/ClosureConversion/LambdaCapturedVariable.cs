@@ -35,7 +35,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         public static LambdaCapturedVariable Create(SynthesizedClosureEnvironment frame, Symbol captured, ref int uniqueId)
         {
-            Debug.Assert(captured is LocalSymbol || captured is ParameterSymbol);
+            Debug.Assert(captured is LocalSymbol or ParameterSymbol);
 
             string fieldName = GetCapturedVariableFieldName(captured, ref uniqueId);
             TypeSymbol type = GetCapturedVariableFieldType(frame, captured);

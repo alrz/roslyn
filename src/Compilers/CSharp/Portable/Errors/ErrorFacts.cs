@@ -468,7 +468,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// from completing successfully.</returns>
         internal static bool PreventsSuccessfulDelegateConversion(ErrorCode code)
         {
-            if (code == ErrorCode.Void || code == ErrorCode.Unknown)
+            if (code is ErrorCode.Void or ErrorCode.Unknown)
             {
                 return false;
             }

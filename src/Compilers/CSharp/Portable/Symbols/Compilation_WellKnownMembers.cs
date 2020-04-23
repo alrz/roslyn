@@ -75,7 +75,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// </remarks>
         internal Symbol? GetWellKnownTypeMember(WellKnownMember member)
         {
-            Debug.Assert(member >= 0 && member < WellKnownMember.Count);
+            Debug.Assert(member is >= 0 and < WellKnownMember.Count);
 
             // Test hook: if a member is marked missing, then return null.
             if (IsMemberMissing(member)) return null;
@@ -214,8 +214,8 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         internal bool IsEqualOrDerivedFromWellKnownClass(TypeSymbol type, WellKnownType wellKnownType, ref HashSet<DiagnosticInfo>? useSiteDiagnostics)
         {
-            Debug.Assert(wellKnownType == WellKnownType.System_Attribute ||
-                         wellKnownType == WellKnownType.System_Exception);
+            Debug.Assert(wellKnownType is WellKnownType.System_Attribute or
+                         WellKnownType.System_Exception);
 
             if (type.Kind != SymbolKind.NamedType || type.TypeKind != TypeKind.Class)
             {
@@ -305,7 +305,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                             MethodKind methodKind = method.MethodKind;
                             // Treat user-defined conversions and operators as ordinary methods for the purpose
                             // of matching them here.
-                            if (methodKind == MethodKind.Conversion || methodKind == MethodKind.UserDefinedOperator)
+                            if (methodKind is MethodKind.Conversion or MethodKind.UserDefinedOperator)
                             {
                                 methodKind = MethodKind.Ordinary;
                             }
@@ -416,7 +416,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 foreach (var arg in namedArguments)
                 {
                     var wellKnownMember = Binder.GetWellKnownTypeMember(this, arg.Key, out diagnosticInfo, isOptional: true);
-                    if (wellKnownMember == null || wellKnownMember is ErrorTypeSymbol)
+                    if (wellKnownMember is null or ErrorTypeSymbol)
                     {
                         // if this assert fails, UseSiteErrors for "member" have not been checked before emitting ...
                         Debug.Assert(WellKnownMembers.IsSynthesizedAttributeOptional(constructor));

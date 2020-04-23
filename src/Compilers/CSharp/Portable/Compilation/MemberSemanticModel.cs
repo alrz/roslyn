@@ -314,7 +314,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 {
                     binder = rootBinder.GetBinder(current);
                 }
-                else if (kind == SyntaxKind.ThisConstructorInitializer || kind == SyntaxKind.BaseConstructorInitializer)
+                else if (kind is SyntaxKind.ThisConstructorInitializer or SyntaxKind.BaseConstructorInitializer)
                 {
                     binder = rootBinder.GetBinder(current);
                 }
@@ -753,7 +753,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             CheckSyntaxNode(declarationSyntax);
 
             var binder = this.GetEnclosingBinder(GetAdjustedNodePosition(declarationSyntax));
-            while (binder != null && !(binder is SwitchBinder))
+            while (binder is not (null or SwitchBinder))
             {
                 binder = binder.Next;
             }
@@ -2196,7 +2196,7 @@ done:
         /// </summary>
         protected CSharpSyntaxNode GetBindableParentNode(CSharpSyntaxNode node)
         {
-            if (!(node is ExpressionSyntax))
+            if (node is not ExpressionSyntax)
             {
                 return null;
             }
@@ -2253,9 +2253,9 @@ foundParent:;
 
         internal override Symbol RemapSymbolIfNecessaryCore(Symbol symbol)
         {
-            Debug.Assert(symbol is LocalSymbol ||
-                         symbol is ParameterSymbol ||
-                         symbol is MethodSymbol { MethodKind: MethodKind.LambdaMethod });
+            Debug.Assert(symbol is LocalSymbol or
+                         ParameterSymbol or
+                         MethodSymbol { MethodKind: MethodKind.LambdaMethod });
             Debug.Assert(Compilation.NullableSemanticAnalysisEnabled);
             EnsureNullabilityAnalysisPerformedIfNecessary();
 
@@ -2314,7 +2314,7 @@ foundParent:;
 
                 if (binder != null)
                 {
-                    Debug.Assert(!(binder is IncrementalBinder));
+                    Debug.Assert(binder is not IncrementalBinder);
                     return new IncrementalBinder(_semanticModel, binder.WithAdditionalFlags(BinderFlags.SemanticModel));
                 }
 

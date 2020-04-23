@@ -437,7 +437,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                         break;
 
                     case LocalDeclarationKind.ForEachIterationVariable:
-                        Debug.Assert(node is ForEachStatementSyntax || node is SingleVariableDesignationSyntax);
+                        Debug.Assert(node is ForEachStatementSyntax or SingleVariableDesignationSyntax);
                         break;
 
                     case LocalDeclarationKind.CatchVariable:
@@ -667,7 +667,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 SyntaxNode deconstruction)
             : base(containingSymbol, scopeBinder, false, typeSyntax, identifierToken, declarationKind)
             {
-                Debug.Assert(deconstruction.Kind() == SyntaxKind.SimpleAssignmentExpression || deconstruction.Kind() == SyntaxKind.ForEachVariableStatement);
+                Debug.Assert(deconstruction.Kind() is SyntaxKind.SimpleAssignmentExpression or SyntaxKind.ForEachVariableStatement);
 
                 _deconstruction = deconstruction;
                 _nodeBinder = nodeBinder;

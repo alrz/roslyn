@@ -152,7 +152,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private BoundExpression? TransformPropertyOrEventReceiver(Symbol propertyOrEvent, BoundExpression? receiverOpt, ArrayBuilder<BoundExpression> stores, ArrayBuilder<LocalSymbol> temps)
         {
-            Debug.Assert(propertyOrEvent.Kind == SymbolKind.Property || propertyOrEvent.Kind == SymbolKind.Event);
+            Debug.Assert(propertyOrEvent.Kind is SymbolKind.Property or SymbolKind.Event);
 
             // We need to stash away the receiver so that it does not get evaluated twice.
             // If the receiver is classified as a value of reference type then we can simply say
@@ -397,7 +397,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// </summary>
         private bool TransformCompoundAssignmentFieldOrEventAccessReceiver(Symbol fieldOrEvent, ref BoundExpression? receiver, ArrayBuilder<BoundExpression> stores, ArrayBuilder<LocalSymbol> temps)
         {
-            Debug.Assert(fieldOrEvent.Kind == SymbolKind.Field || fieldOrEvent.Kind == SymbolKind.Event);
+            Debug.Assert(fieldOrEvent.Kind is SymbolKind.Field or SymbolKind.Event);
 
             //If the receiver is static or is the receiver is of kind "Base" or "this", then we can just generate field = field + value
             if (fieldOrEvent.IsStatic)

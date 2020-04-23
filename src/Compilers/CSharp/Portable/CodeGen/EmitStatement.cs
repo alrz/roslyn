@@ -214,8 +214,8 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
         {
             var opKind = condition.OperatorKind.Operator();
 
-            Debug.Assert(opKind == BinaryOperatorKind.Equal ||
-                        opKind == BinaryOperatorKind.NotEqual);
+            Debug.Assert(opKind is BinaryOperatorKind.Equal or
+                        BinaryOperatorKind.NotEqual);
 
             BoundExpression nonConstOp;
             BoundExpression constOp = (condition.Left.ConstantValue != null) ? condition.Left : null;

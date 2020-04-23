@@ -54,7 +54,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 case ClosureKind.Singleton: // all type parameters on method (except the top level method's)
                 case ClosureKind.General: // only lambda's type parameters on method (rest on class)
-                    RoslynDebug.Assert(!(lambdaFrame is null));
+                    RoslynDebug.Assert(lambdaFrame is not null);
                     typeMap = lambdaFrame.TypeMap.WithConcatAlphaRename(
                         originalMethod,
                         this,

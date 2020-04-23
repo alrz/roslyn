@@ -1027,12 +1027,12 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             if (ch == '0')
             {
                 ch = TextWindow.PeekChar(1);
-                if (ch == 'x' || ch == 'X')
+                if (ch is 'x' or 'X')
                 {
                     TextWindow.AdvanceChar(2);
                     isHex = true;
                 }
-                else if (ch == 'b' || ch == 'B')
+                else if (ch is 'b' or 'B')
                 {
                     CheckFeatureAvailability(MessageID.IDS_FeatureBinaryLiteral);
                     TextWindow.AdvanceChar(2);
@@ -1089,7 +1089,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 if ((ch = TextWindow.PeekChar()) == '.')
                 {
                     var ch2 = TextWindow.PeekChar(1);
-                    if (ch2 >= '0' && ch2 <= '9')
+                    if (ch2 is >= '0' and <= '9')
                     {
                         hasDecimal = true;
                         _builder.Append(ch);
@@ -1136,12 +1136,12 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                         TextWindow.AdvanceChar();
                         info.ValueKind = SpecialType.System_Single;
                     }
-                    else if (ch == 'D' || ch == 'd')
+                    else if (ch is 'D' or 'd')
                     {
                         TextWindow.AdvanceChar();
                         info.ValueKind = SpecialType.System_Double;
                     }
-                    else if (ch == 'm' || ch == 'M')
+                    else if (ch is 'm' or 'M')
                     {
                         TextWindow.AdvanceChar();
                         info.ValueKind = SpecialType.System_Decimal;
@@ -1156,17 +1156,17 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     TextWindow.AdvanceChar();
                     info.ValueKind = SpecialType.System_Single;
                 }
-                else if (ch == 'D' || ch == 'd')
+                else if (ch is 'D' or 'd')
                 {
                     TextWindow.AdvanceChar();
                     info.ValueKind = SpecialType.System_Double;
                 }
-                else if (ch == 'm' || ch == 'M')
+                else if (ch is 'm' or 'M')
                 {
                     TextWindow.AdvanceChar();
                     info.ValueKind = SpecialType.System_Decimal;
                 }
-                else if (ch == 'L' || ch == 'l')
+                else if (ch is 'L' or 'l')
                 {
                     if (ch == 'l')
                     {
@@ -1181,7 +1181,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                         hasUSuffix = true;
                     }
                 }
-                else if (ch == 'u' || ch == 'U')
+                else if (ch is 'u' or 'U')
                 {
                     hasUSuffix = true;
                     TextWindow.AdvanceChar();
@@ -1916,12 +1916,12 @@ Fail:
 
         private static bool IsValidHexDigit(char c)
         {
-            if ((c >= '0') && (c <= '9'))
+            if (c is >= '0' and <= '9')
             {
                 return true;
             }
             c = char.ToLower(c);
-            return (c >= 'a') && (c <= 'f');
+            return c is >= 'a' and <= 'f';
         }
 
         /// <summary>
@@ -2374,7 +2374,7 @@ LoopExit:
             if (position == 0 || SyntaxFacts.IsNewLine(text[position - 1]))
             {
                 var firstCh = text[position];
-                Debug.Assert(firstCh == '<' || firstCh == '=' || firstCh == '>');
+                Debug.Assert(firstCh is '<' or '=' or '>');
 
                 if ((position + s_conflictMarkerLength) <= text.Length)
                 {
@@ -3356,12 +3356,12 @@ top:
             // Char ::= #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF] /* any Unicode character, excluding the surrogate blocks, FFFE, and FFFF. */
 
             return
-                charValue == 0x9 ||
-                charValue == 0xA ||
-                charValue == 0xD ||
-                (charValue >= 0x20 && charValue <= 0xD7FF) ||
-                (charValue >= 0xE000 && charValue <= 0xFFFD) ||
-                (charValue >= 0x10000 && charValue <= 0x10FFFF);
+                charValue is 0x9 or
+                0xA or
+                0xD or
+                >= 0x20 and <= 0xD7FF or
+                >= 0xE000 and <= 0xFFFD or
+                >= 0x10000 and <= 0x10FFFF;
         }
 
         private void ScanXmlText(ref TokenInfo info)

@@ -812,7 +812,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 flags |= CSharpArgumentInfoFlags.NamedArgument;
             }
 
-            Debug.Assert(refKind == RefKind.None || refKind == RefKind.Ref || refKind == RefKind.Out, "unexpected refKind in dynamic");
+            Debug.Assert(refKind is RefKind.None or RefKind.Ref or RefKind.Out, "unexpected refKind in dynamic");
 
             // by-ref type doesn't trigger dynamic dispatch and it can't be a null literal => set UseCompileTimeType
             if (refKind == RefKind.Out)

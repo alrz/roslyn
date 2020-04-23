@@ -797,7 +797,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 }
 
                 BetterResult result = better(candidateItem, currentItem);
-                if (result != BetterResult.Left && result != BetterResult.Equal)
+                if (result is not (BetterResult.Left or BetterResult.Equal))
                 {
                     // The candidate was not better than everything that came before it. There is 
                     // no best item.

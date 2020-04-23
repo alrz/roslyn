@@ -340,7 +340,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             if (this.PeekChar() == '\\')
             {
                 var ch2 = this.PeekChar(1);
-                if (ch2 == 'U' || ch2 == 'u')
+                if (ch2 is 'U' or 'u')
                 {
                     return true;
                 }
@@ -381,7 +381,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             if (ch == '\\')
             {
                 var ch2 = this.PeekChar(1);
-                if (ch2 == 'U' || ch2 == 'u')
+                if (ch2 is 'U' or 'u')
                 {
                     return this.ScanUnicodeEscape(peek: false, surrogateCharacter: out surrogateCharacter, info: out info);
                 }
@@ -455,7 +455,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             }
             else
             {
-                Debug.Assert(character == 'u' || character == 'x');
+                Debug.Assert(character is 'u' or 'x');
 
                 int intChar = 0;
                 this.AdvanceChar();
@@ -715,7 +715,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             }
             else
             {
-                Debug.Assert(codepoint > 0x0000FFFF && codepoint <= 0x0010FFFF);
+                Debug.Assert(codepoint is > 0x0000FFFF and <= 0x0010FFFF);
                 lowSurrogate = (char)((codepoint - 0x00010000) % 0x0400 + 0xDC00);
                 return (char)((codepoint - 0x00010000) / 0x0400 + 0xD800);
             }

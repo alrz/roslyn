@@ -36,7 +36,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             bool isExplicitInterfaceImplementation,
             DiagnosticBag diagnostics)
         {
-            Debug.Assert(syntax.Kind() == SyntaxKind.GetAccessorDeclaration || syntax.Kind() == SyntaxKind.SetAccessorDeclaration);
+            Debug.Assert(syntax.Kind() is SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration);
 
             bool isGetMethod = (syntax.Kind() == SyntaxKind.GetAccessorDeclaration);
             string name;

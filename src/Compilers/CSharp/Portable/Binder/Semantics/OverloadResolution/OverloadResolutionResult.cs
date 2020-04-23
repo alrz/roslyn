@@ -1106,7 +1106,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             if (arguments.IsExtensionMethodThisArgument(arg))
             {
                 Debug.Assert(refArg == RefKind.None);
-                if (refParameter == RefKind.Ref || refParameter == RefKind.In)
+                if (refParameter is RefKind.Ref or RefKind.In)
                 {
                     // For ref and ref-readonly extension methods, we omit the "ref" modifier on receiver arguments.
                     // Setting the correct RefKind for finding the correct diagnostics message.
@@ -1152,7 +1152,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
             else if (refArg != refParameter && !(refArg == RefKind.None && refParameter == RefKind.In))
             {
-                if (refParameter == RefKind.None || refParameter == RefKind.In)
+                if (refParameter is RefKind.None or RefKind.In)
                 {
                     //  Argument {0} should not be passed with the {1} keyword
                     diagnostics.Add(
@@ -1428,7 +1428,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 sb.AppendLine("Overload resolution failed because of ambiguous possible best methods.");
             }
-            else if (System.Linq.Enumerable.Any(ResultsBuilder, x => (x.Result.Kind == MemberResolutionKind.TypeInferenceFailed) || (x.Result.Kind == MemberResolutionKind.TypeInferenceExtensionInstanceArgument)))
+            else if (System.Linq.Enumerable.Any(ResultsBuilder, x => x.Result.Kind is MemberResolutionKind.TypeInferenceFailed or MemberResolutionKind.TypeInferenceExtensionInstanceArgument))
             {
                 sb.AppendLine("Overload resolution failed (possibly) because type inference was unable to infer type parameters.");
             }

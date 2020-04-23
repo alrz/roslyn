@@ -253,7 +253,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                     {
                         signatureByteIndex++;
 
-                        if (parameterType.Kind != SymbolKind.NamedType && parameterType.Kind != SymbolKind.ErrorType)
+                        if (parameterType.Kind is not (SymbolKind.NamedType or SymbolKind.ErrorType))
                         {
                             return false;
                         }

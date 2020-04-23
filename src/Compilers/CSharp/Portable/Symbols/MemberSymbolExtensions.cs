@@ -167,7 +167,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
         public static bool IsOperator(this MethodSymbol methodSymbol)
         {
-            return methodSymbol.MethodKind == MethodKind.UserDefinedOperator || methodSymbol.MethodKind == MethodKind.Conversion;
+            return methodSymbol.MethodKind is MethodKind.UserDefinedOperator or MethodKind.Conversion;
         }
 
         public static bool IsOperator(this Symbol symbol)

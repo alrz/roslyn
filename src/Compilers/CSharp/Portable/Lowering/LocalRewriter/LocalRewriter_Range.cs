@@ -186,8 +186,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                     // means that the `..` expression is missing an argument on
                     // either the left or the right (i.e., `x..` or `..x`)
                     Debug.Assert(left is null ^ right is null);
-                    Debug.Assert(constructionMethod.MetadataName == "StartAt" ||
-                                 constructionMethod.MetadataName == "EndAt");
+                    Debug.Assert(constructionMethod.MetadataName is "StartAt" or
+                                 "EndAt");
                     Debug.Assert(constructionMethod.IsStatic);
                     var arg = left ?? right;
                     Debug.Assert(arg is { });

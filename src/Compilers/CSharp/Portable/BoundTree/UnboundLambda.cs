@@ -288,7 +288,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             public override BoundNode Visit(BoundNode node)
             {
-                if (!(node is BoundExpression))
+                if (node is not BoundExpression)
                 {
                     return base.Visit(node);
                 }

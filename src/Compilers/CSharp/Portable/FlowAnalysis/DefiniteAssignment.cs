@@ -429,7 +429,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     Location location;
                     if (_unsafeAddressTakenVariables.TryGetValue(captured, out location))
                     {
-                        Debug.Assert(captured.Kind == SymbolKind.Parameter || captured.Kind == SymbolKind.Local || captured.Kind == SymbolKind.RangeVariable);
+                        Debug.Assert(captured.Kind is SymbolKind.Parameter or SymbolKind.Local or SymbolKind.RangeVariable);
                         diagnostics.Add(ErrorCode.ERR_LocalCantBeFixedAndHoisted, location, captured.Name);
                     }
                 }
@@ -509,7 +509,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private void NoteRead(BoundNode fieldOrEventAccess)
         {
-            Debug.Assert(fieldOrEventAccess.Kind == BoundKind.FieldAccess || fieldOrEventAccess.Kind == BoundKind.EventAccess);
+            Debug.Assert(fieldOrEventAccess.Kind is BoundKind.FieldAccess or BoundKind.EventAccess);
             BoundNode n = fieldOrEventAccess;
             while (n != null)
             {

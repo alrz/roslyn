@@ -229,7 +229,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private static bool IsTupleExpression(BoundKind kind)
         {
-            return kind == BoundKind.TupleLiteral || kind == BoundKind.ConvertedTupleLiteral;
+            return kind is BoundKind.TupleLiteral or BoundKind.ConvertedTupleLiteral;
         }
 
         // This returns accessors and may create a temp for the tuple, but will not create temps for the tuple elements.

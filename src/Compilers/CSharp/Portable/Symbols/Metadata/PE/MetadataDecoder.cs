@@ -470,7 +470,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE
 
         protected override MethodSymbol FindMethodSymbolInType(TypeSymbol typeSymbol, MethodDefinitionHandle targetMethodDef)
         {
-            Debug.Assert(typeSymbol is PENamedTypeSymbol || typeSymbol is ErrorTypeSymbol);
+            Debug.Assert(typeSymbol is PENamedTypeSymbol or ErrorTypeSymbol);
 
             foreach (Symbol member in typeSymbol.GetMembersUnordered())
             {
@@ -486,7 +486,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE
 
         protected override FieldSymbol FindFieldSymbolInType(TypeSymbol typeSymbol, FieldDefinitionHandle fieldDef)
         {
-            Debug.Assert(typeSymbol is PENamedTypeSymbol || typeSymbol is ErrorTypeSymbol);
+            Debug.Assert(typeSymbol is PENamedTypeSymbol or ErrorTypeSymbol);
 
             foreach (Symbol member in typeSymbol.GetMembersUnordered())
             {
@@ -513,7 +513,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE
 
             if ((object)scope != null)
             {
-                Debug.Assert(scope.Kind == SymbolKind.NamedType || scope.Kind == SymbolKind.ErrorType);
+                Debug.Assert(scope.Kind is SymbolKind.NamedType or SymbolKind.ErrorType);
 
                 // We only want to consider members that are at or above "scope" in the type hierarchy.
                 HashSet<DiagnosticInfo> useSiteDiagnostics = null;

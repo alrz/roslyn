@@ -525,7 +525,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 #if DEBUG
         public override BoundNode DefaultVisit(BoundNode node)
         {
-            Debug.Assert(!(node is BoundStatement));
+            Debug.Assert(node is not BoundStatement);
             return base.DefaultVisit(node);
         }
 #endif
@@ -737,7 +737,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 var leftBuilder = new BoundSpillSequenceBuilder();
                 left = VisitExpression(ref leftBuilder, node.Left);
                 left = Spill(leftBuilder, left);
-                if (node.OperatorKind == BinaryOperatorKind.LogicalBoolOr || node.OperatorKind == BinaryOperatorKind.LogicalBoolAnd)
+                if (node.OperatorKind is BinaryOperatorKind.LogicalBoolOr or BinaryOperatorKind.LogicalBoolAnd)
                 {
                     var tmp = _F.SynthesizedLocal(node.Type, kind: SynthesizedLocalKind.Spill, syntax: _F.Syntax);
                     leftBuilder.AddLocal(tmp);

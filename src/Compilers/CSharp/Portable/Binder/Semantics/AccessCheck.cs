@@ -140,7 +140,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             Debug.Assert((object)symbol != null);
             Debug.Assert((object)within != null);
             Debug.Assert(within.IsDefinition);
-            Debug.Assert(within is NamedTypeSymbol || within is AssemblySymbol);
+            Debug.Assert(within is NamedTypeSymbol or AssemblySymbol);
 
             failedThroughTypeCheck = false;
 
@@ -202,7 +202,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// </summary>
         private static bool IsNamedTypeAccessible(NamedTypeSymbol type, Symbol within, ref HashSet<DiagnosticInfo> useSiteDiagnostics, ConsList<TypeSymbol> basesBeingResolved = null)
         {
-            Debug.Assert(within is NamedTypeSymbol || within is AssemblySymbol);
+            Debug.Assert(within is NamedTypeSymbol or AssemblySymbol);
             Debug.Assert((object)type != null);
 
             var compilation = within.DeclaringCompilation;
@@ -238,7 +238,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             Accessibility declaredAccessibility,
             Symbol within)
         {
-            Debug.Assert(within is NamedTypeSymbol || within is AssemblySymbol);
+            Debug.Assert(within is NamedTypeSymbol or AssemblySymbol);
             Debug.Assert((object)assembly != null);
 
             switch (declaredAccessibility)
@@ -284,7 +284,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             ref HashSet<DiagnosticInfo> useSiteDiagnostics,
             ConsList<TypeSymbol> basesBeingResolved = null)
         {
-            Debug.Assert(within is NamedTypeSymbol || within is AssemblySymbol);
+            Debug.Assert(within is NamedTypeSymbol or AssemblySymbol);
             Debug.Assert((object)containingType != null);
 
             failedThroughTypeCheck = false;
@@ -474,7 +474,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             Symbol within,
             NamedTypeSymbol originalContainingType)
         {
-            Debug.Assert(within is NamedTypeSymbol || within is AssemblySymbol);
+            Debug.Assert(within is NamedTypeSymbol or AssemblySymbol);
 
             var withinType = within as NamedTypeSymbol;
             if ((object)withinType == null)

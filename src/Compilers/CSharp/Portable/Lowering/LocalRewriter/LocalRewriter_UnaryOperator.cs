@@ -365,13 +365,13 @@ namespace Microsoft.CodeAnalysis.CSharp
         private static bool IsIncrement(BoundIncrementOperator node)
         {
             var op = node.OperatorKind.Operator();
-            return op == UnaryOperatorKind.PostfixIncrement || op == UnaryOperatorKind.PrefixIncrement;
+            return op is UnaryOperatorKind.PostfixIncrement or UnaryOperatorKind.PrefixIncrement;
         }
 
         private static bool IsPrefix(BoundIncrementOperator node)
         {
             var op = node.OperatorKind.Operator();
-            return op == UnaryOperatorKind.PrefixIncrement || op == UnaryOperatorKind.PrefixDecrement;
+            return op is UnaryOperatorKind.PrefixIncrement or UnaryOperatorKind.PrefixDecrement;
         }
 
         /// <summary>

@@ -206,7 +206,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             if (bindingOption == SpeculativeBindingOption.BindAsTypeOrNamespace)
             {
-                if (!(expression is TypeSyntax))
+                if (expression is not TypeSyntax)
                 {
                     return null;
                 }
@@ -1143,7 +1143,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             while (node != null)
             {
-                if (node.Kind() == SyntaxKind.XmlCrefAttribute || node.Kind() == SyntaxKind.XmlNameAttribute)
+                if (node.Kind() is SyntaxKind.XmlCrefAttribute or SyntaxKind.XmlNameAttribute)
                 {
                     return false;
                 }
@@ -1649,7 +1649,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             if (lookupResult.IsMultiViable)
             {
-                if (lookupResult.Symbols.Any(t => t.Kind == SymbolKind.NamedType || t.Kind == SymbolKind.Namespace || t.Kind == SymbolKind.ErrorType))
+                if (lookupResult.Symbols.Any(t => t.Kind is SymbolKind.NamedType or SymbolKind.Namespace or SymbolKind.ErrorType))
                 {
                     // binder.ResultSymbol is defined only for type/namespace lookups
                     bool wasError;
@@ -1930,7 +1930,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         private static bool IsUserDefinedTrueOrFalse(BoundUnaryOperator @operator)
         {
             UnaryOperatorKind operatorKind = @operator.OperatorKind;
-            return operatorKind == UnaryOperatorKind.UserDefinedTrue || operatorKind == UnaryOperatorKind.UserDefinedFalse;
+            return operatorKind is UnaryOperatorKind.UserDefinedTrue or UnaryOperatorKind.UserDefinedFalse;
         }
 
         // Gets the semantic info from a specific bound node and a set of diagnostics
@@ -4980,12 +4980,12 @@ namespace Microsoft.CodeAnalysis.CSharp
                 throw new ArgumentNullException(nameof(lastStatement));
             }
 
-            if (!(firstStatement is StatementSyntax firstStatementSyntax))
+            if (firstStatement is not StatementSyntax firstStatementSyntax)
             {
                 throw new ArgumentException("firstStatement is not a StatementSyntax.");
             }
 
-            if (!(lastStatement is StatementSyntax lastStatementSyntax))
+            if (lastStatement is not StatementSyntax lastStatementSyntax)
             {
                 throw new ArgumentException("firstStatement is a StatementSyntax but lastStatement isn't.");
             }
@@ -5000,7 +5000,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 throw new ArgumentNullException(nameof(statement));
             }
 
-            if (!(statement is StatementSyntax statementSyntax))
+            if (statement is not StatementSyntax statementSyntax)
             {
                 throw new ArgumentException("statement is not a StatementSyntax.");
             }
@@ -5020,12 +5020,12 @@ namespace Microsoft.CodeAnalysis.CSharp
                 throw new ArgumentNullException(nameof(lastStatement));
             }
 
-            if (!(firstStatement is StatementSyntax firstStatementSyntax))
+            if (firstStatement is not StatementSyntax firstStatementSyntax)
             {
                 throw new ArgumentException("firstStatement is not a StatementSyntax.");
             }
 
-            if (!(lastStatement is StatementSyntax lastStatementSyntax))
+            if (lastStatement is not StatementSyntax lastStatementSyntax)
             {
                 throw new ArgumentException("lastStatement is not a StatementSyntax.");
             }

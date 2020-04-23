@@ -2000,7 +2000,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 get
                 {
-                    return (_location == BestSymbolLocation.FromSourceModule) || (_location == BestSymbolLocation.FromAddedModule);
+                    return _location is BestSymbolLocation.FromSourceModule or BestSymbolLocation.FromAddedModule;
                 }
             }
 

@@ -743,7 +743,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 {
                     diagnostics.Add(ErrorCode.ERR_BadSKunknown, ultimateReceiver.Syntax.Location, ultimateReceiver.Syntax, MessageID.IDS_SK_NAMESPACE.Localize());
                 }
-                else if (ultimateReceiver.Kind == BoundKind.Lambda || ultimateReceiver.Kind == BoundKind.UnboundLambda)
+                else if (ultimateReceiver.Kind is BoundKind.Lambda or BoundKind.UnboundLambda)
                 {
                     // Could not find an implementation of the query pattern for source type '{0}'.  '{1}' not found.
                     diagnostics.Add(ErrorCode.ERR_QueryNoProvider, node.Location, MessageID.IDS_AnonMethod.Localize(), methodName);

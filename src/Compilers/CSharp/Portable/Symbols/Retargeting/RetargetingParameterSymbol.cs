@@ -26,7 +26,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Retargeting
         protected RetargetingParameterSymbol(ParameterSymbol underlyingParameter)
             : base(underlyingParameter)
         {
-            Debug.Assert(!(underlyingParameter is RetargetingParameterSymbol));
+            Debug.Assert(underlyingParameter is not RetargetingParameterSymbol);
         }
 
         protected abstract RetargetingModuleSymbol RetargetingModule

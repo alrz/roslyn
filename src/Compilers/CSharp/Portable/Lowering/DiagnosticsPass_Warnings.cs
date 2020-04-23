@@ -143,7 +143,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 receiver = conversion.Operand;
             }
 
-            return receiver.Kind != BoundKind.ThisReference && receiver.Kind != BoundKind.BaseReference;
+            return receiver.Kind is not (BoundKind.ThisReference or BoundKind.BaseReference);
         }
 
         private bool IsInterlockedAPI(Symbol method)
@@ -303,7 +303,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 CheckVacuousComparisons(node, node.Right.ConstantValue, node.Left);
             }
 
-            if (node.OperatorKind == BinaryOperatorKind.ObjectEqual || node.OperatorKind == BinaryOperatorKind.ObjectNotEqual)
+            if (node.OperatorKind is BinaryOperatorKind.ObjectEqual or BinaryOperatorKind.ObjectNotEqual)
             {
                 TypeSymbol t;
                 if (node.Left.Type.SpecialType == SpecialType.System_Object && !IsExplicitCast(node.Left) && !(node.Left.ConstantValue != null && node.Left.ConstantValue.IsNull) && ConvertedHasEqual(node.OperatorKind, node.Right, out t))
@@ -411,8 +411,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                 conversion != null;
                 conversion = conversion.Operand as BoundConversion)
             {
-                if (conversion.ConversionKind != ConversionKind.ImplicitNumeric &&
-                    conversion.ConversionKind != ConversionKind.ImplicitConstant)
+                if (conversion.ConversionKind is not (ConversionKind.ImplicitNumeric or
+                    ConversionKind.ImplicitConstant))
                 {
                     return;
                 }
@@ -847,7 +847,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             if (node.Kind == BoundKind.Conversion)
             {
                 var conv = (BoundConversion)node;
-                if (conv.ConversionKind == ConversionKind.ExplicitNullable || conv.ConversionKind == ConversionKind.ImplicitNullable)
+                if (conv.ConversionKind is ConversionKind.ExplicitNullable or ConversionKind.ImplicitNullable)
                 {
                     type = GetTypeForLiftedComparisonWarning(conv.Operand);
                 }
@@ -883,7 +883,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 }
             }
 
-            if (right.Kind != BoundKind.ConvertedTupleLiteral && right.Kind != BoundKind.TupleLiteral)
+            if (right.Kind is not (BoundKind.ConvertedTupleLiteral or BoundKind.TupleLiteral))
             {
                 return;
             }

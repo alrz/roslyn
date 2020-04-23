@@ -108,9 +108,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax
             var entry = Entries[index];
 
             // the state should not be set to the ones used for VB only.
-            Debug.Assert(entry.State != PositionState.Unknown &&
-                         entry.State != PositionState.RemappedAfterHidden &&
-                         entry.State != PositionState.RemappedAfterUnknown);
+            Debug.Assert(entry.State is not (PositionState.Unknown or
+                         PositionState.RemappedAfterHidden or
+                         PositionState.RemappedAfterUnknown));
 
             switch (entry.State)
             {
@@ -156,9 +156,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax
             var entry = FindEntry(unmappedStartPos.Line);
 
             // the state should not be set to the ones used for VB only.
-            Debug.Assert(entry.State != PositionState.Unknown &&
-                            entry.State != PositionState.RemappedAfterHidden &&
-                            entry.State != PositionState.RemappedAfterUnknown);
+            Debug.Assert(entry.State is not (PositionState.Unknown or
+                            PositionState.RemappedAfterHidden or
+                            PositionState.RemappedAfterUnknown));
 
             isHiddenPosition = entry.State == PositionState.Hidden;
 

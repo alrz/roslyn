@@ -138,7 +138,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                         var newResult = modules[i].LookupTopLevelMetadataType(ref emittedName);
 
                         // Hold on to the first missing type result, unless we found the type.
-                        if (!(newResult is MissingMetadataTypeSymbol))
+                        if (newResult is not MissingMetadataTypeSymbol)
                         {
                             result = newResult;
                             break;

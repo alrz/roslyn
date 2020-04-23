@@ -44,8 +44,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 case AccessorDeclarationSyntax accessor:
                     return (CSharpSyntaxNode?)accessor.Body ?? accessor.ExpressionBody;
                 case ArrowExpressionClauseSyntax arrowExpression:
-                    Debug.Assert(arrowExpression.Parent.Kind() == SyntaxKind.PropertyDeclaration ||
-                                 arrowExpression.Parent.Kind() == SyntaxKind.IndexerDeclaration);
+                    Debug.Assert(arrowExpression.Parent.Kind() is SyntaxKind.PropertyDeclaration or
+                                 SyntaxKind.IndexerDeclaration);
                     return arrowExpression;
                 case LocalFunctionStatementSyntax localFunction:
                     return (CSharpSyntaxNode?)localFunction.Body ?? localFunction.ExpressionBody;
@@ -306,7 +306,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
         internal sealed override CSharpAttributeData EarlyDecodeWellKnownAttribute(ref EarlyDecodeWellKnownAttributeArguments<EarlyWellKnownAttributeBinder, NamedTypeSymbol, AttributeSyntax, AttributeLocation> arguments)
         {
-            Debug.Assert(arguments.SymbolPart == AttributeLocation.None || arguments.SymbolPart == AttributeLocation.Return);
+            Debug.Assert(arguments.SymbolPart is AttributeLocation.None or AttributeLocation.Return);
 
             bool hasAnyDiagnostics;
 
@@ -395,7 +395,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         internal sealed override void DecodeWellKnownAttribute(ref DecodeWellKnownAttributeArguments<AttributeSyntax, CSharpAttributeData, AttributeLocation> arguments)
         {
             Debug.Assert(!arguments.Attribute.HasErrors);
-            Debug.Assert(arguments.SymbolPart == AttributeLocation.None || arguments.SymbolPart == AttributeLocation.Return);
+            Debug.Assert(arguments.SymbolPart is AttributeLocation.None or AttributeLocation.Return);
 
             if (arguments.SymbolPart == AttributeLocation.None)
             {
@@ -809,7 +809,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             Debug.Assert(!boundAttributes.IsDefault);
             Debug.Assert(!allAttributeSyntaxNodes.IsDefault);
             Debug.Assert(boundAttributes.Length == allAttributeSyntaxNodes.Length);
-            Debug.Assert(symbolPart == AttributeLocation.None || symbolPart == AttributeLocation.Return);
+            Debug.Assert(symbolPart is AttributeLocation.None or AttributeLocation.Return);
 
             if (symbolPart != AttributeLocation.Return)
             {

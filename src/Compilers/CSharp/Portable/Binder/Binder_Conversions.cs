@@ -1391,17 +1391,17 @@ namespace Microsoft.CodeAnalysis.CSharp
             // See ExpressionBinder::isConstantInRange.
             switch (destinationType)
             {
-                case SpecialType.System_Byte: return (byte.MinValue - 1D) < value && value < (byte.MaxValue + 1D);
-                case SpecialType.System_Char: return (char.MinValue - 1D) < value && value < (char.MaxValue + 1D);
-                case SpecialType.System_UInt16: return (ushort.MinValue - 1D) < value && value < (ushort.MaxValue + 1D);
-                case SpecialType.System_UInt32: return (uint.MinValue - 1D) < value && value < (uint.MaxValue + 1D);
-                case SpecialType.System_UInt64: return (ulong.MinValue - 1D) < value && value < (ulong.MaxValue + 1D);
-                case SpecialType.System_SByte: return (sbyte.MinValue - 1D) < value && value < (sbyte.MaxValue + 1D);
-                case SpecialType.System_Int16: return (short.MinValue - 1D) < value && value < (short.MaxValue + 1D);
-                case SpecialType.System_Int32: return (int.MinValue - 1D) < value && value < (int.MaxValue + 1D);
+                case SpecialType.System_Byte: return value is > byte.MinValue - 1D and < byte.MaxValue + 1D;
+                case SpecialType.System_Char: return value is > char.MinValue - 1D and < char.MaxValue + 1D;
+                case SpecialType.System_UInt16: return value is > ushort.MinValue - 1D and < ushort.MaxValue + 1D;
+                case SpecialType.System_UInt32: return value is > uint.MinValue - 1D and < uint.MaxValue + 1D;
+                case SpecialType.System_UInt64: return value is > ulong.MinValue - 1D and < ulong.MaxValue + 1D;
+                case SpecialType.System_SByte: return value is > sbyte.MinValue - 1D and < sbyte.MaxValue + 1D;
+                case SpecialType.System_Int16: return value is > short.MinValue - 1D and < short.MaxValue + 1D;
+                case SpecialType.System_Int32: return value is > int.MinValue - 1D and < int.MaxValue + 1D;
                 // Note: Using <= to compare the min value matches the native compiler.
-                case SpecialType.System_Int64: return (long.MinValue - 1D) <= value && value < (long.MaxValue + 1D);
-                case SpecialType.System_Decimal: return ((double)decimal.MinValue - 1D) < value && value < ((double)decimal.MaxValue + 1D);
+                case SpecialType.System_Int64: return value is >= long.MinValue - 1D and < long.MaxValue + 1D;
+                case SpecialType.System_Decimal: return value is > (double)decimal.MinValue - 1D and < (double)decimal.MaxValue + 1D;
             }
 
             return true;
@@ -1413,15 +1413,15 @@ namespace Microsoft.CodeAnalysis.CSharp
             // See ExpressionBinder::isConstantInRange.
             switch (destinationType)
             {
-                case SpecialType.System_Byte: return (byte.MinValue - 1M) < value && value < (byte.MaxValue + 1M);
-                case SpecialType.System_Char: return (char.MinValue - 1M) < value && value < (char.MaxValue + 1M);
-                case SpecialType.System_UInt16: return (ushort.MinValue - 1M) < value && value < (ushort.MaxValue + 1M);
-                case SpecialType.System_UInt32: return (uint.MinValue - 1M) < value && value < (uint.MaxValue + 1M);
-                case SpecialType.System_UInt64: return (ulong.MinValue - 1M) < value && value < (ulong.MaxValue + 1M);
-                case SpecialType.System_SByte: return (sbyte.MinValue - 1M) < value && value < (sbyte.MaxValue + 1M);
-                case SpecialType.System_Int16: return (short.MinValue - 1M) < value && value < (short.MaxValue + 1M);
-                case SpecialType.System_Int32: return (int.MinValue - 1M) < value && value < (int.MaxValue + 1M);
-                case SpecialType.System_Int64: return (long.MinValue - 1M) < value && value < (long.MaxValue + 1M);
+                case SpecialType.System_Byte: return value is > byte.MinValue - 1M and < byte.MaxValue + 1M;
+                case SpecialType.System_Char: return value is > char.MinValue - 1M and < char.MaxValue + 1M;
+                case SpecialType.System_UInt16: return value is > ushort.MinValue - 1M and < ushort.MaxValue + 1M;
+                case SpecialType.System_UInt32: return value is > uint.MinValue - 1M and < uint.MaxValue + 1M;
+                case SpecialType.System_UInt64: return value is > ulong.MinValue - 1M and < ulong.MaxValue + 1M;
+                case SpecialType.System_SByte: return value is > sbyte.MinValue - 1M and < sbyte.MaxValue + 1M;
+                case SpecialType.System_Int16: return value is > short.MinValue - 1M and < short.MaxValue + 1M;
+                case SpecialType.System_Int32: return value is > int.MinValue - 1M and < int.MaxValue + 1M;
+                case SpecialType.System_Int64: return value is > long.MinValue - 1M and < long.MaxValue + 1M;
             }
 
             return true;

@@ -170,7 +170,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                             }
 
                             var env = curScope.DeclaredEnvironment;
-                            if (!(env is null))
+                            if (env is not null)
                             {
                                 if (!env.IsStruct)
                                 {
@@ -364,7 +364,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                 VisitScopeTree(ScopeTree, scope =>
                 {
-                    if (!(scope.DeclaredEnvironment is null))
+                    if (scope.DeclaredEnvironment is not null)
                     {
                         closuresCapturingScopeVariables[scope] = PooledHashSet<NestedFunction>.GetInstance();
                         environmentsToScopes[scope.DeclaredEnvironment] = scope;

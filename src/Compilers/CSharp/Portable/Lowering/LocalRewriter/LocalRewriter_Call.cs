@@ -755,7 +755,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 // Except for async stack spilling which needs to know whether arguments were originally passed as "In" and must obey "no copying" rule.
                 if (paramRefKind == RefKind.In)
                 {
-                    Debug.Assert(argRefKind == RefKind.None || argRefKind == RefKind.In);
+                    Debug.Assert(argRefKind is RefKind.None or RefKind.In);
                     argRefKind = argRefKind == RefKind.None ? RefKind.In : RefKindExtensions.StrictIn;
                 }
 

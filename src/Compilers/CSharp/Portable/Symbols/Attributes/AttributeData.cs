@@ -293,7 +293,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         {
             foreach (Symbol foundMember in type.GetMembers(memberName))
             {
-                if (foundMember.Kind == SymbolKind.Field || foundMember.Kind == SymbolKind.Property)
+                if (foundMember.Kind is SymbolKind.Field or SymbolKind.Property)
                 {
                     return;
                 }
@@ -343,7 +343,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         private DeclarativeSecurityAction DecodeSecurityAttributeAction(Symbol targetSymbol, CSharpCompilation compilation, AttributeSyntax? nodeOpt, out bool hasErrors, DiagnosticBag diagnostics)
         {
             Debug.Assert((object)targetSymbol != null);
-            Debug.Assert(targetSymbol.Kind == SymbolKind.Assembly || targetSymbol.Kind == SymbolKind.NamedType || targetSymbol.Kind == SymbolKind.Method);
+            Debug.Assert(targetSymbol.Kind is SymbolKind.Assembly or SymbolKind.NamedType or SymbolKind.Method);
             Debug.Assert(this.IsSecurityAttribute(compilation));
 
             var ctorArgs = this.CommonConstructorArguments;
@@ -386,7 +386,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         private DeclarativeSecurityAction DecodeSecurityAction(TypedConstant typedValue, Symbol targetSymbol, AttributeSyntax? nodeOpt, DiagnosticBag diagnostics, out bool hasErrors)
         {
             Debug.Assert((object)targetSymbol != null);
-            Debug.Assert(targetSymbol.Kind == SymbolKind.Assembly || targetSymbol.Kind == SymbolKind.NamedType || targetSymbol.Kind == SymbolKind.Method);
+            Debug.Assert(targetSymbol.Kind is SymbolKind.Assembly or SymbolKind.NamedType or SymbolKind.Method);
 
             int securityAction = (int)typedValue.ValueInternal;
             bool isPermissionRequestAction;
@@ -439,7 +439,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             // Validate security action for symbol kind
             if (isPermissionRequestAction)
             {
-                if (targetSymbol.Kind == SymbolKind.NamedType || targetSymbol.Kind == SymbolKind.Method)
+                if (targetSymbol.Kind is SymbolKind.NamedType or SymbolKind.Method)
                 {
                     // Types and methods cannot take permission requests.
 
@@ -577,7 +577,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             Debug.Assert(!this.HasErrors);
 
             TypedConstant ctorArgument = this.CommonConstructorArguments[0];
-            Debug.Assert(ctorArgument.Kind == TypedConstantKind.Enum || ctorArgument.Kind == TypedConstantKind.Primitive);
+            Debug.Assert(ctorArgument.Kind is TypedConstantKind.Enum or TypedConstantKind.Primitive);
 
             ClassInterfaceType interfaceType = ctorArgument.Kind == TypedConstantKind.Enum ?
                 ctorArgument.DecodeValue<ClassInterfaceType>(SpecialType.System_Enum) :
@@ -603,7 +603,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             Debug.Assert(!this.HasErrors);
 
             TypedConstant ctorArgument = this.CommonConstructorArguments[0];
-            Debug.Assert(ctorArgument.Kind == TypedConstantKind.Enum || ctorArgument.Kind == TypedConstantKind.Primitive);
+            Debug.Assert(ctorArgument.Kind is TypedConstantKind.Enum or TypedConstantKind.Primitive);
 
             ComInterfaceType interfaceType = ctorArgument.Kind == TypedConstantKind.Enum ?
                 ctorArgument.DecodeValue<ComInterfaceType>(SpecialType.System_Enum) :

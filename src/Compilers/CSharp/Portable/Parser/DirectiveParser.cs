@@ -470,7 +470,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             {
                 var warning = this.EatContextualToken(SyntaxKind.WarningKeyword);
                 SyntaxToken style;
-                if (this.CurrentToken.Kind == SyntaxKind.DisableKeyword || this.CurrentToken.Kind == SyntaxKind.RestoreKeyword)
+                if (this.CurrentToken.Kind is SyntaxKind.DisableKeyword or SyntaxKind.RestoreKeyword)
                 {
                     style = this.EatToken();
 
@@ -590,13 +590,13 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
         {
             StringBuilder builder = null;
 
-            if (this.CurrentToken.Kind != SyntaxKind.EndOfDirectiveToken &&
-                this.CurrentToken.Kind != SyntaxKind.EndOfFileToken)
+            if (this.CurrentToken.Kind is not (SyntaxKind.EndOfDirectiveToken or
+                SyntaxKind.EndOfFileToken))
             {
                 builder = new StringBuilder(this.CurrentToken.FullWidth);
 
-                while (this.CurrentToken.Kind != SyntaxKind.EndOfDirectiveToken &&
-                       this.CurrentToken.Kind != SyntaxKind.EndOfFileToken)
+                while (this.CurrentToken.Kind is not (SyntaxKind.EndOfDirectiveToken or
+                       SyntaxKind.EndOfFileToken))
                 {
                     var token = this.EatToken();
 
@@ -622,8 +622,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             var skippedTokens = new SyntaxListBuilder<SyntaxToken>();
 
             // Consume all extraneous tokens as leading SkippedTokens trivia.
-            if (this.CurrentToken.Kind != SyntaxKind.EndOfDirectiveToken &&
-                this.CurrentToken.Kind != SyntaxKind.EndOfFileToken)
+            if (this.CurrentToken.Kind is not (SyntaxKind.EndOfDirectiveToken or
+                SyntaxKind.EndOfFileToken))
             {
                 skippedTokens = new SyntaxListBuilder<SyntaxToken>(10);
 
@@ -642,8 +642,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     skippedTokens.Add(this.AddError(this.EatToken().WithoutDiagnosticsGreen(), errorCode));
                 }
 
-                while (this.CurrentToken.Kind != SyntaxKind.EndOfDirectiveToken &&
-                       this.CurrentToken.Kind != SyntaxKind.EndOfFileToken)
+                while (this.CurrentToken.Kind is not (SyntaxKind.EndOfDirectiveToken or
+                       SyntaxKind.EndOfFileToken))
                 {
                     skippedTokens.Add(this.EatToken().WithoutDiagnosticsGreen());
                 }
@@ -697,7 +697,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
         private ExpressionSyntax ParseEquality()
         {
             var left = this.ParseLogicalNot();
-            while (this.CurrentToken.Kind == SyntaxKind.EqualsEqualsToken || this.CurrentToken.Kind == SyntaxKind.ExclamationEqualsToken)
+            while (this.CurrentToken.Kind is SyntaxKind.EqualsEqualsToken or SyntaxKind.ExclamationEqualsToken)
             {
                 var op = this.EatToken();
                 var right = this.ParseEquality();

@@ -43,8 +43,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 get
                 {
                     return
-                        this.CurrentNodeOrToken.Kind() == SyntaxKind.None ||
-                        this.CurrentNodeOrToken.Kind() == SyntaxKind.EndOfFileToken;
+                        this.CurrentNodeOrToken.Kind() is SyntaxKind.None or
+                        SyntaxKind.EndOfFileToken;
                 }
             }
 

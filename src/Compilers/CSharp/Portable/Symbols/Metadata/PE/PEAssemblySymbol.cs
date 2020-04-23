@@ -214,7 +214,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE
         internal override bool AreInternalsVisibleToThisAssembly(AssemblySymbol potentialGiverOfAccess)
         {
             IVTConclusion conclusion = MakeFinalIVTDetermination(potentialGiverOfAccess);
-            return conclusion == IVTConclusion.Match || conclusion == IVTConclusion.OneSignedOneNot;
+            return conclusion is IVTConclusion.Match or IVTConclusion.OneSignedOneNot;
         }
 
         internal override IEnumerable<ImmutableArray<byte>> GetInternalsVisibleToPublicKeys(string simpleName)

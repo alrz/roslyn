@@ -631,7 +631,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             {
                 TypeSymbol compilationRelaxationsAttribute = compilation.GetWellKnownType(WellKnownType.System_Runtime_CompilerServices_CompilationRelaxationsAttribute);
                 Debug.Assert((object)compilationRelaxationsAttribute != null, "GetWellKnownType unexpectedly returned null");
-                if (!(compilationRelaxationsAttribute is MissingMetadataTypeSymbol))
+                if (compilationRelaxationsAttribute is not MissingMetadataTypeSymbol)
                 {
                     // As in Dev10 (see GlobalAttrBind::EmitCompilerGeneratedAttrs), we only synthesize this attribute if CompilationRelaxationsAttribute is found.
                     Binder.ReportUseSiteDiagnosticForSynthesizedAttribute(compilation,
@@ -640,7 +640,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
                 TypeSymbol runtimeCompatibilityAttribute = compilation.GetWellKnownType(WellKnownType.System_Runtime_CompilerServices_RuntimeCompatibilityAttribute);
                 Debug.Assert((object)runtimeCompatibilityAttribute != null, "GetWellKnownType unexpectedly returned null");
-                if (!(runtimeCompatibilityAttribute is MissingMetadataTypeSymbol))
+                if (runtimeCompatibilityAttribute is not MissingMetadataTypeSymbol)
                 {
                     // As in Dev10 (see GlobalAttrBind::EmitCompilerGeneratedAttrs), we only synthesize this attribute if RuntimeCompatibilityAttribute is found.
                     Binder.ReportUseSiteDiagnosticForSynthesizedAttribute(compilation,
@@ -1629,7 +1629,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                     !(_compilation.GetWellKnownType(WellKnownType.System_Security_Permissions_SecurityPermissionAttribute) is MissingMetadataTypeSymbol))
                 {
                     var securityActionType = _compilation.GetWellKnownType(WellKnownType.System_Security_Permissions_SecurityAction);
-                    if (!(securityActionType is MissingMetadataTypeSymbol))
+                    if (securityActionType is not MissingMetadataTypeSymbol)
                     {
                         var fieldRequestMinimum = (FieldSymbol)_compilation.GetWellKnownTypeMember(WellKnownMember.System_Security_Permissions_SecurityAction__RequestMinimum);
 
@@ -1767,7 +1767,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 // Synthesize attribute: [CompilationRelaxationsAttribute(CompilationRelaxations.NoStringInterning)]
 
                 // NOTE: GlobalAttrBind::EmitCompilerGeneratedAttrs skips attribute if the well-known types aren't available.
-                if (!(_compilation.GetWellKnownType(WellKnownType.System_Runtime_CompilerServices_CompilationRelaxationsAttribute) is MissingMetadataTypeSymbol))
+                if (_compilation.GetWellKnownType(WellKnownType.System_Runtime_CompilerServices_CompilationRelaxationsAttribute) is not MissingMetadataTypeSymbol)
                 {
                     var int32Type = _compilation.GetSpecialType(SpecialType.System_Int32);
                     Debug.Assert(!int32Type.HasUseSiteError,
@@ -1787,7 +1787,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 // Synthesize attribute: [RuntimeCompatibilityAttribute(WrapNonExceptionThrows = true)]
 
                 // NOTE: GlobalAttrBind::EmitCompilerGeneratedAttrs skips attribute if the well-known types aren't available.
-                if (!(_compilation.GetWellKnownType(WellKnownType.System_Runtime_CompilerServices_RuntimeCompatibilityAttribute) is MissingMetadataTypeSymbol))
+                if (_compilation.GetWellKnownType(WellKnownType.System_Runtime_CompilerServices_RuntimeCompatibilityAttribute) is not MissingMetadataTypeSymbol)
                 {
                     var boolType = _compilation.GetSpecialType(SpecialType.System_Boolean);
                     Debug.Assert(!boolType.HasUseSiteError, "Use site errors should have been checked ahead of time (type bool).");
@@ -1966,7 +1966,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
             IVTConclusion conclusion = MakeFinalIVTDetermination(potentialGiverOfAccess);
 
-            return conclusion == IVTConclusion.Match || conclusion == IVTConclusion.OneSignedOneNot;
+            return conclusion is IVTConclusion.Match or IVTConclusion.OneSignedOneNot;
         }
 
         private AssemblyIdentity ComputeIdentity()
@@ -2273,7 +2273,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 object value = attribute.CommonConstructorArguments[0].ValueInternal;
                 AssemblyFlags nameFlags;
 
-                if (signature == 0 || signature == 1)
+                if (signature is 0 or 1)
                 {
                     nameFlags = (AssemblyFlags)(AssemblyNameFlags)value;
                 }

@@ -107,7 +107,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         public override string GetErrorDisplayString(ISymbol symbol)
         {
             // show extra info for assembly if possible such as version, public key token etc.
-            if (symbol.Kind == SymbolKind.Assembly || symbol.Kind == SymbolKind.Namespace)
+            if (symbol.Kind is SymbolKind.Assembly or SymbolKind.Namespace)
             {
                 return symbol.ToString();
             }

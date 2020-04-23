@@ -601,11 +601,11 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             RoslynDebug.Assert(symbol is object);
 
-            RoslynDebug.Assert(symbol.Kind == SymbolKind.NamedType ||
-                         symbol.Kind == SymbolKind.Field ||
-                         symbol.Kind == SymbolKind.Method ||
-                         symbol.Kind == SymbolKind.Event ||
-                         symbol.Kind == SymbolKind.Property);
+            RoslynDebug.Assert(symbol.Kind is SymbolKind.NamedType or
+                         SymbolKind.Field or
+                         SymbolKind.Method or
+                         SymbolKind.Event or
+                         SymbolKind.Property);
 
             // Dev11 also reports on the unconstructed method.  It would be nice to report on 
             // the constructed method, but then we wouldn't be able to walk the override chain.

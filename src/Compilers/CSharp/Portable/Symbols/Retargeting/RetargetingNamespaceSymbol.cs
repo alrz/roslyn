@@ -38,7 +38,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols.Retargeting
         {
             Debug.Assert((object)retargetingModule != null);
             Debug.Assert((object)underlyingNamespace != null);
-            Debug.Assert(!(underlyingNamespace is RetargetingNamespaceSymbol));
+            Debug.Assert(underlyingNamespace is not RetargetingNamespaceSymbol);
 
             _retargetingModule = retargetingModule;
             _underlyingNamespace = underlyingNamespace;

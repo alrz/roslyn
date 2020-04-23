@@ -189,7 +189,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             if (t.IsSZArray)
             {
                 ImmutableArray<NamedTypeSymbol> interfaces = t.InterfacesNoUseSiteDiagnostics();
-                Debug.Assert(0 <= interfaces.Length && interfaces.Length <= 2);
+                Debug.Assert(interfaces.Length is >= 0 and <= 2);
 
                 if (interfaces.Length == 1)
                 {

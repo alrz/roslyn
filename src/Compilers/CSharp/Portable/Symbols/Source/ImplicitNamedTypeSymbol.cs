@@ -19,9 +19,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         internal ImplicitNamedTypeSymbol(NamespaceOrTypeSymbol containingSymbol, MergedTypeDeclaration declaration, DiagnosticBag diagnostics)
             : base(containingSymbol, declaration, diagnostics)
         {
-            Debug.Assert(declaration.Kind == DeclarationKind.ImplicitClass ||
-                         declaration.Kind == DeclarationKind.Submission ||
-                         declaration.Kind == DeclarationKind.Script);
+            Debug.Assert(declaration.Kind is DeclarationKind.ImplicitClass or
+                         DeclarationKind.Submission or
+                         DeclarationKind.Script);
 
             state.NotePartComplete(CompletionPart.EnumUnderlyingType); // No work to do for this.
         }

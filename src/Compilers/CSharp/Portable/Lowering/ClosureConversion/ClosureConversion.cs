@@ -1472,7 +1472,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             // switch to the generated method
 
             _currentMethod = synthesizedMethod;
-            if (closureKind == ClosureKind.Static || closureKind == ClosureKind.Singleton)
+            if (closureKind is ClosureKind.Static or ClosureKind.Singleton)
             {
                 // no link from a static lambda to its container
                 _innermostFramePointer = _currentFrameThis = null;

@@ -52,7 +52,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             Debug.Assert(rewrittenNode.Type is { });
             var type = rewrittenNode.Type;
-            if (type.SpecialType != SpecialType.System_Double && type.SpecialType != SpecialType.System_Single)
+            if (type.SpecialType is not (SpecialType.System_Double or SpecialType.System_Single))
             {
                 return false;
             }

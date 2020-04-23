@@ -32,7 +32,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             Debug.Assert(this.Flags.Includes(BinderFlags.GenericConstraintsClause));
             RoslynDebug.Assert((object)containingSymbol != null);
-            Debug.Assert((containingSymbol.Kind == SymbolKind.NamedType) || (containingSymbol.Kind == SymbolKind.Method));
+            Debug.Assert(containingSymbol.Kind is SymbolKind.NamedType or SymbolKind.Method);
             Debug.Assert(typeParameters.Length > 0);
             Debug.Assert(clauses.Count > 0);
 

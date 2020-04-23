@@ -126,7 +126,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             while (containingMember is object && containingMember.Kind == SymbolKind.Method)
             {
                 var method = (MethodSymbol)containingMember;
-                if (method.MethodKind != MethodKind.AnonymousFunction && method.MethodKind != MethodKind.LocalFunction) break;
+                if (method.MethodKind is not (MethodKind.AnonymousFunction or MethodKind.LocalFunction)) break;
                 containingMember = containingMember.ContainingSymbol;
             }
 
@@ -146,7 +146,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                         MethodSymbol method = (MethodSymbol)symbol;
 
                         // skip lambdas:
-                        if (method.MethodKind == MethodKind.AnonymousFunction || method.MethodKind == MethodKind.LocalFunction)
+                        if (method.MethodKind is MethodKind.AnonymousFunction or MethodKind.LocalFunction)
                         {
                             symbol = method.ContainingSymbol;
                             continue;
@@ -255,7 +255,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 case SymbolKind.Alias:
                     return IsTypeOrTypeAlias(((AliasSymbol)symbol).Target);
                 default:
-                    Debug.Assert(!(symbol is TypeSymbol));
+                    Debug.Assert(symbol is not TypeSymbol);
                     return false;
             }
         }

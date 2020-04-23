@@ -928,9 +928,9 @@ namespace Microsoft.CodeAnalysis.CSharp.CodeGen
             }
             else
             {
-                Debug.Assert(_context == ExprContext.Value ||
-                             _context == ExprContext.Box ||
-                             _context == ExprContext.Sideeffects, "assignment expression cannot be a target of another assignment");
+                Debug.Assert(_context is ExprContext.Value or
+                             ExprContext.Box or
+                             ExprContext.Sideeffects, "assignment expression cannot be a target of another assignment");
                 // we only need a value of rhs, so if otherwise possible it can be a stack value.
                 rhsContext = ExprContext.Value;
             }

@@ -528,9 +528,9 @@ namespace Microsoft.CodeAnalysis.CSharp
                 return true;
             }
 
-            if (left.Type.SpecialType == SpecialType.System_Int32 ||
-                left.Type.SpecialType == SpecialType.System_Boolean ||
-                left.Type.SpecialType == SpecialType.System_String)
+            if (left.Type.SpecialType is SpecialType.System_Int32 or
+                SpecialType.System_Boolean or
+                SpecialType.System_String)
             {
                 // They are both int, both bool, or both string. Go for the fast path.
                 return false;

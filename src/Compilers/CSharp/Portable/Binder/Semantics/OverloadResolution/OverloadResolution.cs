@@ -1640,7 +1640,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 else
                 {
                     Debug.Assert(result == r);
-                    Debug.Assert(result == BetterResult.Left || result == BetterResult.Right);
+                    Debug.Assert(result is BetterResult.Left or BetterResult.Right);
 
                     okToDowngradeResultToNeither = (okToDowngradeResultToNeither && okToDowngradeToNeither);
                 }
@@ -2143,8 +2143,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                 // NOTE:    gets considered while classifying conversions between parameter types when computing better conversion target in the native compiler.
                 // NOTE:    Roslyn correctly follows the specification and ref kinds are not considered while classifying conversions between types, see method BetterConversionTarget.
 
-                Debug.Assert(refKind1 == RefKind.None || refKind1 == RefKind.Ref);
-                Debug.Assert(refKind2 == RefKind.None || refKind2 == RefKind.Ref);
+                Debug.Assert(refKind1 is RefKind.None or RefKind.Ref);
+                Debug.Assert(refKind2 is RefKind.None or RefKind.Ref);
 
                 if (refKind1 != refKind2)
                 {
@@ -2373,7 +2373,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             public override BoundNode Visit(BoundNode node)
             {
-                if (!(node is BoundExpression))
+                if (node is not BoundExpression)
                 {
                     return base.Visit(node);
                 }

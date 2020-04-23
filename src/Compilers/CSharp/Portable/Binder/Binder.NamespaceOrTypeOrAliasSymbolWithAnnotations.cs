@@ -25,7 +25,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             private NamespaceOrTypeOrAliasSymbolWithAnnotations(Symbol symbol, bool isNullableEnabled)
             {
-                Debug.Assert(!(symbol is TypeSymbol));
+                Debug.Assert(symbol is not TypeSymbol);
                 _typeWithAnnotations = default;
                 _symbol = symbol;
                 _isNullableEnabled = isNullableEnabled;

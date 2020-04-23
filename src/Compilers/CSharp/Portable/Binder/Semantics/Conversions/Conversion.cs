@@ -149,7 +149,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             // 1) when rewriting MethodGroup conversions and the method gets substituted.
             // 2) when lowering IntPtr conversion (a compat-related conversion which becomes a kind of a user-defined conversion)
             // in those cases it is ok to ignore existing _uncommonData.
-            Debug.Assert(_kind == ConversionKind.MethodGroup || _kind == ConversionKind.IntPtr);
+            Debug.Assert(_kind is ConversionKind.MethodGroup or ConversionKind.IntPtr);
 
             return new Conversion(this.Kind, conversionMethod, isExtensionMethod: IsExtensionMethod);
         }
@@ -278,7 +278,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         internal static Conversion MakeNullableConversion(ConversionKind kind, Conversion nestedConversion)
         {
-            Debug.Assert(kind == ConversionKind.ImplicitNullable || kind == ConversionKind.ExplicitNullable);
+            Debug.Assert(kind is ConversionKind.ImplicitNullable or ConversionKind.ExplicitNullable);
 
             ImmutableArray<Conversion> nested;
             switch (nestedConversion.Kind)
@@ -482,7 +482,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             get
             {
-                return Kind == ConversionKind.StackAllocToPointerType || Kind == ConversionKind.StackAllocToSpanType;
+                return Kind is ConversionKind.StackAllocToPointerType or ConversionKind.StackAllocToSpanType;
             }
         }
 
@@ -496,7 +496,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             get
             {
-                return Kind == ConversionKind.ImplicitNumeric || Kind == ConversionKind.ExplicitNumeric;
+                return Kind is ConversionKind.ImplicitNumeric or ConversionKind.ExplicitNumeric;
             }
         }
 
@@ -510,7 +510,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             get
             {
-                return Kind == ConversionKind.ImplicitEnumeration || Kind == ConversionKind.ExplicitEnumeration;
+                return Kind is ConversionKind.ImplicitEnumeration or ConversionKind.ExplicitEnumeration;
             }
         }
 
@@ -561,7 +561,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             get
             {
-                return Kind == ConversionKind.ImplicitNullable || Kind == ConversionKind.ExplicitNullable;
+                return Kind is ConversionKind.ImplicitNullable or ConversionKind.ExplicitNullable;
             }
         }
 
@@ -572,7 +572,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             get
             {
-                return Kind == ConversionKind.ImplicitTupleLiteral || Kind == ConversionKind.ExplicitTupleLiteral;
+                return Kind is ConversionKind.ImplicitTupleLiteral or ConversionKind.ExplicitTupleLiteral;
             }
         }
 
@@ -583,7 +583,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             get
             {
-                return Kind == ConversionKind.ImplicitTuple || Kind == ConversionKind.ExplicitTuple;
+                return Kind is ConversionKind.ImplicitTuple or ConversionKind.ExplicitTuple;
             }
         }
 
@@ -597,7 +597,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             get
             {
-                return Kind == ConversionKind.ImplicitReference || Kind == ConversionKind.ExplicitReference;
+                return Kind is ConversionKind.ImplicitReference or ConversionKind.ExplicitReference;
             }
         }
 

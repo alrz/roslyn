@@ -261,7 +261,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                     return TypedConstantKind.Error;
 
                 default:
-                    if (kind == TypedConstantKind.Array || kind == TypedConstantKind.Enum)
+                    if (kind is TypedConstantKind.Array or TypedConstantKind.Enum)
                     {
                         // Array/Enum type with valid element/underlying type
                         return kind;
@@ -368,7 +368,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         /// </summary>
         public static bool IsPossibleArrayGenericInterface(this TypeSymbol _type)
         {
-            if (!(_type is NamedTypeSymbol t))
+            if (_type is not NamedTypeSymbol t)
             {
                 return false;
             }
@@ -377,11 +377,11 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
             SpecialType st = t.SpecialType;
 
-            if (st == SpecialType.System_Collections_Generic_IList_T ||
-                st == SpecialType.System_Collections_Generic_ICollection_T ||
-                st == SpecialType.System_Collections_Generic_IEnumerable_T ||
-                st == SpecialType.System_Collections_Generic_IReadOnlyList_T ||
-                st == SpecialType.System_Collections_Generic_IReadOnlyCollection_T)
+            if (st is SpecialType.System_Collections_Generic_IList_T or
+                SpecialType.System_Collections_Generic_ICollection_T or
+                SpecialType.System_Collections_Generic_IEnumerable_T or
+                SpecialType.System_Collections_Generic_IReadOnlyList_T or
+                SpecialType.System_Collections_Generic_IReadOnlyCollection_T)
             {
                 return true;
             }
@@ -725,7 +725,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                                     }
                                 }
                             }
-                            else if (acc2 == Accessibility.Protected || acc2 == Accessibility.ProtectedAndInternal)
+                            else if (acc2 is Accessibility.Protected or Accessibility.ProtectedAndInternal)
                             {
                                 // if s2 is protected, and it's parent is a subclass (or the same as) s1's parent
                                 // then this is at least as restrictive as s1's protected
@@ -1420,7 +1420,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
         internal static bool IsGenericTaskType(this TypeSymbol type, CSharpCompilation compilation)
         {
-            if (!(type is NamedTypeSymbol { Arity: 1 } namedType))
+            if (type is not NamedTypeSymbol { Arity: 1 } namedType)
             {
                 return false;
             }
@@ -1433,7 +1433,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
         internal static bool IsIAsyncEnumerableType(this TypeSymbol type, CSharpCompilation compilation)
         {
-            if (!(type is NamedTypeSymbol { Arity: 1 } namedType))
+            if (type is not NamedTypeSymbol { Arity: 1 } namedType)
             {
                 return false;
             }
@@ -1443,7 +1443,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
         internal static bool IsIAsyncEnumeratorType(this TypeSymbol type, CSharpCompilation compilation)
         {
-            if (!(type is NamedTypeSymbol { Arity: 1 } namedType))
+            if (type is not NamedTypeSymbol { Arity: 1 } namedType)
             {
                 return false;
             }

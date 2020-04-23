@@ -86,7 +86,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
 
             // "default(int?)" and "default" never have a value.
-            if (expr is BoundDefaultLiteral || expr is BoundDefaultExpression)
+            if (expr is BoundDefaultLiteral or BoundDefaultExpression)
             {
                 return true;
             }
