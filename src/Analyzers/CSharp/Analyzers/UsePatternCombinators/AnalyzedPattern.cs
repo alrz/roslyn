@@ -92,13 +92,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UsePatternCombinators
                 if (!SyntaxFactory.AreEquivalent(target.Syntax, rightPattern.Target.Syntax))
                     return null;
 
-                // We factor out not-patterns in binary combinators.
-                // For instance: `not a and not b` is simplified as `not (a or b)`.
-                // Likewise, `not a or not b` is simplified as `not (a and b)`.
-
-                return (leftPattern, rightPattern) is (Not left, Not right)
-                    ? Not.Create(new Binary(left.Pattern, right.Pattern, !isDisjunctive, token, target))
-                    : new Binary(leftPattern, rightPattern, isDisjunctive, token, target);
+                return new Binary(leftPattern, rightPattern, isDisjunctive, token, target);
             }
         }
 
