@@ -269,7 +269,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
 
             public override int GetHashCode()
             {
-                return base.GetHashCode();
+                return base.GetHashCode() ^ OperatorKind.GetHashCode();
             }
 
             public bool Equals(Relational? other)
