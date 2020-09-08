@@ -221,7 +221,7 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
 
         internal abstract record Test : AnalyzedNode
         {
-            public readonly Evaluation? Input;
+            public Evaluation? Input { get; private set; }
 
             protected Test(Evaluation? input)
             {
@@ -230,10 +230,8 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
 
             public Test WithInput(Evaluation? newInput)
             {
-                return ReferenceEquals(newInput, Input) ? this : WithInputCore(newInput);
+                return ReferenceEquals(newInput, Input) ? this : this with { Input = newInput };
             }
-
-            protected abstract Test WithInputCore(Evaluation? newInput);
         }
 
         internal sealed record Constant : Test
@@ -254,11 +252,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             {
                 Debug.Assert(value.ConstantValue.HasValue);
                 Value = value;
-            }
-
-            protected override Test WithInputCore(Evaluation? newInput)
-            {
-                return new Constant(newInput, Value);
             }
         }
 
@@ -285,11 +278,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
                     OperatorKind == other.OperatorKind &&
                     AreEquivalent(Value.Syntax, other.Value.Syntax);
             }
-
-            protected override Test WithInputCore(Evaluation? newInput)
-            {
-                return new Relational(newInput, OperatorKind, Value);
-            }
         }
 
         internal abstract record Evaluation : Test
@@ -311,8 +299,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
                 return base.Equals(other);
             }
 
-            // UNDONE: Use covariant return types when available:
-            // protected abstract override Evaluation WithInputCore(Evaluation? newInput);
             public new Evaluation WithInput(Evaluation? newInput)
             {
                 return (Evaluation)base.WithInput(newInput);
@@ -325,11 +311,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
                 : base(input, syntax)
             {
             }
-
-            protected override Test WithInputCore(Evaluation? newInput)
-            {
-                return new NotNull(newInput, Syntax);
-            }
         }
 
         internal sealed record Variable : Evaluation
@@ -341,11 +322,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
                 Debug.Assert(symbol is ILocalSymbol || symbol is IFieldSymbol);
                 DeclaredSymbol = symbol;
             }
-
-            protected override Test WithInputCore(Evaluation? newInput)
-            {
-                return new Variable(newInput, DeclaredSymbol, Syntax);
-            }
         }
 
         internal sealed record Type : Evaluation
@@ -355,11 +331,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             public Type(Evaluation? input, ITypeSymbol type, SyntaxNode syntax) : base(input, syntax)
             {
                 TypeSymbol = type;
-            }
-
-            protected override Test WithInputCore(Evaluation? newInput)
-            {
-                return new Type(newInput, TypeSymbol, Syntax);
             }
         }
 
@@ -373,11 +344,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             {
                 Property = property;
                 Index = index;
-            }
-
-            protected override Test WithInputCore(Evaluation? newInput)
-            {
-                return new IndexEvaluation(newInput, Property, Index, Syntax);
             }
         }
 
@@ -421,11 +387,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
                     };
                 }
             }
-
-            protected override Test WithInputCore(Evaluation? newInput)
-            {
-                return new MemberEvaluation(newInput, Symbol, Syntax);
-            }
         }
 
         internal sealed record DeconstructEvaluation : Evaluation
@@ -437,11 +398,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             {
                 DeconstructMethod = deconstructMethod;
             }
-
-            protected override Test WithInputCore(Evaluation? newInput)
-            {
-                return new DeconstructEvaluation(newInput, DeconstructMethod, Syntax);
-            }
         }
 
         internal sealed record OutVariableEvaluation : Evaluation
@@ -452,11 +408,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             {
                 Debug.Assert(input is DeconstructEvaluation);
                 Index = index;
-            }
-
-            protected override Test WithInputCore(Evaluation? newInput)
-            {
-                return new OutVariableEvaluation(newInput, Index, Syntax);
             }
         }
 
@@ -475,11 +426,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UseRecursivePatterns
             public bool Equals(OperationEvaluation? other)
             {
                 return base.Equals(other) && AreEquivalent(Syntax, other.Syntax);
-            }
-
-            protected override Test WithInputCore(Evaluation? newInput)
-            {
-                throw ExceptionUtilities.Unreachable;
             }
         }
 
