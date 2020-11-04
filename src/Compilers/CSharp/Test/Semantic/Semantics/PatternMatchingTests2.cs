@@ -2978,5 +2978,20 @@ class C
                 Diagnostic(ErrorCode.WRN_PrecedenceInversion, "switch").WithArguments("switch").WithLocation(6, 13)
                 );
         }
+
+        [Fact, WorkItem(48112, "https://github.com/dotnet/roslyn/issues/48112")]
+        public void NullableTypePattern()
+        {
+            var source = @"
+class C
+{
+    void F(object o)
+    {
+        _ = o switch { (int?) => 1, _ => 0 };
+        _ = o switch { int? => 1, _ => 0 };
+    }
+}";
+            CreateCompilation(source).VerifyDiagnostics();
+        }
     }
 }
