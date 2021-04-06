@@ -927,6 +927,10 @@ namespace Microsoft.CodeAnalysis.CSharp
                 _factory.Syntax = node.Syntax;
                 switch (node)
                 {
+                    //case BoundWhenDecisionDagNode whenNode:
+                    //    LowerWhenClause(whenNode);
+                    //    break;
+
                     case BoundEvaluationDecisionDagNode evaluationNode:
                         {
                             BoundExpression sideEffect = LowerEvaluation(evaluationNode.Evaluation);

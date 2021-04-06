@@ -5,12 +5,10 @@
 #nullable disable
 
 using System;
-using System.Collections.Immutable;
 using Microsoft.CodeAnalysis.CSharp.Symbols;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.PooledObjects;
 using Roslyn.Utilities;
-using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace Microsoft.CodeAnalysis.CSharp
@@ -18,7 +16,83 @@ namespace Microsoft.CodeAnalysis.CSharp
     internal abstract class ExpressionVariableFinder<TFieldOrLocalSymbol> : CSharpSyntaxWalker where TFieldOrLocalSymbol : Symbol
     {
         private ArrayBuilder<TFieldOrLocalSymbol> _variablesBuilder;
+        private ArrayBuilder<((string Name, SyntaxNode Scope), TFieldOrLocalSymbol)> _variablesByScope;
+        private SyntaxNode _disjunctiveScope;
         private SyntaxNode _nodeToBind;
+
+        private void VisitDisjunctiveScope(SyntaxNode node, SyntaxNode scope = null)
+        {
+            SyntaxNode save = _disjunctiveScope;
+            _disjunctiveScope = scope ?? node;
+            Visit(node);
+            _disjunctiveScope = save;
+        }
+
+        private void MergePatternVariables()
+        {
+            if (_variablesByScope is null)
+                return;
+
+            var toSkip = PooledHashSet<(string, SyntaxNode)>.GetInstance();
+            var uniqueSet = PooledHashSet<(string, SyntaxNode)>.GetInstance();
+            foreach (var (key, _) in _variablesByScope)
+            {
+                if (!uniqueSet.Add(key))
+                    toSkip.Add(key);
+            }
+            uniqueSet.Free();
+
+            var variablesByName = PooledDictionary<string, ArrayBuilder<TFieldOrLocalSymbol>>.GetInstance();
+            foreach (var (key, symbol) in _variablesByScope)
+            {
+                if (!toSkip.Contains(key))
+                    variablesByName.MultiAdd(key.Name, symbol);
+            }
+            toSkip.Free();
+
+            foreach (var (_, variables) in variablesByName)
+            {
+                if (variables.Count > 1)
+                {
+                    _variablesBuilder.RemoveRange(variables);
+                    _variablesBuilder.Add(MakeMergedPatternVariable(variables));
+                }
+                variables.Free();
+            }
+            variablesByName.Free();
+
+            _variablesByScope.Free();
+            _variablesByScope = null;
+        }
+
+        private void AddPatternVariable(TFieldOrLocalSymbol variable)
+        {
+            if (variable is null)
+                return;
+            _variablesBuilder.Add(variable);
+            if (_disjunctiveScope is null)
+                return;
+            var variablesByScope = _variablesByScope ??= ArrayBuilder<((string, SyntaxNode), TFieldOrLocalSymbol)>.GetInstance();
+            variablesByScope.Add(((variable.Name, _disjunctiveScope), variable));
+        }
+
+        public override void VisitBinaryPattern(BinaryPatternSyntax node)
+        {
+            if (node.Kind() == SyntaxKind.OrPattern)
+            {
+                VisitDisjunctiveScope(node.Left);
+                VisitDisjunctiveScope(node.Right);
+                MergePatternVariables();
+                return;
+            }
+
+            base.VisitBinaryPattern(node);
+        }
+
+        public override void VisitUnaryPattern(UnaryPatternSyntax node)
+        {
+            VisitDisjunctiveScope(node.Pattern, scope: _nodeToBind);
+        }
 
         protected void FindExpressionVariables(
             ArrayBuilder<TFieldOrLocalSymbol> builder,
@@ -116,6 +190,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             SyntaxNode previousNodeToBind = _nodeToBind;
             _nodeToBind = node;
             Visit(node);
+            MergePatternVariables();
             _nodeToBind = previousNodeToBind;
         }
 
@@ -226,10 +301,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             if (node.Designation?.Kind() == SyntaxKind.SingleVariableDesignation)
             {
                 TFieldOrLocalSymbol variable = MakePatternVariable(node.Type, (SingleVariableDesignationSyntax)node.Designation, _nodeToBind);
-                if ((object)variable != null)
-                {
-                    _variablesBuilder.Add(variable);
-                }
+                AddPatternVariable(variable);
             }
             else
             {
@@ -252,10 +324,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 case SyntaxKind.SingleVariableDesignation:
                     TFieldOrLocalSymbol variable = MakePatternVariable(null, (SingleVariableDesignationSyntax)node, _nodeToBind);
-                    if ((object)variable != null)
-                    {
-                        _variablesBuilder.Add(variable);
-                    }
+                    AddPatternVariable(variable);
                     break;
                 case SyntaxKind.DiscardDesignation:
                     break;
@@ -274,16 +343,14 @@ namespace Microsoft.CodeAnalysis.CSharp
         public override void VisitRecursivePattern(RecursivePatternSyntax node)
         {
             TFieldOrLocalSymbol variable = MakePatternVariable(node, _nodeToBind);
-            if ((object)variable != null)
-            {
-                _variablesBuilder.Add(variable);
-            }
+            AddPatternVariable(variable);
 
             base.VisitRecursivePattern(node);
         }
 
         protected abstract TFieldOrLocalSymbol MakePatternVariable(TypeSyntax type, SingleVariableDesignationSyntax designation, SyntaxNode nodeToBind);
         protected abstract TFieldOrLocalSymbol MakePatternVariable(RecursivePatternSyntax node, SyntaxNode nodeToBind);
+        protected abstract TFieldOrLocalSymbol MakeMergedPatternVariable(ArrayBuilder<TFieldOrLocalSymbol> variables);
 
         public override void VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node) { }
         public override void VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node) { }
@@ -484,11 +551,10 @@ namespace Microsoft.CodeAnalysis.CSharp
                                                     AssignmentExpressionSyntax deconstruction);
     }
 
-    internal class ExpressionVariableFinder : ExpressionVariableFinder<LocalSymbol>
+    internal sealed class ExpressionVariableFinder : ExpressionVariableFinder<LocalSymbol>
     {
         private Binder _scopeBinder;
         private Binder _enclosingBinder;
-
 
         internal static void FindExpressionVariables(
             Binder scopeBinder,
@@ -541,6 +607,11 @@ namespace Microsoft.CodeAnalysis.CSharp
         protected override LocalSymbol MakePatternVariable(RecursivePatternSyntax node, SyntaxNode nodeToBind)
         {
             return MakePatternVariable(node.Type, node.Designation, nodeToBind);
+        }
+
+        protected override LocalSymbol MakeMergedPatternVariable(ArrayBuilder<LocalSymbol> variables)
+        {
+            return new MergedSourceLocalSymbol(variables.ToDowncastedImmutable<SourceLocalSymbol>());
         }
 
         private LocalSymbol MakePatternVariable(TypeSyntax type, VariableDesignationSyntax variableDesignation, SyntaxNode nodeToBind)
@@ -627,7 +698,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         #endregion
     }
 
-    internal class ExpressionFieldFinder : ExpressionVariableFinder<Symbol>
+    internal sealed class ExpressionFieldFinder : ExpressionVariableFinder<Symbol>
     {
         private SourceMemberContainerTypeSymbol _containingType;
         private DeclarationModifiers _modifiers;
@@ -669,6 +740,11 @@ namespace Microsoft.CodeAnalysis.CSharp
         protected override Symbol MakePatternVariable(RecursivePatternSyntax node, SyntaxNode nodeToBind)
         {
             return MakePatternVariable(node.Type, node.Designation as SingleVariableDesignationSyntax, nodeToBind);
+        }
+
+        protected override Symbol MakeMergedPatternVariable(ArrayBuilder<Symbol> variables)
+        {
+            throw new NotImplementedException();
         }
 
         protected override Symbol MakeDeclarationExpressionVariable(DeclarationExpressionSyntax node, SingleVariableDesignationSyntax designation, BaseArgumentListSyntax argumentListSyntaxOpt, SyntaxNode nodeToBind)

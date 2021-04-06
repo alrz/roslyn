@@ -17,7 +17,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 this.Input.Equals(other.Input) &&
                 this.Symbol.Equals(other.Symbol, TypeCompareKind.AllIgnoreOptions);
         }
-        private Symbol Symbol
+        internal Symbol Symbol
         {
             get
             {

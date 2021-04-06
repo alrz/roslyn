@@ -403,14 +403,20 @@ namespace Microsoft.CodeAnalysis.CSharp
                 BoundExpression loweredInput,
                 BoundDecisionDag decisionDag,
                 Action<BoundExpression> addCode,
-                out BoundExpression savedInputExpression)
+                out BoundExpression savedInputExpression,
+                LabelSymbol whenFalseLabel = null)
             {
                 Debug.Assert(loweredInput.Type is { });
 
                 // We share input variables if there is no when clause (because a when clause might mutate them).
                 bool anyWhenClause =
                     decisionDag.TopologicallySortedNodes
-                    .Any(node => node is BoundWhenDecisionDagNode { WhenExpression: { ConstantValue: null } });
+                    .Any(node => node switch
+                    {
+                        BoundWhenDecisionDagNode { Required: true } => true,
+                        BoundWhenDecisionDagNode { WhenExpression: { ConstantValue: null } } => true,
+                        _ => false
+                    });
 
                 var inputDagTemp = BoundDagTemp.ForOriginalInput(loweredInput);
                 if ((loweredInput.Kind == BoundKind.Local || loweredInput.Kind == BoundKind.Parameter)
@@ -430,7 +436,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                 foreach (BoundDecisionDagNode node in decisionDag.TopologicallySortedNodes)
                 {
-                    if (node is BoundWhenDecisionDagNode w)
+                    if (node is BoundWhenDecisionDagNode { Required: false } w)
                     {
                         // We share a slot for a user-declared pattern-matching variable with a pattern temp if there
                         // is no user-written when-clause that could modify the variable before the matching

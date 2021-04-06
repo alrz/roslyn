@@ -45,5 +45,15 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             throw ExceptionUtilities.Unreachable;
         }
+
+        internal override bool EnsureSingleDefinition(Symbol symbol, string name, Location location, BindingDiagnosticBag diagnostics)
+        {
+            if (symbol is MergedSourceLocalSymbol)
+            {
+                return false;
+            }
+
+            return base.EnsureSingleDefinition(symbol, name, location, diagnostics);
+        }
     }
 }

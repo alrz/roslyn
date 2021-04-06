@@ -1371,6 +1371,11 @@
     <Field Name="WhenExpression" Type="BoundExpression?"/>
     <Field Name="WhenTrue" Type="BoundDecisionDagNode" Null="disallow"/>
     <Field Name="WhenFalse" Type="BoundDecisionDagNode?"/>
+    <!--
+    Required is true when there was no when clause in source but there are bindings that 
+    cannot be optimized away.
+    -->
+    <Field Name="Required" Type="bool"/>
   </Node>
   <!-- This node is used to indicate a point in the decision dag where the decision has been completed. -->
   <Node Name="BoundLeafDecisionDagNode" Base="BoundDecisionDagNode">
@@ -2021,15 +2026,10 @@
     <Field Name="Alignment" Type="BoundExpression?"/>
     <Field Name="Format" Type="BoundLiteral?"/>
   </Node>
-  
-    <!-- An 'is pattern'. The fields DecisionDag, WhenTrueLabel, and WhenFalseLabel represent the inner pattern
-         after removing any outer 'not's, so consumers (such as lowering and definite assignment of the local in
-         'is not Type t') will need to compensate for negated patterns. IsNegated is set if Pattern is the negated
-         form of the inner pattern represented by DecisionDag. -->
+
   <Node Name="BoundIsPatternExpression" Base="BoundExpression">
     <Field Name="Expression" Type="BoundExpression" Null="disallow"/>
     <Field Name="Pattern" Type="BoundPattern" Null="disallow"/>
-    <Field Name="IsNegated" Type="bool"/>
     <Field Name="DecisionDag" Type="BoundDecisionDag" Null="disallow" SkipInVisitor="true"/>
     <Field Name="WhenTrueLabel" Type="LabelSymbol" Null="disallow"/>
     <Field Name="WhenFalseLabel" Type="LabelSymbol" Null="disallow"/>

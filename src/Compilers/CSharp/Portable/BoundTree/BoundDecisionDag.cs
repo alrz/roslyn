@@ -69,7 +69,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 if (_topologicallySortedNodes.IsDefault)
                 {
                     // We use an iterative topological sort to avoid overflowing the compiler's runtime stack for a large switch statement.
-                    bool wasAcyclic = TopologicalSort.TryIterativeSort<BoundDecisionDagNode>(new[] { this.RootNode }, Successors, out _topologicallySortedNodes);
+                    bool wasAcyclic = TopologicalSort.TryIterativeSort(SpecializedCollections.SingletonEnumerable(this.RootNode), Successors, out _topologicallySortedNodes);
 
                     // Since these nodes were constructed by an isomorphic mapping from a known acyclic graph, it cannot be cyclic
                     Debug.Assert(wasAcyclic);
@@ -124,7 +124,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 case BoundTestDecisionDagNode p:
                     return p.Update(p.Test, replacement(p.WhenTrue), replacement(p.WhenFalse));
                 case BoundWhenDecisionDagNode p:
-                    return p.Update(p.Bindings, p.WhenExpression, replacement(p.WhenTrue), (p.WhenFalse != null) ? replacement(p.WhenFalse) : null);
+                    return p.Update(p.Bindings, p.WhenExpression, replacement(p.WhenTrue), (p.WhenFalse != null) ? replacement(p.WhenFalse) : null, p.Required);
                 case BoundLeafDecisionDagNode p:
                     return p;
                 default:

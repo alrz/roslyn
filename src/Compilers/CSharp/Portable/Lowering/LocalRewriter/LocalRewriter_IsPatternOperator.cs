@@ -14,7 +14,6 @@ namespace Microsoft.CodeAnalysis.CSharp
     {
         public override BoundNode VisitIsPatternExpression(BoundIsPatternExpression node)
         {
-            bool negated = node.IsNegated;
             BoundExpression result;
 
             if (canProduceLinearSequence(node.DecisionDag.RootNode, whenTrueLabel: node.WhenTrueLabel, whenFalseLabel: node.WhenFalseLabel))
@@ -28,9 +27,9 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 // If we can build a linear test sequence with the whenTrue and whenFalse labels swapped, then negate the
                 // result.  This would typically arise when the source contains `e is not pattern`.
-                negated = !negated;
                 var isPatternRewriter = new IsPatternExpressionLinearLocalRewriter(node, this);
                 result = isPatternRewriter.LowerIsPatternAsLinearTestSequence(node, whenTrueLabel: node.WhenFalseLabel, whenFalseLabel: node.WhenTrueLabel);
+                result = this._factory.Not(result);
                 isPatternRewriter.Free();
             }
             else
@@ -41,10 +40,6 @@ namespace Microsoft.CodeAnalysis.CSharp
                 isPatternRewriter.Free();
             }
 
-            if (negated)
-            {
-                result = this._factory.Not(result);
-            }
             return result;
 
             // Can the given decision dag node, and its successors, be generated as a sequence of
@@ -73,8 +68,37 @@ namespace Microsoft.CodeAnalysis.CSharp
                             bool falseFail = IsFailureNode(t.WhenFalse, whenFalseLabel);
                             if (falseFail == IsFailureNode(t.WhenTrue, whenFalseLabel))
                                 return false;
-                            node = falseFail ? t.WhenTrue : t.WhenFalse;
+                            BoundDecisionDagNode other;
+                            (node, other) = falseFail ? (t.WhenTrue, t.WhenFalse) : (t.WhenFalse, t.WhenTrue);
+                            // This happens when we have an `or` pattern, those must always lowered using the general rewriter.
+                            if (anyRequiredWhenDecisionDagNode(other))
+                                return false;
                             break;
+                        default:
+                            throw ExceptionUtilities.UnexpectedValue(node);
+                    }
+                }
+            }
+            static bool anyRequiredWhenDecisionDagNode(BoundDecisionDagNode node)
+            {
+                while (true)
+                {
+                    switch (node)
+                    {
+                        case BoundWhenDecisionDagNode { Required: true }:
+                            return true;
+                        case BoundWhenDecisionDagNode w:
+                            Debug.Assert(w.WhenFalse is null);
+                            node = w.WhenTrue;
+                            break;
+                        case BoundLeafDecisionDagNode n:
+                            return false;
+                        case BoundEvaluationDecisionDagNode e:
+                            node = e.Next;
+                            break;
+                        case BoundTestDecisionDagNode t:
+                            return anyRequiredWhenDecisionDagNode(t.WhenTrue) ||
+                                   anyRequiredWhenDecisionDagNode(t.WhenFalse);
                         default:
                             throw ExceptionUtilities.UnexpectedValue(node);
                     }
@@ -223,7 +247,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 // The optimization of sharing pattern-matching temps with user variables can always apply to
                 // an is-pattern expression because there is no when clause that could possibly intervene during
                 // the execution of the pattern-matching automaton and change one of those variables.
-                decisionDag = ShareTempsAndEvaluateInput(loweredInput, decisionDag, expr => _sideEffectBuilder.Add(expr), out _);
+                decisionDag = ShareTempsAndEvaluateInput(loweredInput, decisionDag, expr => _sideEffectBuilder.Add(expr), out _, isPatternExpression.WhenFalseLabel);
                 var node = decisionDag.RootNode;
                 return ProduceLinearTestSequence(node, whenTrueLabel, whenFalseLabel);
             }

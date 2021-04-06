@@ -69,7 +69,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             var distanceToNode = dist[nodes[0]].distance;
             requiresFalseWhenClause = distanceToNode > nodeCount;
             var result = ArrayBuilder<BoundDecisionDagNode>.GetInstance(capacity: distanceToNode);
-            for (BoundDecisionDagNode n = nodes[0]; n != node;)
+            for (BoundDecisionDagNode n = nodes[0]; n != node && n != null;)
             {
                 result.Add(n);
                 switch (n)

@@ -1654,7 +1654,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 case BoundKind.BinaryPattern:
                     {
                         var pat = (BoundBinaryPattern)pattern;
-                        bool def = definitely && !pat.Disjunction;
+                        bool def = definitely;// && !pat.Disjunction;
                         AssignPatternVariables(pat.Left, def);
                         AssignPatternVariables(pat.Right, def);
                         break;

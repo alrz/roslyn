@@ -21,7 +21,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 case (BoundTestDecisionDagNode n1, BoundTestDecisionDagNode n2):
                     return n1.Test.Equals(n2.Test) && n1.WhenTrue == n2.WhenTrue && n1.WhenFalse == n2.WhenFalse;
                 case (BoundWhenDecisionDagNode n1, BoundWhenDecisionDagNode n2):
-                    return n1.WhenExpression == n2.WhenExpression && n1.WhenTrue == n2.WhenTrue && n1.WhenFalse == n2.WhenFalse;
+                    return n1.WhenExpression == n2.WhenExpression && n1.WhenTrue == n2.WhenTrue && n1.WhenFalse == n2.WhenFalse && n1.Bindings == n2.Bindings;
                 case (BoundLeafDecisionDagNode n1, BoundLeafDecisionDagNode n2):
                     return n1.Label == n2.Label;
                 default:

@@ -172,30 +172,32 @@ namespace Microsoft.CodeAnalysis.CSharp
             BoundExpression? whenClause,
             LabelSymbol label)
         {
-            Tests tests = MakeAndSimplifyTestsAndBindings(input, pattern, out ImmutableArray<BoundPatternBinding> bindings);
+            Tests tests = MakeAndSimplifyTestsAndBindings(input, pattern, out Bindings bindings);
             return new StateForCase(index, syntax, tests, bindings, whenClause, label);
         }
 
         private Tests MakeAndSimplifyTestsAndBindings(
             BoundDagTemp input,
             BoundPattern pattern,
-            out ImmutableArray<BoundPatternBinding> bindings)
+            out Bindings bindings)
         {
-            var bindingsBuilder = ArrayBuilder<BoundPatternBinding>.GetInstance();
-            Tests tests = MakeTestsAndBindings(input, pattern, bindingsBuilder);
-            tests = SimplifyTestsAndBindings(tests, bindingsBuilder);
-            bindings = bindingsBuilder.ToImmutableAndFree();
+            var builder = ArrayBuilder<Bindings>.GetInstance();
+            Tests tests = MakeTestsAndBindings(input, pattern, builder);
+            bindings = Bindings.Create(builder);
+            tests = SimplifyTestsAndBindings(tests, bindings);
             return tests;
         }
 
         private static Tests SimplifyTestsAndBindings(
             Tests tests,
-            ArrayBuilder<BoundPatternBinding> bindingsBuilder)
+            Bindings bindings)
         {
             // Now simplify the tests and bindings. We don't need anything in tests that does not
             // contribute to the result. This will, for example, permit us to match `(2, 3) is (2, _)` without
             // fetching `Item2` from the input.
             var usedValues = PooledHashSet<BoundDagEvaluation>.GetInstance();
+            var bindingsBuilder = ArrayBuilder<BoundPatternBinding>.GetInstance();
+            bindings.GetBindings(bindingsBuilder);
             foreach (BoundPatternBinding binding in bindingsBuilder)
             {
                 BoundDagTemp temp = binding.TempContainingValue;
@@ -204,6 +206,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     usedValues.Add(temp.Source);
                 }
             }
+            bindingsBuilder.Free();
 
             var result = scanAndSimplify(tests);
             usedValues.Free();
@@ -252,7 +255,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         private Tests MakeTestsAndBindings(
             BoundDagTemp input,
             BoundPattern pattern,
-            ArrayBuilder<BoundPatternBinding> bindings)
+            ArrayBuilder<Bindings> bindings)
         {
             return MakeTestsAndBindings(input, pattern, out _, bindings);
         }
@@ -266,7 +269,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             BoundDagTemp input,
             BoundPattern pattern,
             out BoundDagTemp output,
-            ArrayBuilder<BoundPatternBinding> bindings)
+            ArrayBuilder<Bindings> bindings)
         {
             Debug.Assert(pattern.HasErrors || pattern.InputType.Equals(input.Type, TypeCompareKind.AllIgnoreOptions) || pattern.InputType.IsErrorType());
             switch (pattern)
@@ -300,7 +303,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             BoundDagTemp input,
             BoundITuplePattern pattern,
             out BoundDagTemp output,
-            ArrayBuilder<BoundPatternBinding> bindings)
+            ArrayBuilder<Bindings> bindings)
         {
             var syntax = pattern.Syntax;
             var patternLength = pattern.Subpatterns.Length;
@@ -361,7 +364,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             BoundDagTemp input,
             BoundDeclarationPattern declaration,
             out BoundDagTemp output,
-            ArrayBuilder<BoundPatternBinding> bindings)
+            ArrayBuilder<Bindings> bindings)
         {
             TypeSymbol? type = declaration.DeclaredType?.Type;
             var tests = ArrayBuilder<Tests>.GetInstance(1);
@@ -374,7 +377,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             if (variableAccess is { })
             {
                 Debug.Assert(variableAccess.Type!.Equals(input.Type, TypeCompareKind.AllIgnoreOptions) || variableAccess.Type.IsErrorType());
-                bindings.Add(new BoundPatternBinding(variableAccess, input));
+                bindings.Add(new Bindings.One(new BoundPatternBinding(variableAccess, input)));
             }
             else
             {
@@ -466,7 +469,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             BoundDagTemp input,
             BoundRecursivePattern recursive,
             out BoundDagTemp output,
-            ArrayBuilder<BoundPatternBinding> bindings)
+            ArrayBuilder<Bindings> bindings)
         {
             RoslynDebug.Assert(input.Type.IsErrorType() || recursive.HasErrors || recursive.InputType.IsErrorType() || input.Type.Equals(recursive.InputType, TypeCompareKind.AllIgnoreOptions));
             var inputType = recursive.DeclaredType?.Type ?? input.Type.StrippedType();
@@ -556,15 +559,17 @@ namespace Microsoft.CodeAnalysis.CSharp
             if (recursive.VariableAccess != null)
             {
                 // we have a "variable" declaration
-                bindings.Add(new BoundPatternBinding(recursive.VariableAccess, input));
+                bindings.Add(new Bindings.One(new BoundPatternBinding(recursive.VariableAccess, input)));
             }
 
             return Tests.AndSequence.Create(tests);
         }
 
-        private Tests MakeTestsAndBindingsForNegatedPattern(BoundDagTemp input, BoundNegatedPattern neg, ArrayBuilder<BoundPatternBinding> bindings)
+        private Tests MakeTestsAndBindingsForNegatedPattern(BoundDagTemp input, BoundNegatedPattern neg, ArrayBuilder<Bindings> bindings)
         {
-            var tests = MakeTestsAndBindings(input, neg.Negated, bindings);
+            var bindings0 = ArrayBuilder<Bindings>.GetInstance();
+            var tests = MakeTestsAndBindings(input, neg.Negated, bindings0);
+            bindings.Add(Bindings.Opposite.Create(Bindings.Create(bindings0)));
             return Tests.Not.Create(tests);
         }
 
@@ -572,13 +577,16 @@ namespace Microsoft.CodeAnalysis.CSharp
             BoundDagTemp input,
             BoundBinaryPattern bin,
             out BoundDagTemp output,
-            ArrayBuilder<BoundPatternBinding> bindings)
+            ArrayBuilder<Bindings> bindings)
         {
             var builder = ArrayBuilder<Tests>.GetInstance(2);
             if (bin.Disjunction)
             {
-                builder.Add(MakeTestsAndBindings(input, bin.Left, bindings));
-                builder.Add(MakeTestsAndBindings(input, bin.Right, bindings));
+                var leftBindings = ArrayBuilder<Bindings>.GetInstance();
+                var rightBindings = ArrayBuilder<Bindings>.GetInstance();
+                builder.Add(MakeTestsAndBindings(input, bin.Left, leftBindings));
+                builder.Add(MakeTestsAndBindings(input, bin.Right, rightBindings));
+                bindings.Add(Bindings.Branch.Or(Bindings.Create(leftBindings), Bindings.Create(rightBindings)));
                 var result = Tests.OrSequence.Create(builder);
                 if (bin.InputType.Equals(bin.NarrowedType))
                 {
@@ -839,12 +847,13 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                 StateForCase first = state.Cases[0];
                 RoslynDebug.Assert(!(first.RemainingTests is Tests.False));
+                var bindings = first.Bindings is Bindings.Sequence seq ? seq.Bindings : ImmutableArray<BoundPatternBinding>.Empty;
                 if (first.PatternIsSatisfied)
                 {
                     if (first.IsFullyMatched)
                     {
                         // there is no when clause we need to evaluate
-                        state.Dag = finalState(first.Syntax, first.CaseLabel, first.Bindings);
+                        state.Dag = finalState(first.Syntax, first.CaseLabel, bindings, first.Required);
                     }
                     else
                     {
@@ -855,13 +864,13 @@ namespace Microsoft.CodeAnalysis.CSharp
                         BoundDecisionDagNode whenTrue = finalState(first.Syntax, first.CaseLabel, default);
                         BoundDecisionDagNode? whenFalse = state.FalseBranch.Dag;
                         RoslynDebug.Assert(whenFalse is { });
-                        state.Dag = uniqifyDagNode(new BoundWhenDecisionDagNode(first.Syntax, first.Bindings, first.WhenClause, whenTrue, whenFalse));
+                        state.Dag = uniqifyDagNode(new BoundWhenDecisionDagNode(first.Syntax, bindings, first.WhenClause, whenTrue, whenFalse, required: false));
                     }
 
-                    BoundDecisionDagNode finalState(SyntaxNode syntax, LabelSymbol label, ImmutableArray<BoundPatternBinding> bindings)
+                    BoundDecisionDagNode finalState(SyntaxNode syntax, LabelSymbol label, ImmutableArray<BoundPatternBinding> bindings, bool required = false)
                     {
                         BoundDecisionDagNode final = uniqifyDagNode(new BoundLeafDecisionDagNode(syntax, label));
-                        return bindings.IsDefaultOrEmpty ? final : uniqifyDagNode(new BoundWhenDecisionDagNode(syntax, bindings, null, final, null));
+                        return bindings.IsDefaultOrEmpty ? final : uniqifyDagNode(new BoundWhenDecisionDagNode(syntax, bindings, null, final, null, required: required));
                     }
                 }
                 else
@@ -904,17 +913,40 @@ namespace Microsoft.CodeAnalysis.CSharp
             ref bool foundExplicitNullTest)
         {
             stateForCase.RemainingTests.Filter(this, test, whenTrueValues, whenFalseValues, out Tests whenTrueTests, out Tests whenFalseTests, ref foundExplicitNullTest);
-            whenTrue = makeNext(whenTrueTests);
-            whenFalse = makeNext(whenFalseTests);
+
+            LabelSymbol whenTrueLabel = stateForCase.CaseLabel;
+            Bindings whenTrueBindings, whenFalseBindings;
+            switch (stateForCase.Bindings)
+            {
+                case Bindings.Branch { Disjunctive: true } branch:
+                    whenTrueBindings = branch.WhenTrue;
+                    whenFalseBindings = branch.WhenFalse;
+                    break;
+                case Bindings.Branch { Disjunctive: false }:
+                    throw new NotImplementedException();
+                case Bindings.Opposite opposite when whenTrueTests.ToBoolean() == false:
+                    whenTrueLabel = _defaultLabel;
+                    whenTrueTests = Tests.Not.Create(whenTrueTests);
+                    whenTrueBindings = opposite.Bindings;
+                    whenFalseBindings = Bindings.Empty.Instance;
+                    break;
+                case var bindings:
+                    whenTrueBindings = whenFalseBindings = bindings;
+                    break;
+            }
+
+            whenTrue = makeNext(whenTrueTests, whenTrueBindings, whenTrueLabel);
+            whenFalse = makeNext(whenFalseTests, whenFalseBindings, stateForCase.CaseLabel);
             return;
 
-            StateForCase makeNext(Tests remainingTests)
+            StateForCase makeNext(Tests remainingTests, Bindings bindings, LabelSymbol label)
             {
-                return remainingTests.Equals(stateForCase.RemainingTests)
+                bool sameBindings = ReferenceEquals(bindings, stateForCase.Bindings);
+                return sameBindings && remainingTests.Equals(stateForCase.RemainingTests)
                     ? stateForCase
                     : new StateForCase(
                         stateForCase.Index, stateForCase.Syntax, remainingTests,
-                        stateForCase.Bindings, stateForCase.WhenClause, stateForCase.CaseLabel);
+                        bindings, stateForCase.WhenClause, label, required: !sameBindings);
             }
         }
 
@@ -1023,9 +1055,9 @@ namespace Microsoft.CodeAnalysis.CSharp
                 else
                 {
                     builder.Add(new StateForCase(
-                        Index: stateForCase.Index, Syntax: stateForCase.Syntax,
-                        RemainingTests: remainingTests,
-                        Bindings: stateForCase.Bindings, WhenClause: stateForCase.WhenClause, CaseLabel: stateForCase.CaseLabel));
+                        stateForCase.Index, stateForCase.Syntax,
+                        remainingTests,
+                        stateForCase.Bindings, stateForCase.WhenClause, stateForCase.CaseLabel, stateForCase.Required));
                 }
             }
 
@@ -1422,14 +1454,15 @@ namespace Microsoft.CodeAnalysis.CSharp
                     var instance = PooledStringBuilder.GetInstance();
                     StringBuilder builder = instance.Builder;
                     builder.Append($"{cd.Index}. [{cd.Syntax}] {(cd.PatternIsSatisfied ? "MATCH" : cd.RemainingTests.Dump(dumpDagTest))}");
-                    var bindings = cd.Bindings.Select(bpb => $"{(bpb.VariableAccess is BoundLocal l ? l.LocalSymbol.Name : "<var>")}={tempName(bpb.TempContainingValue)}");
+                    /*
+                    var bindings = cd.Bindings.GetBindings().Select(bpb => $"{(bpb.VariableAccess is BoundLocal l ? l.LocalSymbol.Name : "<var>")}={tempName(bpb.TempContainingValue)} ({bpb.TempContainingValue.Source?.Symbol.Name})");
                     if (bindings.Any())
                     {
                         builder.Append(" BIND[");
                         builder.Append(string.Join("; ", bindings));
                         builder.Append("]");
                     }
-
+                    */
                     if (cd.WhenClause is { })
                     {
                         builder.Append($" WHEN[{cd.WhenClause.Syntax}]");
@@ -1571,23 +1604,25 @@ namespace Microsoft.CodeAnalysis.CSharp
             public readonly int Index;
             public readonly SyntaxNode Syntax;
             public readonly Tests RemainingTests;
-            public readonly ImmutableArray<BoundPatternBinding> Bindings;
+            public readonly Bindings Bindings;
             public readonly BoundExpression? WhenClause;
             public readonly LabelSymbol CaseLabel;
-            public StateForCase(
-                int Index,
-                SyntaxNode Syntax,
-                Tests RemainingTests,
-                ImmutableArray<BoundPatternBinding> Bindings,
-                BoundExpression? WhenClause,
-                LabelSymbol CaseLabel)
+            public readonly bool Required;
+            public StateForCase(int index,
+                SyntaxNode syntax,
+                Tests remainingTests,
+                Bindings bindings,
+                BoundExpression? whenClause,
+                LabelSymbol caseLabel,
+                bool required = false)
             {
-                this.Index = Index;
-                this.Syntax = Syntax;
-                this.RemainingTests = RemainingTests;
-                this.Bindings = Bindings;
-                this.WhenClause = WhenClause;
-                this.CaseLabel = CaseLabel;
+                this.Index = index;
+                this.Syntax = syntax;
+                this.RemainingTests = remainingTests;
+                this.Bindings = bindings;
+                this.WhenClause = whenClause;
+                this.CaseLabel = caseLabel;
+                this.Required = required;
             }
 
             /// <summary>
@@ -1613,17 +1648,127 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             public bool Equals(StateForCase other)
             {
-                // We do not include Syntax, Bindings, WhereClause, or CaseLabel
+                Debug.Assert(other != null);
+                // We do not include Syntax, WhereClause, or CaseLabel
                 // because once the Index is the same, those must be the same too.
                 return this == other ||
-                    other != null &&
                     this.Index == other.Index &&
-                    this.RemainingTests.Equals(other.RemainingTests);
+                    this.RemainingTests.Equals(other.RemainingTests) &&
+                    // Bindings can be different for `not` or `or` patterns.
+                    ReferenceEquals(this.Bindings, other.Bindings);
             }
 
             public override int GetHashCode()
             {
                 return Hash.Combine(RemainingTests.GetHashCode(), Index);
+            }
+        }
+
+        private abstract class Bindings
+        {
+            public abstract void GetBindings(ArrayBuilder<BoundPatternBinding> builder);
+
+            public static Bindings Create(ArrayBuilder<Bindings> bindings)
+            {
+                Bindings result = Empty.Instance;
+                var builder = ArrayBuilder<BoundPatternBinding>.GetInstance();
+                foreach (Bindings b in bindings)
+                {
+                    switch (b)
+                    {
+                        case One one:
+                            builder.Add(one.Binding);
+                            break;
+                        case Branch:
+                        case Opposite:
+                            Debug.Assert(b is not Branch branch || branch.Disjunctive);
+                            result = Branch.And(result, Branch.And(Sequence.Create(builder), b));
+                            builder.Clear();
+                            break;
+                        case Sequence seq:
+                            builder.AddRange(seq.Bindings);
+                            break;
+                        case Empty:
+                            break;
+                        default:
+                            throw ExceptionUtilities.Unreachable;
+                    }
+                }
+
+                result = Branch.And(result, Sequence.Create(builder));
+                bindings.Free();
+                builder.Free();
+                return result;
+            }
+
+            public sealed class Empty : Bindings
+            {
+                public static readonly Bindings Instance = new Empty();
+                private Empty() { }
+                public override void GetBindings(ArrayBuilder<BoundPatternBinding> builder) { }
+            }
+
+            public sealed class Sequence : Bindings
+            {
+                public readonly ImmutableArray<BoundPatternBinding> Bindings;
+                private Sequence(ImmutableArray<BoundPatternBinding> bindings) => Bindings = bindings;
+                public override void GetBindings(ArrayBuilder<BoundPatternBinding> builder) => builder.AddRange(Bindings);
+                public static Bindings Create(ArrayBuilder<BoundPatternBinding> bindings)
+                {
+                    return bindings.IsEmpty() ? Empty.Instance : new Sequence(bindings.ToImmutable());
+                }
+            }
+
+            public sealed class Opposite : Bindings
+            {
+                public readonly Bindings Bindings;
+                private Opposite(Bindings bindings) => Bindings = bindings;
+                public static Bindings Create(Bindings bindings)
+                {
+                    return bindings switch
+                    {
+                        Opposite o => o.Bindings,
+                        Empty e => e,
+                        var b => new Opposite(b),
+                    };
+                }
+                public override void GetBindings(ArrayBuilder<BoundPatternBinding> builder) => Bindings.GetBindings(builder);
+            }
+
+            public sealed class One : Bindings
+            {
+                public readonly BoundPatternBinding Binding;
+                public One(BoundPatternBinding binding) => Binding = binding;
+                public override void GetBindings(ArrayBuilder<BoundPatternBinding> builder) => builder.Add(Binding);
+            }
+
+            public sealed class Branch : Bindings
+            {
+                public readonly Bindings WhenTrue, WhenFalse;
+                public readonly bool Disjunctive;
+                private Branch(Bindings whenTrue, Bindings whenFalse, bool disjunctive)
+                {
+                    WhenTrue = whenTrue;
+                    WhenFalse = whenFalse;
+                    Disjunctive = disjunctive;
+                }
+                public static Bindings And(Bindings whenTrue, Bindings whenFalse) => Create(whenTrue, whenFalse, false);
+                public static Bindings Or(Bindings whenTrue, Bindings whenFalse) => Create(whenTrue, whenFalse, true);
+                private static Bindings Create(Bindings whenTrue, Bindings whenFalse, bool disjunctive)
+                {
+                    return (whenTrue, whenFalse) switch
+                    {
+                        (Empty, Empty) => Empty.Instance,
+                        (Empty, var other) when !disjunctive => other,
+                        (var other, Empty) when !disjunctive => other,
+                        _ => new Branch(whenTrue, whenFalse, disjunctive)
+                    };
+                }
+                public override void GetBindings(ArrayBuilder<BoundPatternBinding> builder)
+                {
+                    WhenTrue.GetBindings(builder);
+                    WhenFalse.GetBindings(builder);
+                }
             }
         }
 
@@ -1647,6 +1792,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 ref bool foundExplicitNullTest);
             public virtual BoundDagTest ComputeSelectedTest() => throw ExceptionUtilities.Unreachable;
             public virtual Tests RemoveEvaluation(BoundDagEvaluation e) => this;
+            public abstract bool? ToBoolean();
             public abstract string Dump(Func<BoundDagTest, string> dump);
 
             /// <summary>
@@ -1655,6 +1801,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             public sealed class True : Tests
             {
                 public static readonly True Instance = new True();
+                public override bool? ToBoolean() => true;
                 public override string Dump(Func<BoundDagTest, string> dump) => "TRUE";
                 public override void Filter(
                     DecisionDagBuilder builder,
@@ -1675,6 +1822,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             public sealed class False : Tests
             {
                 public static readonly False Instance = new False();
+                public override bool? ToBoolean() => false;
                 public override string Dump(Func<BoundDagTest, string> dump) => "FALSE";
                 public override void Filter(
                     DecisionDagBuilder builder,
@@ -1724,6 +1872,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 }
                 public override BoundDagTest ComputeSelectedTest() => this.Test;
                 public override Tests RemoveEvaluation(BoundDagEvaluation e) => e.Equals(Test) ? Tests.True.Instance : (Tests)this;
+                public override bool? ToBoolean() => Test is BoundDagEvaluation | null;
                 public override string Dump(Func<BoundDagTest, string> dump) => dump(this.Test);
                 public override bool Equals(object? obj) => this == obj || obj is One other && this.Test.Equals(other.Test);
                 public override int GetHashCode() => this.Test.GetHashCode();
@@ -1753,6 +1902,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     return builder;
                 }
                 public override Tests RemoveEvaluation(BoundDagEvaluation e) => Create(Negated.RemoveEvaluation(e));
+                public override bool? ToBoolean() => !Negated.ToBoolean();
                 public override BoundDagTest ComputeSelectedTest() => Negated.ComputeSelectedTest();
                 public override string Dump(Func<BoundDagTest, string> dump) => $"Not ({Negated.Dump(dump)})";
                 public override void Filter(
@@ -1781,7 +1931,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     this.RemainingTests = remainingTests;
                 }
                 public abstract Tests Update(ArrayBuilder<Tests> remainingTests);
-                public override void Filter(
+                public sealed override void Filter(
                     DecisionDagBuilder builder,
                     BoundDagTest test,
                     IValueSet? whenTrueValues,
@@ -1802,7 +1952,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     whenTrue = Update(trueBuilder);
                     whenFalse = Update(falseBuilder);
                 }
-                public override Tests RemoveEvaluation(BoundDagEvaluation e)
+                public sealed override Tests RemoveEvaluation(BoundDagEvaluation e)
                 {
                     var builder = ArrayBuilder<Tests>.GetInstance(RemainingTests.Length);
                     foreach (var test in RemainingTests)
@@ -1810,9 +1960,9 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                     return Update(builder);
                 }
-                public override bool Equals(object? obj) =>
+                public sealed override bool Equals(object? obj) =>
                     this == obj || obj is SequenceTests other && this.GetType() == other.GetType() && RemainingTests.SequenceEqual(other.RemainingTests);
-                public override int GetHashCode()
+                public sealed override int GetHashCode()
                 {
                     int length = this.RemainingTests.Length;
                     int value = Hash.Combine(length, this.GetType().GetHashCode());
@@ -1884,6 +2034,16 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                     return RemainingTests[0].ComputeSelectedTest();
                 }
+                public override bool? ToBoolean()
+                {
+                    bool? result = true;
+                    foreach (var test in RemainingTests)
+                    {
+                        if ((result &= test.ToBoolean()) == null)
+                            break;
+                    }
+                    return result;
+                }
                 public override string Dump(Func<BoundDagTest, string> dump)
                 {
                     return $"AND({string.Join(", ", RemainingTests.Select(t => t.Dump(dump)))})";
@@ -1926,6 +2086,16 @@ namespace Microsoft.CodeAnalysis.CSharp
                         _ => new OrSequence(remainingTests.ToImmutable()),
                     };
                     remainingTests.Free();
+                    return result;
+                }
+                public override bool? ToBoolean()
+                {
+                    bool? result = false;
+                    foreach (var test in RemainingTests)
+                    {
+                        if ((result |= test.ToBoolean()) == null)
+                            break;
+                    }
                     return result;
                 }
                 public override string Dump(Func<BoundDagTest, string> dump)
