@@ -130,7 +130,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         protected void SetState(TLocalState newState)
         {
-            Debug.Assert(newState != null);
+            Debug.Assert(newState != null, "newState != null");
             StateWhenTrue = StateWhenFalse = default(TLocalState);
             IsConditionalState = false;
             State = newState;
@@ -962,15 +962,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             Debug.Assert(!IsConditionalState);
             VisitRvalue(node.Expression);
 
-            BoundPattern pattern = node.Pattern;
-            bool negated = false;
-            while (pattern is BoundNegatedPattern p)
-            {
-                negated = !negated;
-                pattern = p.Negated;
-            }
-
-            VisitPattern(pattern);
+            VisitPattern(node.Pattern);
             var reachableLabels = node.DecisionDag.ReachableLabels;
             if (!reachableLabels.Contains(node.WhenTrueLabel))
             {
@@ -981,11 +973,6 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 SetState(this.StateWhenTrue);
                 SetConditionalState(this.State, UnreachableState());
-            }
-
-            if (negated)
-            {
-                SetConditionalState(this.StateWhenFalse, this.StateWhenTrue);
             }
 
             return node;

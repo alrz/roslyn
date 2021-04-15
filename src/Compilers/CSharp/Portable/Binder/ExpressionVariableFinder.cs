@@ -78,15 +78,29 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         public override void VisitBinaryPattern(BinaryPatternSyntax node)
         {
-            if (node.Kind() == SyntaxKind.OrPattern)
+            var operands = ArrayBuilder<PatternSyntax>.GetInstance();
+            PatternSyntax current = node;
+            while (current.IsKind(SyntaxKind.OrPattern))
             {
-                VisitDisjunctiveScope(node.Left);
-                VisitDisjunctiveScope(node.Right);
-                MergePatternVariables();
-                return;
+                var binOp = (BinaryPatternSyntax)current;
+                operands.Push(binOp.Right);
+                current = binOp.Left;
             }
-
-            base.VisitBinaryPattern(node);
+            if (operands.Count > 0)
+            {
+                // TODO(alrz) enforce redeclaration
+                VisitDisjunctiveScope(current);
+                do
+                {
+                    VisitDisjunctiveScope(operands.Pop());
+                }
+                while (operands.Count > 0);
+            }
+            else
+            {
+                base.VisitBinaryPattern(node);
+            }
+            operands.Free();
         }
 
         public override void VisitUnaryPattern(UnaryPatternSyntax node)

@@ -586,7 +586,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 var rightBindings = ArrayBuilder<Bindings>.GetInstance();
                 builder.Add(MakeTestsAndBindings(input, bin.Left, leftBindings));
                 builder.Add(MakeTestsAndBindings(input, bin.Right, rightBindings));
-                bindings.Add(Bindings.Branch.Or(Bindings.Create(leftBindings), Bindings.Create(rightBindings)));
+                bindings.Add(Bindings.OrBranch.Create(Bindings.Create(leftBindings), Bindings.Create(rightBindings)));
                 var result = Tests.OrSequence.Create(builder);
                 if (bin.InputType.Equals(bin.NarrowedType))
                 {
@@ -918,11 +918,11 @@ namespace Microsoft.CodeAnalysis.CSharp
             Bindings whenTrueBindings, whenFalseBindings;
             switch (stateForCase.Bindings)
             {
-                case Bindings.Branch { Disjunctive: true } branch:
+                case Bindings.OrBranch branch:
                     whenTrueBindings = branch.WhenTrue;
                     whenFalseBindings = branch.WhenFalse;
                     break;
-                case Bindings.Branch { Disjunctive: false }:
+                case Bindings.AndBranch:
                     throw new NotImplementedException();
                 case Bindings.Opposite opposite when whenTrueTests.ToBoolean() == false:
                     whenTrueLabel = _defaultLabel;
@@ -1672,17 +1672,16 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 Bindings result = Empty.Instance;
                 var builder = ArrayBuilder<BoundPatternBinding>.GetInstance();
-                foreach (Bindings b in bindings)
+                foreach (Bindings item in bindings)
                 {
-                    switch (b)
+                    switch (item)
                     {
                         case One one:
                             builder.Add(one.Binding);
                             break;
-                        case Branch:
+                        case OrBranch:
                         case Opposite:
-                            Debug.Assert(b is not Branch branch || branch.Disjunctive);
-                            result = Branch.And(result, Branch.And(Sequence.Create(builder), b));
+                            result = AndBranch.Create(result, AndBranch.Create(Sequence.Create(builder), item));
                             builder.Clear();
                             break;
                         case Sequence seq:
@@ -1690,12 +1689,14 @@ namespace Microsoft.CodeAnalysis.CSharp
                             break;
                         case Empty:
                             break;
+                        case AndBranch:
+                            throw new NotImplementedException();
                         default:
                             throw ExceptionUtilities.Unreachable;
                     }
                 }
 
-                result = Branch.And(result, Sequence.Create(builder));
+                result = AndBranch.Create(result, Sequence.Create(builder));
                 bindings.Free();
                 builder.Free();
                 return result;
@@ -1723,6 +1724,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 public readonly Bindings Bindings;
                 private Opposite(Bindings bindings) => Bindings = bindings;
+                public override void GetBindings(ArrayBuilder<BoundPatternBinding> builder) => Bindings.GetBindings(builder);
                 public static Bindings Create(Bindings bindings)
                 {
                     return bindings switch
@@ -1732,7 +1734,6 @@ namespace Microsoft.CodeAnalysis.CSharp
                         var b => new Opposite(b),
                     };
                 }
-                public override void GetBindings(ArrayBuilder<BoundPatternBinding> builder) => Bindings.GetBindings(builder);
             }
 
             public sealed class One : Bindings
@@ -1742,32 +1743,44 @@ namespace Microsoft.CodeAnalysis.CSharp
                 public override void GetBindings(ArrayBuilder<BoundPatternBinding> builder) => builder.Add(Binding);
             }
 
-            public sealed class Branch : Bindings
+            public abstract class Branch : Bindings
             {
                 public readonly Bindings WhenTrue, WhenFalse;
-                public readonly bool Disjunctive;
-                private Branch(Bindings whenTrue, Bindings whenFalse, bool disjunctive)
+                protected Branch(Bindings whenTrue, Bindings whenFalse) => (WhenTrue, WhenFalse) = (whenTrue, whenFalse);
+                public sealed override void GetBindings(ArrayBuilder<BoundPatternBinding> builder)
                 {
-                    WhenTrue = whenTrue;
-                    WhenFalse = whenFalse;
-                    Disjunctive = disjunctive;
+                    WhenTrue.GetBindings(builder);
+                    WhenFalse.GetBindings(builder);
                 }
-                public static Bindings And(Bindings whenTrue, Bindings whenFalse) => Create(whenTrue, whenFalse, false);
-                public static Bindings Or(Bindings whenTrue, Bindings whenFalse) => Create(whenTrue, whenFalse, true);
-                private static Bindings Create(Bindings whenTrue, Bindings whenFalse, bool disjunctive)
+            }
+
+            public sealed class OrBranch : Branch
+            {
+                public OrBranch(Bindings whenTrue, Bindings whenFalse) : base(whenTrue, whenFalse) { }
+                public static Bindings Create(Bindings whenTrue, Bindings whenFalse)
                 {
                     return (whenTrue, whenFalse) switch
                     {
                         (Empty, Empty) => Empty.Instance,
-                        (Empty, var other) when !disjunctive => other,
-                        (var other, Empty) when !disjunctive => other,
-                        _ => new Branch(whenTrue, whenFalse, disjunctive)
+                        (OrBranch or, var other) => Create(or.WhenTrue, Create(or.WhenFalse, other)),
+                        _ => new OrBranch(whenTrue, whenFalse)
                     };
                 }
-                public override void GetBindings(ArrayBuilder<BoundPatternBinding> builder)
+            }
+
+            public sealed class AndBranch : Branch
+            {
+                public AndBranch(Bindings whenTrue, Bindings whenFalse) : base(whenTrue, whenFalse) { }
+                public static Bindings Create(Bindings whenTrue, Bindings whenFalse)
                 {
-                    WhenTrue.GetBindings(builder);
-                    WhenFalse.GetBindings(builder);
+                    return (whenTrue, whenFalse) switch
+                    {
+                        (Empty, Empty) => Empty.Instance,
+                        (Empty, var other) => other,
+                        (var other, Empty) => other,
+                        (_, OrBranch) => throw new NotImplementedException(), // OrBranch.Create(Create(left, or.WhenTrue), Create(left, or.WhenFalse))"
+                        _ => new AndBranch(whenTrue, whenFalse)
+                    };
                 }
             }
         }

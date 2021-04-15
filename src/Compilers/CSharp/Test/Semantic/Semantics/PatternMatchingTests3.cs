@@ -28,59 +28,6 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
         }
 
         [Fact]
-        public void PatternVariables()
-        {
-            var program0 = @"
-using System;
-public class C {
-    static void Main(){}
-    void Use(params Object[] o){}
-    public int P,Q,Z;
-    public void Deconstruct(out int i, out int j) {throw null;}
-    public void M() {
-        if (this is {P:var p, Q:var q} and ((_, 1) or (1, _)) and {Z: var z}) {
-            Use(p,q,z);
-            
-        }
-    }
-}
-";
-            var program = @"
-using System;
-class C
-{
-    static void Main()
-    {
-        Test(5, 1);
-        Test(1, 6);
-    }
-    static void Test(int a, int b)
-    {
-
-        //if (a is 0 or 1)
-        //    Console.Write(a);
-
-        var t = (a, b);
-        if (t is (int x, 1) or (1, int x)) 
-            Console.Write(x);
-
-        //switch (a, b)
-        //{
-        //    case (var y, 0):
-        //    case (0, var y):
-        //        Console.Write(y);
-        //        break;
-        //}
-    }
-}
-";
-            var compilation = CreateCompilation(program, parseOptions: TestOptions.RegularWithPatternCombinators, options: TestOptions.ReleaseExe);
-            compilation.VerifyDiagnostics();
-            var verifier = CompileAndVerify(compilation, expectedOutput: "56");
-
-        }
-
-        [Fact]
         public void PropertyPatternSymbolInfo_01()
         {
             var source =
