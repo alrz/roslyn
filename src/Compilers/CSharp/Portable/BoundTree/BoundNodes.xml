@@ -1378,7 +1378,7 @@
   </Node>
 
   <AbstractNode Name="BoundDagTest" Base="BoundNode">
-    Input is the input to the decision point.
+    <!-- Input is the input to the decision point. -->
     <Field Name="Input" Type="BoundDagTemp"/>
   </AbstractNode>
   <Node Name="BoundDagTemp" Base="BoundNode">
@@ -1406,6 +1406,14 @@
     <Field Name="OperatorKind" Type="BinaryOperatorKind"/>
     <Field Name="Value" Type="ConstantValue" Null="disallow"/>
   </Node>
+  <Node Name="BoundDagIterationTest" Base="BoundDagTest">
+    <Field Name="PushMethod" Type="MethodSymbol?"/>
+    <Field Name="BufferTemp" Type="BoundDagTemp"/>
+    <Field Name="MaxLength" Type="int"/>
+  </Node>
+  <Node Name="BoundDagMoveNextTest" Base="BoundDagTest">
+    <Field Name="Index" Type="int"/>
+  </Node>
   <!-- As a decision, an evaluation is considered to always succeed. -->
   <AbstractNode Name="BoundDagEvaluation" Base="BoundDagTest">
   </AbstractNode>
@@ -1421,9 +1429,37 @@
   </Node>
   <Node Name="BoundDagPropertyEvaluation" Base="BoundDagEvaluation">
     <Field Name="Property" Type="PropertySymbol" Null="disallow"/>
+    <Field Name="Index" Type="int"/>
   </Node>
   <Node Name="BoundDagIndexEvaluation" Base="BoundDagEvaluation">
-    <Field Name="Property" Type="PropertySymbol" Null="disallow"/>
+    <!-- This will be null if input type is an array -->
+    <Field Name="Property" Type="PropertySymbol?"/>
+    <Field Name="LengthTemp" Type="BoundDagTemp"/>
+    <Field Name="Index" Type="int"/>
+  </Node>
+  <Node Name="BoundDagArrayIndexEvaluation" Base="BoundDagEvaluation">
+    <Field Name="LengthTemps" Type="ImmutableArray&lt;BoundDagTemp&gt;"/>
+    <Field Name="Indices" Type="ImmutableArray&lt;int&gt;"/>
+  </Node>
+  <Node Name="BoundDagArrayLengthEvaluation" Base="BoundDagEvaluation">
+    <Field Name="Dimension" Type="int"/>
+  </Node>
+  <Node Name="BoundDagSliceEvaluation" Base="BoundDagEvaluation">
+    <!-- This will be null if input type is an array -->
+    <Field Name="SliceMethod" Type="MethodSymbol?"/>
+    <Field Name="LengthTemp" Type="BoundDagTemp"/>
+    <Field Name="StartIndex" Type="int"/>
+    <Field Name="EndIndex" Type="int"/>
+  </Node>
+  <Node Name="BoundDagMethodEvaluation" Base="BoundDagEvaluation">
+    <!-- Pop, Push, BufferCtor, TryGetNonEnumeratedCount -->
+    <Field Name="Method" Type="MethodSymbol"/>
+    <Field Name="Index" Type="int"/>
+  </Node>
+  <Node Name="BoundDagEnumeratorEvaluation" Base="BoundDagEvaluation">
+    <Field Name="EnumeratorInfo" Type="ForEachEnumeratorInfo"/>
+  </Node>
+  <Node Name="BoundDagIncrementEvaluation" Base="BoundDagEvaluation">
     <Field Name="Index" Type="int"/>
   </Node>
 
@@ -2068,6 +2104,7 @@
     <Field Name="DeclaredType" Type="BoundTypeExpression?"/>
     <Field Name="DeconstructMethod" Type="MethodSymbol?"/>
     <Field Name="Deconstruction" Type="ImmutableArray&lt;BoundSubpattern&gt;" Null="allow"/>
+    <Field Name="ListPatternInfo" Type="BoundListPatternInfo?"/>
     <Field Name="Properties" Type="ImmutableArray&lt;BoundSubpattern&gt;" Null="allow"/>
     <!-- Variable is a local symbol, or in the case of top-level code in scripts and interactive,
          a field that is a member of the script class. Variable is null if `_` is used or if the identifier is omitted. -->
@@ -2115,6 +2152,28 @@
     <Field Name="Relation" Type="BinaryOperatorKind"/>
     <Field Name="Value" Type="BoundExpression"/>
     <Field Name="ConstantValue" Type="ConstantValue" Null="disallow"/>
+  </Node>
+
+  <AbstractNode Name="BoundListPatternInfo" Base="BoundNode">
+    <Field Name="ElementType" Type="TypeSymbol"/>
+    <Field Name="LengthPattern" Type="BoundPattern?"/>
+    <Field Name="Subpatterns" Type="ImmutableArray&lt;BoundPattern&gt;" Null="allow"/>
+    <Field Name="HasSlice" Type="bool"/>
+  </AbstractNode>
+  <Node Name="BoundListPatternWithArray" Base="BoundListPatternInfo">
+  </Node>
+  <Node Name="BoundListPatternWithRangeIndexerPattern" Base="BoundListPatternInfo">
+    <Field Name="GetLengthProperty" Type="PropertySymbol"/>
+    <Field Name="GetItemProperty" Type="PropertySymbol"/>
+  </Node>
+  <Node Name="BoundListPatternWithEnumerablePattern" Base="BoundListPatternInfo">
+    <Field Name="EnumeratorInfo" Type="ForEachEnumeratorInfo"/>
+  </Node>
+
+  <Node Name="BoundSlicePattern" Base="BoundPattern">
+    <!-- This will be null if input type is an array -->
+    <Field Name="SliceMethod" Type="MethodSymbol?"/>
+    <Field Name="Pattern" Type="BoundPattern?"/>
   </Node>
 
   <Node Name="BoundDiscardExpression" Base="BoundExpression">

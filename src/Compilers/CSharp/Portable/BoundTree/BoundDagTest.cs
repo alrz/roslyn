@@ -30,6 +30,10 @@ namespace Microsoft.CodeAnalysis.CSharp
                     return x.Value.Equals(y.Value);
                 case (BoundDagRelationalTest x, BoundDagRelationalTest y):
                     return x.Relation == y.Relation && x.Value.Equals(y.Value);
+                case (BoundDagIterationTest x, BoundDagIterationTest y):
+                    return x.MaxLength == y.MaxLength;
+                case (BoundDagMoveNextTest x, BoundDagMoveNextTest y):
+                    return x.Index == y.Index;
                 default:
                     throw ExceptionUtilities.UnexpectedValue(this);
             }

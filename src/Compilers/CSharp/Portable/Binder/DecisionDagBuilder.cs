@@ -51,7 +51,7 @@ namespace Microsoft.CodeAnalysis.CSharp
     /// <see cref="BoundUnconvertedSwitchExpression"/>) and is used for semantic analysis and lowering.
     /// </para>
     /// </summary>
-    internal sealed class DecisionDagBuilder
+    internal sealed partial class DecisionDagBuilder
     {
         private readonly CSharpCompilation _compilation;
         private readonly Conversions _conversions;
@@ -227,7 +227,10 @@ namespace Microsoft.CodeAnalysis.CSharp
                     case Tests.False _:
                         return tests;
                     case Tests.One(BoundDagEvaluation e):
-                        if (usedValues.Contains(e))
+                        // TODO(alrz) Removing unused
+                        if (e.Kind == BoundKind.DagMethodEvaluation ||
+                            e.Kind == BoundKind.DagIncrementEvaluation ||
+                            usedValues.Contains(e))
                         {
                             if (e.Input.Source is { })
                                 usedValues.Add(e.Input.Source);
@@ -275,7 +278,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                     return MakeTestsAndBindingsForDeclarationPattern(input, declaration, out output, bindings);
                 case BoundConstantPattern constant:
                     return MakeTestsForConstantPattern(input, constant, out output);
-                case BoundDiscardPattern _:
+                case BoundDiscardPattern:
+                case BoundSlicePattern:
                     output = input;
                     return Tests.True.Instance;
                 case BoundRecursivePattern recursive:
@@ -326,7 +330,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             var getItemPropertyInput = OriginalInput(valueAsITuple, getItemProperty);
             for (int i = 0; i < patternLength; i++)
             {
-                var indexEvaluation = new BoundDagIndexEvaluation(syntax, getItemProperty, i, getItemPropertyInput);
+                var indexEvaluation = new BoundDagIndexEvaluation(syntax, getItemProperty, lengthTemp, i, getItemPropertyInput);
                 tests.Add(new Tests.One(indexEvaluation));
                 var indexTemp = new BoundDagTemp(syntax, objectType, indexEvaluation);
                 tests.Add(MakeTestsAndBindings(indexTemp, pattern.Subpatterns[i].Pattern, bindings));
@@ -552,6 +556,16 @@ namespace Microsoft.CodeAnalysis.CSharp
                     tests.Add(MakeTestsAndBindings(element, pattern, bindings));
                 }
             }
+            else if (recursive.ListPatternInfo != null)
+            {
+                tests.Add(recursive.ListPatternInfo switch
+                {
+                    BoundListPatternWithArray list => MakeTestsAndBindingsForListPattern(input, list, bindings),
+                    BoundListPatternWithEnumerablePattern list => MakeTestsAndBindingsForListPattern(input, list, bindings),
+                    BoundListPatternWithRangeIndexerPattern list => MakeTestsAndBindingsForListPattern(input, list, bindings),
+                    var v => throw ExceptionUtilities.UnexpectedValue(v.Kind)
+                });
+            }
 
             if (recursive.VariableAccess != null)
             {
@@ -608,21 +622,28 @@ namespace Microsoft.CodeAnalysis.CSharp
             BoundRelationalPattern rel,
             out BoundDagTemp output)
         {
-            // check if the test is always true or always false
             var tests = ArrayBuilder<Tests>.GetInstance(2);
             output = MakeConvertToType(input, rel.Syntax, rel.Value.Type!, isExplicitTest: false, tests);
+            tests.Add(MakeRelationalTests(rel.Syntax, rel.Relation, rel.ConstantValue, output, rel.HasErrors));
+            return Tests.AndSequence.Create(tests);
+        }
+
+        private static Tests MakeRelationalTests(SyntaxNode syntax, BinaryOperatorKind relation, ConstantValue value, BoundDagTemp input, bool hasErrors = false)
+        {
+            // check if the test is always true or always false
             var fac = ValueSetFactory.ForType(input.Type);
-            var values = fac?.Related(rel.Relation.Operator(), rel.ConstantValue);
+            var values = fac?.Related(relation.Operator(), value);
             if (values?.IsEmpty == true)
             {
-                tests.Add(Tests.False.Instance);
-            }
-            else if (values?.Complement().IsEmpty != true)
-            {
-                tests.Add(new Tests.One(new BoundDagRelationalTest(rel.Syntax, rel.Relation, rel.ConstantValue, output, rel.HasErrors)));
+                return Tests.False.Instance;
             }
 
-            return Tests.AndSequence.Create(tests);
+            if (values?.Complement().IsEmpty != true)
+            {
+                return new Tests.One(new BoundDagRelationalTest(syntax, relation, value, input, hasErrors));
+            }
+
+            return Tests.True.Instance;
         }
 
         private TypeSymbol ErrorType(string name = "")
@@ -973,6 +994,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                 case BoundDagExplicitNullTest _:
                 case BoundDagNonNullTest _:
                 case BoundDagTypeTest _:
+                case BoundDagIterationTest:
+                case BoundDagMoveNextTest:
                     return (values, values, true, true);
                 case BoundDagValueTest t:
                     return resultForRelation(BinaryOperatorKind.Equal, t.Value);
@@ -1068,6 +1091,30 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             switch (test)
             {
+                case BoundDagMoveNextTest m1:
+                    switch (other)
+                    {
+                        case BoundDagMoveNextTest m2 when m1.Equals(m2):
+                            trueTestImpliesTrueOther = true;
+                            falseTestPermitsTrueOther = false;
+                            break;
+                    }
+                    break;
+                case BoundDagIterationTest i1:
+                    switch (other)
+                    {
+                        case BoundDagIterationTest i2 when i1.Equals(i2):
+                            trueTestImpliesTrueOther = true;
+                            falseTestPermitsTrueOther = false;
+                            break;
+                        case BoundDagMoveNextTest:
+                            // MoveNext is not allowed after an iteration loop
+                            // because the sequence is already finished at that point.
+                            trueTestPermitsTrueOther = false;
+                            falseTestPermitsTrueOther = false;
+                            break;
+                    }
+                    break;
                 case BoundDagNonNullTest _:
                     switch (other)
                     {
@@ -1645,6 +1692,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                 out Tests whenTrue,
                 out Tests whenFalse,
                 ref bool foundExplicitNullTest);
+
+            public abstract IValueSet ComputeIntValueSet();
             public virtual BoundDagTest ComputeSelectedTest() => throw ExceptionUtilities.Unreachable;
             public virtual Tests RemoveEvaluation(BoundDagEvaluation e) => this;
             public abstract string Dump(Func<BoundDagTest, string> dump);
@@ -1667,6 +1716,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 {
                     whenTrue = whenFalse = this;
                 }
+                public override IValueSet ComputeIntValueSet() => ValueSetFactory.ForInt.AllValues;
             }
 
             /// <summary>
@@ -1687,6 +1737,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 {
                     whenTrue = whenFalse = this;
                 }
+                public override IValueSet ComputeIntValueSet() => ValueSetFactory.ForInt.NoValues;
             }
 
             /// <summary>
@@ -1727,6 +1778,17 @@ namespace Microsoft.CodeAnalysis.CSharp
                 public override string Dump(Func<BoundDagTest, string> dump) => dump(this.Test);
                 public override bool Equals(object? obj) => this == obj || obj is One other && this.Test.Equals(other.Test);
                 public override int GetHashCode() => this.Test.GetHashCode();
+                public override IValueSet ComputeIntValueSet()
+                {
+                    Debug.Assert(this.Test.Input.Type.SpecialType == SpecialType.System_Int32);
+                    var fac = ValueSetFactory.ForInt;
+                    return this.Test switch
+                    {
+                        BoundDagRelationalTest test => fac.Related(test.Relation.Operator(), test.Value),
+                        BoundDagValueTest test => fac.Related(BinaryOperatorKind.Equal, test.Value),
+                        _ => fac.AllValues
+                    };
+                }
             }
 
             public sealed class Not : Tests
@@ -1770,6 +1832,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 }
                 public override bool Equals(object? obj) => this == obj || obj is Not n && Negated.Equals(n.Negated);
                 public override int GetHashCode() => Hash.Combine(Negated.GetHashCode(), typeof(Not).GetHashCode());
+                public override IValueSet ComputeIntValueSet() => this.Negated.ComputeIntValueSet().Complement();
             }
 
             public abstract class SequenceTests : Tests
@@ -1884,6 +1947,15 @@ namespace Microsoft.CodeAnalysis.CSharp
 
                     return RemainingTests[0].ComputeSelectedTest();
                 }
+                public override IValueSet ComputeIntValueSet()
+                {
+                    var result = RemainingTests[0].ComputeIntValueSet();
+                    for (var index = 1; index < RemainingTests.Length; index++)
+                    {
+                        result = result.Intersect(RemainingTests[index].ComputeIntValueSet());
+                    }
+                    return result;
+                }
                 public override string Dump(Func<BoundDagTest, string> dump)
                 {
                     return $"AND({string.Join(", ", RemainingTests.Select(t => t.Dump(dump)))})";
@@ -1926,6 +1998,15 @@ namespace Microsoft.CodeAnalysis.CSharp
                         _ => new OrSequence(remainingTests.ToImmutable()),
                     };
                     remainingTests.Free();
+                    return result;
+                }
+                public override IValueSet ComputeIntValueSet()
+                {
+                    var result = RemainingTests[0].ComputeIntValueSet();
+                    for (var index = 1; index < RemainingTests.Length; index++)
+                    {
+                        result = result.Union(RemainingTests[index].ComputeIntValueSet());
+                    }
                     return result;
                 }
                 public override string Dump(Func<BoundDagTest, string> dump)

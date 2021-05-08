@@ -333,6 +333,19 @@ namespace Microsoft.CodeAnalysis
             return new ObjectPool<DiagnosticBag>(() => new DiagnosticBag(), size);
         }
 
+        internal static Disposer GetInstance(out DiagnosticBag bag)
+        {
+            bag = GetInstance();
+            return new Disposer(bag);
+        }
+        
+        internal readonly ref struct Disposer
+        {
+            private readonly DiagnosticBag _bag;
+            public Disposer(DiagnosticBag bag) => _bag = bag;
+            public void Dispose() => _bag.Free();
+        }
+        
         #endregion
 
         #region Debugger View

@@ -511,6 +511,12 @@ namespace Microsoft.CodeAnalysis
         System_Text_StringBuilder__AppendObject,
         System_Text_StringBuilder__ctor,
 
+        System_Collections_Generic_Deque_T__ctor,
+        System_Collections_Generic_Deque_T__Enqueue,
+        System_Collections_Generic_Deque_T__Pop,
+
+        System_Linq_Enumerable__TryGetNonEnumeratedCount,
+        
         Count
 
         // Remember to update the AllWellKnownTypeMembers tests when making changes here

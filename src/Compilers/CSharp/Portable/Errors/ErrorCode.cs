@@ -1228,7 +1228,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         WRN_CallerLineNumberPreferredOverCallerFilePath = 7082,
         ERR_InvalidDynamicCondition = 7083,
         ERR_WinRtEventPassedByRef = 7084,
-        //ERR_ByRefReturnUnsupported = 7085,
+        ERR_ByRefReturnUnsupported = 7085,
         ERR_NetModuleNameMismatch = 7086,
         ERR_BadModuleName = 7087,
         ERR_BadCompilationOptionValue = 7088,
@@ -1721,7 +1721,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         ERR_RuntimeDoesNotSupportDefaultInterfaceImplementation = 8701,
         ERR_RuntimeDoesNotSupportDefaultInterfaceImplementationForMember = 8702,
-        ERR_InvalidModifierForLanguageVersion = 8703,
+        ERR_DefaultInterfaceImplementationModifier = 8703,
         ERR_ImplicitImplementationOfNonPublicInterfaceMember = 8704,
         ERR_MostSpecificImplementationIsNotFound = 8705,
         ERR_LanguageVersionDoesNotSupportDefaultInterfaceImplementationForMember = 8706,
@@ -1932,11 +1932,12 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         #endregion diagnostics introduced for C# 9.0
 
-        #region diagnostics introduced for C# 10.0
-
-        ERR_InheritingFromRecordWithSealedToString = 8912
-
-        #endregion
+        // TODO(alrz)
+        ERR_UnsupportedTypeForListPattern = 9200,
+        ERR_UnsupportedTypeForSlicePattern,
+        ERR_MisplacedSlicePattern,
+        ERR_InvalidLengthPattern,
+        ERR_ListPatternWithNames,
 
         // Note: you will need to re-generate compiler code after adding warnings (eng\generate-compiler-code.cmd)
     }

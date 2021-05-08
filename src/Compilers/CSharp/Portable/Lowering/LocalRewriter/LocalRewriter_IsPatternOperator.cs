@@ -67,9 +67,13 @@ namespace Microsoft.CodeAnalysis.CSharp
                         case BoundLeafDecisionDagNode n:
                             return n.Label == whenTrueLabel;
                         case BoundEvaluationDecisionDagNode e:
+                            if (e.Evaluation is BoundDagEnumeratorEvaluation { NeedsDisposal: true })
+                                return false;
                             node = e.Next;
                             break;
                         case BoundTestDecisionDagNode t:
+                            if (t.Test is BoundDagIterationTest)
+                                return false;
                             bool falseFail = IsFailureNode(t.WhenFalse, whenFalseLabel);
                             if (falseFail == IsFailureNode(t.WhenTrue, whenFalseLabel))
                                 return false;

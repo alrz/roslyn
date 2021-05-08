@@ -93,4 +93,17 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// </summary>
         bool All(BinaryOperatorKind relation, T value);
     }
+
+    internal interface INumericValueSet<T> : IValueSet<T>
+    {
+        /// <summary>
+        /// Returns true if the value set contains exactly one contiguous interval, i.e. there's no gap in between.
+        /// </summary>
+        bool IsContiguous { get; }
+
+        /// <summary>
+        /// Returns the inclusive bounds of this value set.
+        /// </summary>
+        (T First, T Last) GetRange();
+    }
 }

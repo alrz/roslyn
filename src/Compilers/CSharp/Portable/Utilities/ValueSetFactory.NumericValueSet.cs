@@ -19,7 +19,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// <summary>
         /// The implementation of a value set for an numeric type <typeparamref name="T"/>.
         /// </summary>
-        private sealed class NumericValueSet<T, TTC> : IValueSet<T> where TTC : struct, INumericTC<T>
+        private sealed class NumericValueSet<T, TTC> : INumericValueSet<T> where TTC : struct, INumericTC<T>
         {
             private readonly ImmutableArray<(T first, T last)> _intervals;
 
@@ -67,6 +67,10 @@ namespace Microsoft.CodeAnalysis.CSharp
                     return tc.ToConstantValue(this._intervals[this._intervals.Length - 1].last);
                 }
             }
+
+            bool INumericValueSet<T>.IsContiguous => _intervals.Length == 1;
+
+            (T First, T Last) INumericValueSet<T>.GetRange() => (_intervals[0].first, _intervals[^1].last);
 
             public bool Any(BinaryOperatorKind relation, T value)
             {
