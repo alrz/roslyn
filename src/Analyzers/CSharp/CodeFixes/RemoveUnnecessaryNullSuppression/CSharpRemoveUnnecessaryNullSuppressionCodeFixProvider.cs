@@ -22,13 +22,14 @@ namespace Microsoft.CodeAnalysis.CSharp.RemoveUnnecessaryNullSuppression
     internal sealed partial class CSharpRemoveUnnecessaryNullSuppressionCodeFixProvider : SyntaxEditorBasedCodeFixProvider
     {
         [ImportingConstructor]
-        [Obsolete(MefConstruction.ImportingConstructorMessage, error: true)]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("RoslynDiagnosticsReliability", "RS0033:Importing constructor should be marked with 'ObsoleteAttribute'", Justification = "<Pending>")]
+        //[Obsolete(MefConstruction.ImportingConstructorMessage, error: true)]
         public CSharpRemoveUnnecessaryNullSuppressionCodeFixProvider()
         {
         }
 
         public override ImmutableArray<string> FixableDiagnosticIds
-            => ImmutableArray.Create(IDEDiagnosticIds.RemoveUnnecessaryNullSuppressionDiagnosticId);
+            => ImmutableArray.Create("CS9000");
 
         internal override CodeFixCategory CodeFixCategory => CodeFixCategory.CodeQuality;
 

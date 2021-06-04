@@ -2917,6 +2917,10 @@ namespace Microsoft.CodeAnalysis.CSharp
             Debug.Assert(AreCloseEnough(resultType.Type, node.Type));
 #endif
 
+            if (resultType.IsNotNull && node.IsSuppressed)
+            {
+                this.Diagnostics.Add(ErrorCode.HDN_UnnecessaryNullSuppression, node.Syntax.Parent.Location);
+            }
             if (ShouldMakeNotNullRvalue(node))
             {
                 var result = resultType.WithNotNullState();

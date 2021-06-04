@@ -3,24 +3,32 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.RemoveUnnecessaryNullSuppression;
+using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.Diagnostics;
 using Microsoft.CodeAnalysis.Editor.UnitTests.CodeActions;
 using Xunit;
+using Xunit.Abstractions;
+
+#nullable disable
 
 namespace Microsoft.CodeAnalysis.Editor.CSharp.UnitTests.RemoveUnnecessaryNullSuppression
 {
-    using VerifyCS = CSharpCodeFixVerifier<CSharpRemoveUnnecessaryNullSuppressionDiagnosticAnalyzer, CSharpRemoveUnnecessaryNullSuppressionCodeFixProvider>;
-
-    public class RemoveUnnecessaryNullSuppressionTests
+    public class RemoveUnnecessaryNullSuppressionTests : AbstractCSharpDiagnosticProviderBasedUserDiagnosticTest
     {
-        private static Task VerifyAsync(string source, string expected)
+        public RemoveUnnecessaryNullSuppressionTests(ITestOutputHelper logger) : base(logger)
         {
-            return VerifyCS.VerifyCodeFixAsync(source, expected);
         }
-        private static Task VerifyMissingAsync(string source)
-        {
-            return VerifyCS.VerifyCodeFixAsync(source, source);
-        }
+
+        internal override (DiagnosticAnalyzer, CodeFixProvider) CreateDiagnosticProviderAndFixer(Workspace workspace)
+            => (null, new CSharpRemoveUnnecessaryNullSuppressionCodeFixProvider());
+
+        private Task VerifyAsync(string source, string expected)
+            => TestInRegularAndScriptAsync(source, expected);
+
+        private Task VerifyMissingAsync(string source)
+            => TestMissingAsync(source);
 
         [Fact]
         public async Task Test_NotNull_Parameter()
@@ -201,5 +209,7 @@ class C
 }
 ");
         }
+
+      
     }
 }

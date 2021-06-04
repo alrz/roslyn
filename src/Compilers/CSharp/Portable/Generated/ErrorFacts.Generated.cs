@@ -308,6 +308,7 @@
             {
                 case ErrorCode.HDN_UnusedUsingDirective:
                 case ErrorCode.HDN_UnusedExternAlias:
+                case ErrorCode.HDN_UnnecessaryNullSuppression:
                     return true;
                 default:
                     return false;
