@@ -6,6 +6,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis.CodeStyle;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.CSharp.Extensions;
 
 namespace Microsoft.CodeAnalysis.CSharp.RemoveUnnecessaryNullSuppression
 {
@@ -28,21 +29,26 @@ namespace Microsoft.CodeAnalysis.CSharp.RemoveUnnecessaryNullSuppression
 
         private void AnalyzeSyntax(SyntaxNodeAnalysisContext context)
         {
-            var nullableContext = context.SemanticModel.GetNullableContext(context.Node.SpanStart);
+            var node = context.Node;
+            var nullableContext = context.SemanticModel.GetNullableContext(node.SpanStart);
             if (!nullableContext.WarningsEnabled() || !nullableContext.AnnotationsEnabled())
                 return;
 
-            var node = (PostfixUnaryExpressionSyntax)context.Node;
-            var type = context.SemanticModel.GetTypeInfo(node.Operand);
+            var suppression = (PostfixUnaryExpressionSyntax)node;
+            var operand = suppression.Operand;
+            if (operand.WalkDownParentheses().IsKind(SyntaxKind.NullLiteralExpression, SyntaxKind.DefaultLiteralExpression))
+                return;
+
+            var type = context.SemanticModel.GetTypeInfo(operand);
             var flowState = type.Nullability.FlowState;
             if (flowState != NullableFlowState.NotNull)
                 return;
 
             context.ReportDiagnostic(DiagnosticHelper.Create(
                 Descriptor,
-                node.OperatorToken.GetLocation(),
+                suppression.OperatorToken.GetLocation(),
                 ReportDiagnostic.Warn,
-                ImmutableArray.Create(node.GetLocation()),
+                ImmutableArray.Create(suppression.GetLocation()),
                 properties: null));
         }
     }
