@@ -2919,7 +2919,8 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             if (resultType.IsNotNull && node.IsSuppressed)
             {
-                this.Diagnostics.Add(ErrorCode.HDN_UnnecessaryNullSuppression, node.Syntax.Parent.Location);
+                Debug.Assert(node.Syntax.Parent.IsKind(SyntaxKind.SuppressNullableWarningExpression));
+                ReportDiagnostic(ErrorCode.HDN_UnnecessaryNullSuppression, node.Syntax.Parent);
             }
             if (ShouldMakeNotNullRvalue(node))
             {

@@ -81,6 +81,8 @@ namespace Microsoft.CodeAnalysis.CSharp
             nullableWarnings.Add(GetId(ErrorCode.WRN_ParameterNotNullIfNotNull));
             nullableWarnings.Add(GetId(ErrorCode.WRN_ReturnNotNullIfNotNull));
 
+            nullableWarnings.Add(GetId(ErrorCode.HDN_UnnecessaryNullSuppression));
+
             NullableWarnings = nullableWarnings.ToImmutable();
         }
 

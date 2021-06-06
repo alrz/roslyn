@@ -153,7 +153,7 @@ class C
 {
     void M(object o)
     {
-        var x = o!;
+        var x = o[|!|];
     }
 }
 ");
@@ -170,7 +170,7 @@ class C
     void M(object o)
     {
 #nullable disable
-        var x = o!;
+        var x = o[|!|];
 #nullable enable
     }
 }
@@ -187,7 +187,7 @@ class C
 {
     void M(object o)
     {
-        string x = null!;
+        string x = null[|!|];
     }
 }
 ");
@@ -204,7 +204,7 @@ class C
     public object? Method() => null;
     object M()
     {
-        return Method()!;
+        return Method()[|!|];
     }
 }
 ");

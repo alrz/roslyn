@@ -46,7 +46,7 @@ namespace Microsoft.CodeAnalysis.CSharp.RemoveUnnecessaryNullSuppression
         {
             foreach (var diagnostic in diagnostics)
             {
-                var node = diagnostic.AdditionalLocations[0].FindNode(getInnermostNodeForTie: true, cancellationToken);
+                var node = diagnostic.Location.FindNode(getInnermostNodeForTie: true, cancellationToken);
                 Debug.Assert(node.IsKind(SyntaxKind.SuppressNullableWarningExpression));
                 var suppression = (PostfixUnaryExpressionSyntax)node;
                 var withoutSuppression = suppression.Operand.WithAppendedTrailingTrivia(suppression.OperatorToken.GetAllTrivia());
