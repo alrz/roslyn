@@ -947,12 +947,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             ref bool foundExplicitNullTest,
             ImmutableDictionary<BoundDagTemp, IValueSet> values)
         {
-            IValueSet? lengthValueSet = test.Input.Source is BoundDagIndexerEvaluation s
-                ? values.TryGetValue(s.LengthTemp, out var valueSet)
-                    ? valueSet.Intersect(stateForCase.RemainingTests.ComputeIntValueSet(s.LengthTemp))
-                    : throw ExceptionUtilities.Unreachable
-                : null;
-            stateForCase.RemainingTests.Filter(this, test, whenTrueValues, whenFalseValues, out Tests whenTrueTests, out Tests whenFalseTests, ref foundExplicitNullTest, lengthValueSet);
+            stateForCase.RemainingTests.Filter(this, test, whenTrueValues, whenFalseValues, out Tests whenTrueTests, out Tests whenFalseTests, ref foundExplicitNullTest, values);
             whenTrue = makeNext(whenTrueTests);
             whenFalse = makeNext(whenFalseTests);
             return;
@@ -1111,7 +1106,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             out bool trueTestImpliesTrueOther,
             out bool falseTestImpliesTrueOther,
             ref bool foundExplicitNullTest,
-            IValueSet? lengthValueSet)
+            ImmutableDictionary<BoundDagTemp, IValueSet> values)
         {
             // innocent until proven guilty
             trueTestPermitsTrueOther = true;
@@ -1120,25 +1115,9 @@ namespace Microsoft.CodeAnalysis.CSharp
             falseTestImpliesTrueOther = false;
 
             // if the tests are for unrelated things, there is no implication from one to the other
-            if (!test.Input.Equals(other.Input))
-            {
-                if (test.Input.Source is BoundDagIndexerEvaluation s1 &&
-                    other.Input.Source is BoundDagIndexerEvaluation s2 &&
-                    (s1.Index, s2.Index) is ( < 0, >= 0) or ( >= 0, < 0) &&
-                    s1.Input.Equals(s2.Input))
-                {
-                    Debug.Assert(s1.LengthTemp.Equals(s2.LengthTemp));
-                    Debug.Assert(lengthValueSet is INumericValueSet<int>);
-                    if (((INumericValueSet<int>)lengthValueSet).TryGetSingleton(out int length) &&
-                        (s1.Index >= 0 ? s2.Index == (s1.Index - length) : s1.Index == (s2.Index - length)))
-                    {
-                        goto cont;
-                    }
-                }
-
+            if (!related(test.Input, other.Input, values))
                 return;
-            }
-cont:
+
             switch (test)
             {
                 case BoundDagNonNullTest _:
@@ -1206,8 +1185,6 @@ cont:
                                 }
                             }
                             break;
-                        case BoundDagValueTest _:
-                            break;
                         case BoundDagExplicitNullTest _:
                             foundExplicitNullTest = true;
                             // v is T --> !(v == null)
@@ -1224,8 +1201,6 @@ cont:
                                 foundExplicitNullTest = true;
                             // v == K --> v != null
                             trueTestImpliesTrueOther = true;
-                            break;
-                        case BoundDagTypeTest _:
                             break;
                         case BoundDagExplicitNullTest _:
                             foundExplicitNullTest = true;
@@ -1287,6 +1262,17 @@ cont:
                             break;
                     }
                     break;
+            }
+
+            static bool related(BoundDagTemp input, BoundDagTemp other, ImmutableDictionary<BoundDagTemp, IValueSet> values)
+            {
+                return input.Equals(other) ||
+                       input.Source is BoundDagIndexerEvaluation { Index: int s1Index } s1 &&
+                       other.Source is BoundDagIndexerEvaluation { Index: int s2Index } s2 &&
+                       (s1Index, s2Index) is (< 0, >= 0) or (>= 0, < 0) &&
+                       s1.Input.Equals(s2.Input) &&
+                       ((INumericValueSet<int>)values[s1.LengthTemp]).TryGetSingleton(out int length) &&
+                       (s1Index >= 0 ? s2Index == (s1Index - length) : s1Index == (s2Index - length));
             }
         }
 
@@ -1594,6 +1580,14 @@ cont:
             /// </summary>
             internal BoundDagTest ComputeSelectedTest()
             {
+                foreach (var item in Cases)
+                {
+                    if (item.RemainingTests is Tests.True or Tests.False)
+                        continue;
+                    var test = item.RemainingTests.ComputeSelectedTest();
+                    if (test.Input.Source is BoundDagPropertyEvaluation { IsLengthOrCount: true })
+                        return test;
+                }
                 return Cases[0].RemainingTests.ComputeSelectedTest();
             }
 
@@ -1718,11 +1712,10 @@ cont:
                 out Tests whenTrue,
                 out Tests whenFalse,
                 ref bool foundExplicitNullTest,
-                IValueSet? lengthValueSet);
+                ImmutableDictionary<BoundDagTemp, IValueSet> values);
             public virtual BoundDagTest ComputeSelectedTest() => throw ExceptionUtilities.Unreachable;
             public virtual Tests RemoveEvaluation(BoundDagEvaluation e) => this;
             public abstract string Dump(Func<BoundDagTest, string> dump);
-            public abstract IValueSet ComputeIntValueSet(BoundDagTemp temp);
 
             /// <summary>
             /// No tests to be performed; the result is true (success).
@@ -1731,8 +1724,6 @@ cont:
             {
                 public static readonly True Instance = new True();
                 public override string Dump(Func<BoundDagTest, string> dump) => "TRUE";
-                public override IValueSet ComputeIntValueSet(BoundDagTemp temp) => ValueSetFactory.ForInt.AllValues;
-
                 public override void Filter(
                     DecisionDagBuilder builder,
                     BoundDagTest test,
@@ -1741,7 +1732,7 @@ cont:
                     out Tests whenTrue,
                     out Tests whenFalse,
                     ref bool foundExplicitNullTest,
-                    IValueSet? lengthValueSet)
+                    ImmutableDictionary<BoundDagTemp, IValueSet> values)
                 {
                     whenTrue = whenFalse = this;
                 }
@@ -1762,11 +1753,10 @@ cont:
                     out Tests whenTrue,
                     out Tests whenFalse,
                     ref bool foundExplicitNullTest,
-                    IValueSet? lengthValueSet)
+                    ImmutableDictionary<BoundDagTemp, IValueSet> values)
                 {
                     whenTrue = whenFalse = this;
                 }
-                public override IValueSet ComputeIntValueSet(BoundDagTemp temp) => ValueSetFactory.ForInt.NoValues;
             }
 
             /// <summary>
@@ -1787,7 +1777,7 @@ cont:
                     out Tests whenTrue,
                     out Tests whenFalse,
                     ref bool foundExplicitNullTest,
-                    IValueSet? lengthValueSet)
+                    ImmutableDictionary<BoundDagTemp, IValueSet> values)
                 {
                     builder.CheckConsistentDecision(
                         test: test,
@@ -1799,7 +1789,7 @@ cont:
                         falseTestPermitsTrueOther: out bool falseDecisionPermitsTrueOther,
                         trueTestImpliesTrueOther: out bool trueDecisionImpliesTrueOther,
                         falseTestImpliesTrueOther: out bool falseDecisionImpliesTrueOther,
-                        foundExplicitNullTest: ref foundExplicitNullTest, lengthValueSet);
+                        foundExplicitNullTest: ref foundExplicitNullTest, values);
                     whenTrue = trueDecisionImpliesTrueOther ? Tests.True.Instance : trueDecisionPermitsTrueOther ? this : (Tests)Tests.False.Instance;
                     whenFalse = falseDecisionImpliesTrueOther ? Tests.True.Instance : falseDecisionPermitsTrueOther ? this : (Tests)Tests.False.Instance;
                 }
@@ -1808,22 +1798,6 @@ cont:
                 public override string Dump(Func<BoundDagTest, string> dump) => dump(this.Test);
                 public override bool Equals(object? obj) => this == obj || obj is One other && this.Test.Equals(other.Test);
                 public override int GetHashCode() => this.Test.GetHashCode();
-                public override IValueSet ComputeIntValueSet(BoundDagTemp temp)
-                {
-                    var fac = ValueSetFactory.ForInt;
-                    if (this.Test.Input.Equals(temp))
-                    {
-                        Debug.Assert(this.Test.Input.Type.SpecialType == SpecialType.System_Int32);
-                        switch (this.Test)
-                        {
-                            case BoundDagRelationalTest test:
-                                return fac.Related(test.Relation.Operator(), test.Value);
-                            case BoundDagValueTest test:
-                                return fac.Related(BinaryOperatorKind.Equal, test.Value);
-                        }
-                    }
-                    return fac.AllValues;
-                }
             }
 
             public sealed class Not : Tests
@@ -1852,7 +1826,6 @@ cont:
                 public override Tests RemoveEvaluation(BoundDagEvaluation e) => Create(Negated.RemoveEvaluation(e));
                 public override BoundDagTest ComputeSelectedTest() => Negated.ComputeSelectedTest();
                 public override string Dump(Func<BoundDagTest, string> dump) => $"Not ({Negated.Dump(dump)})";
-                public override IValueSet ComputeIntValueSet(BoundDagTemp temp) => this.Negated.ComputeIntValueSet(temp).Complement();
 
                 public override void Filter(
                     DecisionDagBuilder builder,
@@ -1862,9 +1835,9 @@ cont:
                     out Tests whenTrue,
                     out Tests whenFalse,
                     ref bool foundExplicitNullTest,
-                    IValueSet? lengthValueSet)
+                    ImmutableDictionary<BoundDagTemp, IValueSet> values)
                 {
-                    Negated.Filter(builder, test, whenTrueValues, whenFalseValues, out var whenTestTrue, out var whenTestFalse, ref foundExplicitNullTest, lengthValueSet);
+                    Negated.Filter(builder, test, whenTrueValues, whenFalseValues, out var whenTestTrue, out var whenTestFalse, ref foundExplicitNullTest, values);
                     whenTrue = Not.Create(whenTestTrue);
                     whenFalse = Not.Create(whenTestFalse);
                 }
@@ -1889,13 +1862,13 @@ cont:
                     out Tests whenTrue,
                     out Tests whenFalse,
                     ref bool foundExplicitNullTest,
-                    IValueSet? lengthValueSet)
+                    ImmutableDictionary<BoundDagTemp, IValueSet> values)
                 {
                     var trueBuilder = ArrayBuilder<Tests>.GetInstance(RemainingTests.Length);
                     var falseBuilder = ArrayBuilder<Tests>.GetInstance(RemainingTests.Length);
                     foreach (var other in RemainingTests)
                     {
-                        other.Filter(builder, test, whenTrueValues, whenFalseValues, out Tests oneTrue, out Tests oneFalse, ref foundExplicitNullTest, lengthValueSet);
+                        other.Filter(builder, test, whenTrueValues, whenFalseValues, out Tests oneTrue, out Tests oneFalse, ref foundExplicitNullTest, values);
                         trueBuilder.Add(oneTrue);
                         falseBuilder.Add(oneFalse);
                     }
@@ -1989,13 +1962,6 @@ cont:
                 {
                     return $"AND({string.Join(", ", RemainingTests.Select(t => t.Dump(dump)))})";
                 }
-                public override IValueSet ComputeIntValueSet(BoundDagTemp temp)
-                {
-                    var result = RemainingTests[0].ComputeIntValueSet(temp);
-                    for (var index = 1; index < RemainingTests.Length; index++)
-                        result = result.Intersect(RemainingTests[index].ComputeIntValueSet(temp));
-                    return result;
-                }
             }
 
             /// <summary>
@@ -2039,13 +2005,6 @@ cont:
                 public override string Dump(Func<BoundDagTest, string> dump)
                 {
                     return $"OR({string.Join(", ", RemainingTests.Select(t => t.Dump(dump)))})";
-                }
-                public override IValueSet ComputeIntValueSet(BoundDagTemp temp)
-                {
-                    var result = RemainingTests[0].ComputeIntValueSet(temp);
-                    for (var index = 1; index < RemainingTests.Length; index++)
-                        result = result.Union(RemainingTests[index].ComputeIntValueSet(temp));
-                    return result;
                 }
             }
         }
