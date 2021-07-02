@@ -19,7 +19,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// <summary>
         /// The implementation of a value set for an numeric type <typeparamref name="T"/>.
         /// </summary>
-        private sealed class NumericValueSet<T, TTC> : IValueSet<T> where TTC : struct, INumericTC<T>
+        private sealed class NumericValueSet<T, TTC> : INumericValueSet<T> where TTC : struct, INumericTC<T>
         {
             private readonly ImmutableArray<(T first, T last)> _intervals;
 
@@ -50,6 +50,21 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
 
             public bool IsEmpty => _intervals.Length == 0;
+            public bool TryGetSingleton(out T? value)
+            {
+                if (_intervals.Length == 1)
+                {
+                    (T first, T last) = _intervals[0];
+                    if (default(TTC).Related(BinaryOperatorKind.Equal, first, last))
+                    {
+                        value = first;
+                        return true;
+                    }
+                }
+
+                value = default;
+                return false;
+            }
 
             ConstantValue IValueSet.Sample
             {
