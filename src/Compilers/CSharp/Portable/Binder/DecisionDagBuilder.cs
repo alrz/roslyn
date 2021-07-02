@@ -1053,7 +1053,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     fromTestFailing = fromTestFailing.Intersect(tempValuesBeforeTest);
                 }
                 // TODO: Set BoundDagPropertyEvaluation.IsLengthOrCount for indexable types
-                else if (input.Source is BoundDagPropertyEvaluation { Property: { Name: "Count" or "Length" } })
+                else if (input.Source is BoundDagPropertyEvaluation { IsLengthOrCount: true })
                 {
                     Debug.Assert(input.Type.SpecialType == SpecialType.System_Int32);
                     fromTestPassing = fromTestPassing.Intersect(ValueSetFactory.PositiveIntValues);
