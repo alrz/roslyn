@@ -1269,7 +1269,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 return input.Equals(other) ||
                        input.Source is BoundDagIndexerEvaluation { Index: int s1Index } s1 &&
                        other.Source is BoundDagIndexerEvaluation { Index: int s2Index } s2 &&
-                       (s1Index, s2Index) is (< 0, >= 0) or (>= 0, < 0) &&
+                       (s1Index, s2Index) is ( < 0, >= 0) or ( >= 0, < 0) &&
                        s1.Input.Equals(s2.Input) &&
                        ((INumericValueSet<int>)values[s1.LengthTemp]).TryGetSingleton(out int length) &&
                        (s1Index >= 0 ? s2Index == (s1Index - length) : s1Index == (s2Index - length));
