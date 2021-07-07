@@ -766,6 +766,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
 
             var initialState = uniqifyState(rewrittenCases.ToImmutableAndFree(), ImmutableDictionary<BoundDagTemp, IValueSet>.Empty);
+            var pendingCases = PooledDictionary<BoundDagTemp, ImmutableArray<StateForCase>>.GetInstance();
 
             // Go through the worklist of DagState nodes for which we have not yet computed
             // successor states.
@@ -814,19 +815,32 @@ namespace Microsoft.CodeAnalysis.CSharp
                             break;
                         case BoundDagTest d:
                             bool foundExplicitNullTest = false;
+                            bool foundLengthEvaluation = false;
+                            ImmutableArray<StateForCase> cases = state.Cases;
+                            if (pendingCases.TryGetValue(d.Input, out ImmutableArray<StateForCase> pendingCases0))
+                                cases = pendingCases0.AddRange(cases);
                             SplitCases(
-                                state.Cases, state.RemainingValues, d,
+                                cases, state.RemainingValues, d,
                                 out ImmutableArray<StateForCase> whenTrueDecisions,
                                 out ImmutableArray<StateForCase> whenFalseDecisions,
                                 out ImmutableDictionary<BoundDagTemp, IValueSet> whenTrueValues,
                                 out ImmutableDictionary<BoundDagTemp, IValueSet> whenFalseValues,
-                                ref foundExplicitNullTest);
+                                ref foundExplicitNullTest,
+                                ref foundLengthEvaluation);
                             state.TrueBranch = uniqifyState(whenTrueDecisions, whenTrueValues);
                             state.FalseBranch = uniqifyState(whenFalseDecisions, whenFalseValues);
                             if (foundExplicitNullTest && d is BoundDagNonNullTest { IsExplicitTest: false } t)
                             {
                                 // Turn an "implicit" non-null test into an explicit one
                                 state.SelectedTest = new BoundDagNonNullTest(t.Syntax, isExplicitTest: true, t.Input, t.HasErrors);
+                            }
+                            if (foundLengthEvaluation && d.Input.Source is BoundDagIndexerEvaluation indexer)
+                            {
+                                BoundDagTemp key = indexer.LengthTemp;
+                                if (pendingCases.TryGetValue(key, out pendingCases0))
+                                    pendingCases[key] = pendingCases0.AddRange(state.Cases);
+                                else
+                                    pendingCases.Add(key, state.Cases);
                             }
                             break;
                         case var n:
@@ -836,6 +850,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
 
             workList.Free();
+            pendingCases.Free();
             return new DecisionDag(initialState);
         }
 
@@ -940,14 +955,15 @@ namespace Microsoft.CodeAnalysis.CSharp
         private void SplitCase(
             StateForCase stateForCase,
             BoundDagTest test,
+            ImmutableDictionary<BoundDagTemp, IValueSet> values,
             IValueSet? whenTrueValues,
             IValueSet? whenFalseValues,
             out StateForCase whenTrue,
             out StateForCase whenFalse,
             ref bool foundExplicitNullTest,
-            ImmutableDictionary<BoundDagTemp, IValueSet> values)
+            ref bool foundLengthEvaluation)
         {
-            stateForCase.RemainingTests.Filter(this, test, whenTrueValues, whenFalseValues, out Tests whenTrueTests, out Tests whenFalseTests, ref foundExplicitNullTest, values);
+            stateForCase.RemainingTests.Filter(this, test, values, whenTrueValues, whenFalseValues, out Tests whenTrueTests, out Tests whenFalseTests, ref foundExplicitNullTest, ref foundLengthEvaluation);
             whenTrue = makeNext(whenTrueTests);
             whenFalse = makeNext(whenFalseTests);
             return;
@@ -970,7 +986,8 @@ namespace Microsoft.CodeAnalysis.CSharp
             out ImmutableArray<StateForCase> whenFalse,
             out ImmutableDictionary<BoundDagTemp, IValueSet> whenTrueValues,
             out ImmutableDictionary<BoundDagTemp, IValueSet> whenFalseValues,
-            ref bool foundExplicitNullTest)
+            ref bool foundExplicitNullTest,
+            ref bool foundLengthEvaluation)
         {
             var whenTrueBuilder = ArrayBuilder<StateForCase>.GetInstance(statesForCases.Length);
             var whenFalseBuilder = ArrayBuilder<StateForCase>.GetInstance(statesForCases.Length);
@@ -981,13 +998,14 @@ namespace Microsoft.CodeAnalysis.CSharp
             // the set of values are normally removed and replaced by the known result, so we would not normally be processing
             // a test that always succeeds or always fails, but they can occur in erroneous programs (e.g. testing for equality
             // against a non-constant value).
+            whenTrueValues.TryGetValue(test.Input, out IValueSet? whenTrueValuesOpt);
+            whenFalseValues.TryGetValue(test.Input, out IValueSet? whenFalseValuesOpt);
             foreach (var state in statesForCases)
             {
                 SplitCase(
-                    state, test,
-                    whenTrueValues.TryGetValue(test.Input, out var v1) ? v1 : null,
-                    whenFalseValues.TryGetValue(test.Input, out var v2) ? v2 : null,
-                    out var whenTrueState, out var whenFalseState, ref foundExplicitNullTest, values);
+                    state, test, values,
+                    whenTrueValuesOpt, whenFalseValuesOpt,
+                    out var whenTrueState, out var whenFalseState, ref foundExplicitNullTest, ref foundLengthEvaluation);
                 // whenTrueState.IsImpossible occurs when Split results in a state for a given case where the case has been ruled
                 // out (because its test has failed). If not whenTruePossible, we don't want to add anything to the state.  In
                 // either case, we do not want to add the current case to the state.
@@ -996,8 +1014,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                 // Similarly for the alternative state.
                 if (whenFalsePossible && !whenFalseState.IsImpossible && !(whenFalseBuilder.Any() && whenFalseBuilder.Last().IsFullyMatched))
                     whenFalseBuilder.Add(whenFalseState);
-            }
 
+            }
             whenTrue = whenTrueBuilder.ToImmutableAndFree();
             whenFalse = whenFalseBuilder.ToImmutableAndFree();
         }
@@ -1042,7 +1060,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 }
                 IValueSet fromTestPassing = valueFac.Related(relation.Operator(), value);
                 IValueSet fromTestFailing = fromTestPassing.Complement();
-                if (values.TryGetValue(test.Input, out IValueSet? tempValuesBeforeTest))
+                if (values.TryGetValue(input, out IValueSet? tempValuesBeforeTest))
                 {
                     fromTestPassing = fromTestPassing.Intersect(tempValuesBeforeTest);
                     fromTestFailing = fromTestFailing.Intersect(tempValuesBeforeTest);
@@ -1098,6 +1116,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         private void CheckConsistentDecision(
             BoundDagTest test,
             BoundDagTest other,
+            ImmutableDictionary<BoundDagTemp, IValueSet> values,
             IValueSet? whenTrueValues,
             IValueSet? whenFalseValues,
             SyntaxNode syntax,
@@ -1105,8 +1124,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             out bool falseTestPermitsTrueOther,
             out bool trueTestImpliesTrueOther,
             out bool falseTestImpliesTrueOther,
-            ref bool foundExplicitNullTest,
-            ImmutableDictionary<BoundDagTemp, IValueSet> values)
+            ref bool foundExplicitNullTest)
         {
             // innocent until proven guilty
             trueTestPermitsTrueOther = true;
@@ -1115,8 +1133,38 @@ namespace Microsoft.CodeAnalysis.CSharp
             falseTestImpliesTrueOther = false;
 
             // if the tests are for unrelated things, there is no implication from one to the other
-            if (!related(test.Input, other.Input, values))
-                return;
+            if (!test.Input.Equals(other.Input))
+            {
+                if (test.Input.Source is not BoundDagIndexerEvaluation s1 ||
+                    other.Input.Source is not BoundDagIndexerEvaluation s2 ||
+                    !s1.Input.Equals(s2.Input))
+                {
+                    return;
+                }
+
+                Debug.Assert(s1.LengthTemp.Equals(s2.LengthTemp));
+                Debug.Assert(values.ContainsKey(s1.LengthTemp));
+
+                int s1Index = getCanonicalIndex(s1);
+                int s2Index = getCanonicalIndex(s2);
+
+                bool related = s1Index == s2Index ||
+                   ((s1Index, s2Index) is ( < 0, >= 0) or ( >= 0, < 0) &&
+                    ((INumericValueSet<int>)values[s1.LengthTemp]).TryGetSingleton(out int length) &&
+                    (s1Index >= 0 ? s2Index == (s1Index - length) : s1Index == (s2Index - length)));
+
+                if (!related)
+                {
+                    return;
+                }
+
+                static int getCanonicalIndex(BoundDagIndexerEvaluation e)
+                {
+                    return e.Index;
+                    // TODO Adjust sliced indexer evaluations
+                    // while (e.Input.Source is BoundDagSliceEvaluation slice)
+                }
+            }
 
             switch (test)
             {
@@ -1262,17 +1310,6 @@ namespace Microsoft.CodeAnalysis.CSharp
                             break;
                     }
                     break;
-            }
-
-            static bool related(BoundDagTemp input, BoundDagTemp other, ImmutableDictionary<BoundDagTemp, IValueSet> values)
-            {
-                return input.Equals(other) ||
-                       input.Source is BoundDagIndexerEvaluation { Index: int s1Index } s1 &&
-                       other.Source is BoundDagIndexerEvaluation { Index: int s2Index } s2 &&
-                       (s1Index, s2Index) is ( < 0, >= 0) or ( >= 0, < 0) &&
-                       s1.Input.Equals(s2.Input) &&
-                       ((INumericValueSet<int>)values[s1.LengthTemp]).TryGetSingleton(out int length) &&
-                       (s1Index >= 0 ? s2Index == (s1Index - length) : s1Index == (s2Index - length));
             }
         }
 
@@ -1580,14 +1617,6 @@ namespace Microsoft.CodeAnalysis.CSharp
             /// </summary>
             internal BoundDagTest ComputeSelectedTest()
             {
-                foreach (var item in Cases)
-                {
-                    if (item.RemainingTests is Tests.True or Tests.False)
-                        continue;
-                    var test = item.RemainingTests.ComputeSelectedTest();
-                    if (test.Input.Source is BoundDagPropertyEvaluation { IsLengthOrCount: true })
-                        return test;
-                }
                 return Cases[0].RemainingTests.ComputeSelectedTest();
             }
 
@@ -1707,12 +1736,13 @@ namespace Microsoft.CodeAnalysis.CSharp
             public abstract void Filter(
                 DecisionDagBuilder builder,
                 BoundDagTest test,
+                ImmutableDictionary<BoundDagTemp, IValueSet> values,
                 IValueSet? whenTrueValues,
                 IValueSet? whenFalseValues,
                 out Tests whenTrue,
                 out Tests whenFalse,
                 ref bool foundExplicitNullTest,
-                ImmutableDictionary<BoundDagTemp, IValueSet> values);
+                ref bool foundLengthEvaluation);
             public virtual BoundDagTest ComputeSelectedTest() => throw ExceptionUtilities.Unreachable;
             public virtual Tests RemoveEvaluation(BoundDagEvaluation e) => this;
             public abstract string Dump(Func<BoundDagTest, string> dump);
@@ -1727,12 +1757,13 @@ namespace Microsoft.CodeAnalysis.CSharp
                 public override void Filter(
                     DecisionDagBuilder builder,
                     BoundDagTest test,
+                    ImmutableDictionary<BoundDagTemp, IValueSet> values,
                     IValueSet? whenTrueValues,
                     IValueSet? whenFalseValues,
                     out Tests whenTrue,
                     out Tests whenFalse,
                     ref bool foundExplicitNullTest,
-                    ImmutableDictionary<BoundDagTemp, IValueSet> values)
+                    ref bool foundLengthEvaluation)
                 {
                     whenTrue = whenFalse = this;
                 }
@@ -1748,12 +1779,13 @@ namespace Microsoft.CodeAnalysis.CSharp
                 public override void Filter(
                     DecisionDagBuilder builder,
                     BoundDagTest test,
+                    ImmutableDictionary<BoundDagTemp, IValueSet> values,
                     IValueSet? whenTrueValues,
                     IValueSet? whenFalseValues,
                     out Tests whenTrue,
                     out Tests whenFalse,
                     ref bool foundExplicitNullTest,
-                    ImmutableDictionary<BoundDagTemp, IValueSet> values)
+                    ref bool foundLengthEvaluation)
                 {
                     whenTrue = whenFalse = this;
                 }
@@ -1772,16 +1804,18 @@ namespace Microsoft.CodeAnalysis.CSharp
                 public override void Filter(
                     DecisionDagBuilder builder,
                     BoundDagTest test,
+                    ImmutableDictionary<BoundDagTemp, IValueSet> values,
                     IValueSet? whenTrueValues,
                     IValueSet? whenFalseValues,
                     out Tests whenTrue,
                     out Tests whenFalse,
                     ref bool foundExplicitNullTest,
-                    ImmutableDictionary<BoundDagTemp, IValueSet> values)
+                    ref bool foundLengthEvaluation)
                 {
                     builder.CheckConsistentDecision(
                         test: test,
                         other: Test,
+                        values: values,
                         whenTrueValues: whenTrueValues,
                         whenFalseValues: whenFalseValues,
                         syntax: test.Syntax,
@@ -1789,9 +1823,10 @@ namespace Microsoft.CodeAnalysis.CSharp
                         falseTestPermitsTrueOther: out bool falseDecisionPermitsTrueOther,
                         trueTestImpliesTrueOther: out bool trueDecisionImpliesTrueOther,
                         falseTestImpliesTrueOther: out bool falseDecisionImpliesTrueOther,
-                        foundExplicitNullTest: ref foundExplicitNullTest, values);
+                        foundExplicitNullTest: ref foundExplicitNullTest);
                     whenTrue = trueDecisionImpliesTrueOther ? Tests.True.Instance : trueDecisionPermitsTrueOther ? this : (Tests)Tests.False.Instance;
                     whenFalse = falseDecisionImpliesTrueOther ? Tests.True.Instance : falseDecisionPermitsTrueOther ? this : (Tests)Tests.False.Instance;
+                    foundLengthEvaluation |= Test.Input.Source is BoundDagPropertyEvaluation { IsLengthOrCount: true };
                 }
                 public override BoundDagTest ComputeSelectedTest() => this.Test;
                 public override Tests RemoveEvaluation(BoundDagEvaluation e) => e.Equals(Test) ? Tests.True.Instance : (Tests)this;
@@ -1830,14 +1865,15 @@ namespace Microsoft.CodeAnalysis.CSharp
                 public override void Filter(
                     DecisionDagBuilder builder,
                     BoundDagTest test,
+                    ImmutableDictionary<BoundDagTemp, IValueSet> values,
                     IValueSet? whenTrueValues,
                     IValueSet? whenFalseValues,
                     out Tests whenTrue,
                     out Tests whenFalse,
                     ref bool foundExplicitNullTest,
-                    ImmutableDictionary<BoundDagTemp, IValueSet> values)
+                    ref bool foundLengthEvaluation)
                 {
-                    Negated.Filter(builder, test, whenTrueValues, whenFalseValues, out var whenTestTrue, out var whenTestFalse, ref foundExplicitNullTest, values);
+                    Negated.Filter(builder, test, values, whenTrueValues, whenFalseValues, out var whenTestTrue, out var whenTestFalse, ref foundExplicitNullTest, ref foundLengthEvaluation);
                     whenTrue = Not.Create(whenTestTrue);
                     whenFalse = Not.Create(whenTestFalse);
                 }
@@ -1857,18 +1893,19 @@ namespace Microsoft.CodeAnalysis.CSharp
                 public override void Filter(
                     DecisionDagBuilder builder,
                     BoundDagTest test,
+                    ImmutableDictionary<BoundDagTemp, IValueSet> values,
                     IValueSet? whenTrueValues,
                     IValueSet? whenFalseValues,
                     out Tests whenTrue,
                     out Tests whenFalse,
                     ref bool foundExplicitNullTest,
-                    ImmutableDictionary<BoundDagTemp, IValueSet> values)
+                    ref bool foundLengthEvaluation)
                 {
                     var trueBuilder = ArrayBuilder<Tests>.GetInstance(RemainingTests.Length);
                     var falseBuilder = ArrayBuilder<Tests>.GetInstance(RemainingTests.Length);
                     foreach (var other in RemainingTests)
                     {
-                        other.Filter(builder, test, whenTrueValues, whenFalseValues, out Tests oneTrue, out Tests oneFalse, ref foundExplicitNullTest, values);
+                        other.Filter(builder, test, values, whenTrueValues, whenFalseValues, out Tests oneTrue, out Tests oneFalse, ref foundExplicitNullTest, ref foundLengthEvaluation);
                         trueBuilder.Add(oneTrue);
                         falseBuilder.Add(oneFalse);
                     }
