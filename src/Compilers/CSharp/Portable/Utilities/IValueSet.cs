@@ -96,6 +96,6 @@ namespace Microsoft.CodeAnalysis.CSharp
 
     internal interface INumericValueSet<T> : IValueSet<T>
     {
-        bool TryGetSingleton(out T? value);
+        bool TryGetSingleton(out T value);
     }
 }

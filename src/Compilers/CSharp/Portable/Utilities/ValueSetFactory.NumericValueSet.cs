@@ -50,19 +50,19 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
 
             public bool IsEmpty => _intervals.Length == 0;
-            public bool TryGetSingleton(out T? value)
+            public bool TryGetSingleton(out T value)
             {
                 if (_intervals.Length == 1)
                 {
-                    (T first, T last) = _intervals[0];
-                    if (default(TTC).Related(BinaryOperatorKind.Equal, first, last))
+                    var (first, last) = _intervals[0];
+                    if (default(TTC).Related(Equal, first, last))
                     {
                         value = first;
                         return true;
                     }
                 }
 
-                value = default;
+                value = default!;
                 return false;
             }
 

@@ -1889,75 +1889,143 @@ struct S
             var src = @"
 class C
 {
-    void M1a(int[] a)
-    {
-        switch (a)
-        {
-            case [42]:
-            case [..,42]: // ok
-                break;
-        }
-    }
-    void M1b(int[] a)
+    void Test(int[] a)
     {
         switch (a)
         {
             case [..,42]:
-            case [42]: // 1
-                break;
-        }
-    }
-    void M2a(int[] a)
-    {
-        switch (a)
-        {
-            case { Length: 1 } and [.., 1]:
-            case { Length: 1 } and [1, ..]: // 2
-                break;
-        }
-    }
-    void M2b(int[] a)
-    {
-        switch (a)
-        {
-            case { Length: 1 } and [1, ..]:
-            case { Length: 1 } and [.., 1]: // 3
-                break;
-        }
-    }
-    void M3a(int[] a)
-    {
-        switch (a)
-        {
-            case [1, .., 3]:
-            case [1, 2, 3]: // 4
-                break;
-        }
-    }
-    void M3b(int[] a)
-    {
-        switch (a)
-        {
-            case [1, 2, 3]:
-            case [1, .., 3]: // ok
+            case [42]:
                 break;
         }
     }
 }";
             var comp = CreateCompilationWithIndexAndRange(src, parseOptions: TestOptions.RegularWithListPatterns);
             comp.VerifyEmitDiagnostics(
-                // (18,18): error CS8120: The switch case is unreachable. It has already been handled by a previous case or it is impossible to match.
-                //             case [42]: // 1
-                Diagnostic(ErrorCode.ERR_SwitchCaseSubsumed, "[42]").WithLocation(18, 18),
-                // (27,18): error CS8120: The switch case is unreachable. It has already been handled by a previous case or it is impossible to match.
-                //             case { Length: 1 } and [1, ..]: // 2
-                Diagnostic(ErrorCode.ERR_SwitchCaseSubsumed, "{ Length: 1 } and [1, ..]").WithLocation(27, 18),
-                // (36,18): error CS8120: The switch case is unreachable. It has already been handled by a previous case or it is impossible to match.
-                //             case { Length: 1 } and [.., 1]: // 3
-                Diagnostic(ErrorCode.ERR_SwitchCaseSubsumed, "{ Length: 1 } and [.., 1]").WithLocation(36, 18),
-                // (45,18): error CS8120: The switch case is unreachable. It has already been handled by a previous case or it is impossible to match.
-                //             case [1, 2, 3]: // 4
-                Diagnostic(ErrorCode.ERR_SwitchCaseSubsumed, "[1, 2, 3]").WithLocation(45, 18));
+                    // (9,18): error CS8120: The switch case is unreachable. It has already been handled by a previous case or it is impossible to match.
+                    //             case [42]:
+                    Diagnostic(ErrorCode.ERR_SwitchCaseSubsumed, "[42]").WithLocation(9, 18)
+                    );
+        }
+
+        [Fact]
+        public void Subsumption_02()
+        {
+            var src = @"
+class C
+{
+    void Test(int[] a)
+    {
+        var b = a;
+        switch (a, b)
+        {
+            case ([.., 42], [.., 42]):
+            case ([42], [42]):
+                break;
+        }
+    }
+}";
+            var comp = CreateCompilationWithIndexAndRange(src, parseOptions: TestOptions.RegularWithListPatterns);
+            comp.VerifyEmitDiagnostics(
+                    // (10,18): error CS8120: The switch case is unreachable. It has already been handled by a previous case or it is impossible to match.
+                    //             case ([42], [42]):
+                    Diagnostic(ErrorCode.ERR_SwitchCaseSubsumed, "([42], [42])").WithLocation(10, 18));
+        }
+
+        [Fact]
+        public void Subsumption_03()
+        {
+            var src = @"
+class C
+{
+    void Test(int[] a)
+    {
+        switch (a)
+        {
+            case { Length: 1 } and [.., 1]:
+            case { Length: 1 } and [1, ..]:
+                break;
+        }
+        switch (a)
+        {
+            case { Length: 1 } and [1, ..]:
+            case { Length: 1 } and [.., 1]:
+                break;
+        }
+    }
+}";
+            var comp = CreateCompilationWithIndexAndRange(src, parseOptions: TestOptions.RegularWithListPatterns);
+            comp.VerifyEmitDiagnostics(
+                    // (9,18): error CS8120: The switch case is unreachable. It has already been handled by a previous case or it is impossible to match.
+                    //             case { Length: 1 } and [1, ..]:
+                    Diagnostic(ErrorCode.ERR_SwitchCaseSubsumed, "{ Length: 1 } and [1, ..]").WithLocation(9, 18),
+                    // (15,18): error CS8120: The switch case is unreachable. It has already been handled by a previous case or it is impossible to match.
+                    //             case { Length: 1 } and [.., 1]:
+                    Diagnostic(ErrorCode.ERR_SwitchCaseSubsumed, "{ Length: 1 } and [.., 1]").WithLocation(15, 18)
+                    );
+        }
+
+        [Fact]
+        public void Subsumption_04()
+        {
+            var src = @"
+class C
+{
+    void Test(int[] a)
+    {
+        switch (a)
+        {
+            case [1, .., 3]:
+            case [1, 2, 3]:
+                break;
+        }
+    }
+}";
+            var comp = CreateCompilationWithIndexAndRange(src, parseOptions: TestOptions.RegularWithListPatterns);
+            comp.VerifyEmitDiagnostics(
+                    // (9,18): error CS8120: The switch case is unreachable. It has already been handled by a previous case or it is impossible to match.
+                    //             case [1, 2, 3]:
+                    Diagnostic(ErrorCode.ERR_SwitchCaseSubsumed, "[1, 2, 3]").WithLocation(9, 18)
+                    );
+        }
+
+        [Fact]
+        public void Subsumption_05()
+        {
+            var src = @"
+class C
+{
+    void Test(int[] a)
+    {
+        switch (a)
+        {
+            case [1, 2, 3]:
+            case [1, .., 3]:
+                break;
+        }
+    }
+}";
+            var comp = CreateCompilationWithIndexAndRange(src, parseOptions: TestOptions.RegularWithListPatterns);
+            comp.VerifyEmitDiagnostics();
+        }
+
+        [Fact]
+        public void Subsumption_06()
+        {
+            var src = @"
+class C
+{
+    void Test(int[] a)
+    {
+        switch (a)
+        {
+            case [42]:
+            case [..,42]:
+                break;
+        }
+    }
+}";
+            var comp = CreateCompilationWithIndexAndRange(src, parseOptions: TestOptions.RegularWithListPatterns);
+            comp.VerifyEmitDiagnostics();
         }
     }
 }
