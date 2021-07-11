@@ -766,7 +766,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
 
             var initialState = uniqifyState(rewrittenCases.ToImmutableAndFree(), ImmutableDictionary<BoundDagTemp, IValueSet>.Empty);
-            var pendingStates = PooledDictionary<BoundDagTemp, ArrayBuilder<DagState>>.GetInstance();
+            var pendingStates = PooledDictionary<BoundDagTemp, DagState>.GetInstance();
 
             // Go through the worklist of DagState nodes for which we have not yet computed
             // successor states.
@@ -814,38 +814,43 @@ namespace Microsoft.CodeAnalysis.CSharp
                             // An evaluation is considered to always succeed, so there is no false branch
                             break;
                         case BoundDagTest d:
-                            if (pendingStates.Count > 0 &&
-                                d.Input.Source is BoundDagIndexerEvaluation s0 &&
-                                pendingStates.TryGetValue(s0.Input, out var pendingStates0))
-                            {
-                                foreach (var pendingState in pendingStates0)
-                                    pendingState.SetCurrentState(state);
-                                workList.AddRange(pendingStates0);
-                                pendingStates.Remove(s0.Input);
-                            }
                             bool foundExplicitNullTest = false;
                             bool foundLengthEvaluation = false;
-                            SplitCases(
-                                state, d,
-                                out ImmutableArray<StateForCase> whenTrueDecisions,
-                                out ImmutableArray<StateForCase> whenFalseDecisions,
-                                out ImmutableDictionary<BoundDagTemp, IValueSet> whenTrueValues,
-                                out ImmutableDictionary<BoundDagTemp, IValueSet> whenFalseValues,
-                                ref foundExplicitNullTest,
-                                ref foundLengthEvaluation);
-                            state.TrueBranch = uniqifyState(whenTrueDecisions, whenTrueValues);
-                            state.FalseBranch = uniqifyState(whenFalseDecisions, whenFalseValues);
+                            if (d.Input.Source is { Kind: BoundKind.DagIndexerEvaluation } s0 &&
+                                pendingStates.TryGetValue(s0.Input, out DagState? pendingState))
+                            {
+                                splitCases(currentState: state, processingState: pendingState);
+                                pendingStates.Remove(s0.Input);
+                            }
+
+                            splitCases(state, state);
+
+                            void splitCases(DagState currentState, DagState processingState)
+                            {
+                                SplitCases(
+                                    currentState: currentState, processingState: processingState,
+                                    out ImmutableArray<StateForCase> whenTrueDecisions,
+                                    out ImmutableArray<StateForCase> whenFalseDecisions,
+                                    out ImmutableDictionary<BoundDagTemp, IValueSet> whenTrueValues,
+                                    out ImmutableDictionary<BoundDagTemp, IValueSet> whenFalseValues,
+                                    ref foundExplicitNullTest,
+                                    ref foundLengthEvaluation);
+                                processingState.TrueBranch = uniqifyState(whenTrueDecisions, whenTrueValues);
+                                processingState.FalseBranch = uniqifyState(whenFalseDecisions, whenFalseValues);
+                            }
+
                             if (foundExplicitNullTest && d is BoundDagNonNullTest { IsExplicitTest: false } t)
                             {
                                 // Turn an "implicit" non-null test into an explicit one
                                 state.SelectedTest = new BoundDagNonNullTest(t.Syntax, isExplicitTest: true, t.Input, t.HasErrors);
                             }
-                            if (foundLengthEvaluation && d.Input.Source is BoundDagIndexerEvaluation { Index: < 0 } s1 && state.CurrentState is null)
+
+                            if (foundLengthEvaluation)
                             {
-                                if (!pendingStates.TryGetValue(s1.Input, out var builder))
-                                    pendingStates.Add(s1.Input, builder = ArrayBuilder<DagState>.GetInstance());
-                                builder.Add(state);
+                                Debug.Assert(d.Input.Source is BoundDagIndexerEvaluation);
+                                pendingStates.Add(d.Input.Source.Input, state);
                             }
+
                             break;
                         case var n:
                             throw ExceptionUtilities.UnexpectedValue(n.Kind);
@@ -853,8 +858,6 @@ namespace Microsoft.CodeAnalysis.CSharp
                 }
             }
 
-            foreach (var item in pendingStates.Values)
-                item.Free();
             pendingStates.Free();
             workList.Free();
             return new DecisionDag(initialState);
@@ -985,8 +988,8 @@ namespace Microsoft.CodeAnalysis.CSharp
         }
 
         private void SplitCases(
-            DagState state,
-            BoundDagTest test,
+            DagState currentState,
+            DagState processingState,
             out ImmutableArray<StateForCase> whenTrue,
             out ImmutableArray<StateForCase> whenFalse,
             out ImmutableDictionary<BoundDagTemp, IValueSet> whenTrueValues,
@@ -994,11 +997,13 @@ namespace Microsoft.CodeAnalysis.CSharp
             ref bool foundExplicitNullTest,
             ref bool foundLengthEvaluation)
         {
-            ImmutableArray<StateForCase> statesForCases = state.Cases;
+            var test = processingState.SelectedTest!;
+            var statesForCases = processingState.Cases;
+            var values = processingState.RemainingValues;
             var whenTrueBuilder = ArrayBuilder<StateForCase>.GetInstance(statesForCases.Length);
             var whenFalseBuilder = ArrayBuilder<StateForCase>.GetInstance(statesForCases.Length);
             bool whenTruePossible, whenFalsePossible;
-            (whenTrueValues, whenFalseValues, whenTruePossible, whenFalsePossible) = SplitValues(state.RemainingValues, test);
+            (whenTrueValues, whenFalseValues, whenTruePossible, whenFalsePossible) = SplitValues(values, test);
             // whenTruePossible means the test could possibly have succeeded.  whenFalsePossible means it could possibly have failed.
             // Tests that are either impossible or tautological (i.e. either of these false) given
             // the set of values are normally removed and replaced by the known result, so we would not normally be processing
@@ -1009,7 +1014,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             foreach (var statesForCase in statesForCases)
             {
                 SplitCase(
-                    state, statesForCase, test,
+                    currentState, statesForCase, test,
                     whenTrueValuesOpt, whenFalseValuesOpt,
                     out var whenTrueState, out var whenFalseState, ref foundExplicitNullTest, ref foundLengthEvaluation);
                 // whenTrueState.IsImpossible occurs when Split results in a state for a given case where the case has been ruled
@@ -1021,6 +1026,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 if (whenFalsePossible && !whenFalseState.IsImpossible && !(whenFalseBuilder.Any() && whenFalseBuilder.Last().IsFullyMatched))
                     whenFalseBuilder.Add(whenFalseState);
             }
+
             whenTrue = whenTrueBuilder.ToImmutableAndFree();
             whenFalse = whenFalseBuilder.ToImmutableAndFree();
         }
@@ -1139,27 +1145,28 @@ namespace Microsoft.CodeAnalysis.CSharp
             falseTestImpliesTrueOther = false;
 
             // if the tests are for unrelated things, there is no implication from one to the other
-            switch (test.Input, other.Input)
+            if (!test.Input.Equals(other.Input))
             {
-                case var (i1, i2) when i1.Equals(i2):
-                    break;
-                case ({ Source: BoundDagIndexerEvaluation s1 }, { Source: BoundDagPropertyEvaluation { IsLengthOrCount: true } s2 }) when s1.Input.Equals(s2.Input):
-                    foundLengthEvaluation = true;
-                    return;
-                case ({ Source: BoundDagIndexerEvaluation s1 }, { Source: BoundDagIndexerEvaluation s2 }) when s1.Input.Equals(s2.Input):
-                    Debug.Assert(s1.LengthTemp.Equals(s2.LengthTemp));
-                    int s1Index = getCanonicalIndex(s1);
-                    int s2Index = getCanonicalIndex(s2);
-                    if (s1Index == s2Index ||
-                        s1Index < 0 != s2Index < 0 &&
-                        state.TryGetEffectiveValue(s1.LengthTemp, out int length) &&
-                        (s1Index < 0 ? s1Index == (s2Index - length) : s2Index == (s1Index - length)))
-                    {
-                        break;
-                    }
-                    return;
-                default:
-                    return;
+                switch (test.Input.Source, other.Input.Source)
+                {
+                    case (BoundDagIndexerEvaluation s1, BoundDagPropertyEvaluation { IsLengthOrCount: true } s2) when s1.Input.Equals(s2.Input):
+                        foundLengthEvaluation = true;
+                        return;
+                    case (BoundDagIndexerEvaluation s1, BoundDagIndexerEvaluation s2) when s1.Input.Equals(s2.Input):
+                        Debug.Assert(s1.LengthTemp.Equals(s2.LengthTemp));
+                        int s1Index = getCanonicalIndex(s1);
+                        int s2Index = getCanonicalIndex(s2);
+                        if (s1Index == s2Index ||
+                            s1Index < 0 != s2Index < 0 &&
+                            state.TryGetEffectiveValue(s1.LengthTemp, out int length) &&
+                            (s1Index < 0 ? s1Index == (s2Index - length) : s2Index == (s1Index - length)))
+                        {
+                            break;
+                        }
+                        return;
+                    default:
+                        return;
+                }
             }
 
             switch (test)
@@ -1310,9 +1317,14 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             static int getCanonicalIndex(BoundDagIndexerEvaluation e)
             {
-                return e.Index;
-                // TODO Adjust sliced indexer evaluations
-                // while (e.Input.Source is BoundDagSliceEvaluation slice)
+                int index = e.Index;
+                BoundDagEvaluation? source = e.Input.Source;
+                while (source is BoundDagSliceEvaluation slice)
+                {
+                    index = index < 0 ? index - slice.EndIndex : index + slice.StartIndex;
+                    source = slice.Input.Source;
+                }
+                return index;
             }
         }
 
@@ -1591,8 +1603,6 @@ namespace Microsoft.CodeAnalysis.CSharp
             /// </summary>
             public ImmutableDictionary<BoundDagTemp, IValueSet> RemainingValues { get; private set; }
 
-            public DagState? CurrentState { get; private set; }
-
             /// <summary>
             /// The set of cases that may still match, and for each of them the set of tests that remain to be tested.
             /// </summary>
@@ -1630,22 +1640,14 @@ namespace Microsoft.CodeAnalysis.CSharp
             internal bool TryGetEffectiveValue(BoundDagTemp temp, out int value)
             {
                 Debug.Assert(temp.Type.SpecialType == SpecialType.System_Int32);
-                var values = (CurrentState ?? this).RemainingValues;
-                Debug.Assert(values.ContainsKey(temp));
-                return ((INumericValueSet<int>)values[temp]).TryGetSingleton(out value);
+                Debug.Assert(RemainingValues.ContainsKey(temp));
+                return ((INumericValueSet<int>)RemainingValues[temp]).TryGetSingleton(out value);
             }
 
             internal void UpdateRemainingValues(ImmutableDictionary<BoundDagTemp, IValueSet> newRemainingValues)
             {
                 this.Clear();
                 this.RemainingValues = newRemainingValues;
-            }
-
-            internal void SetCurrentState(DagState state)
-            {
-                Debug.Assert(this.CurrentState is null);
-                this.Clear();
-                this.CurrentState = state;
             }
 
             private void Clear()

@@ -50,6 +50,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
 
             public bool IsEmpty => _intervals.Length == 0;
+
             public bool TryGetSingleton(out T value)
             {
                 if (_intervals.Length == 1)
