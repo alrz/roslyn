@@ -6,6 +6,7 @@
 
 using Microsoft.CodeAnalysis.CSharp.Symbols;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CSharp.Test.Utilities;
 using Microsoft.CodeAnalysis.CSharp.UnitTests.Emit;
 using Microsoft.CodeAnalysis.Text;
 using Roslyn.Test.Utilities;
@@ -968,6 +969,36 @@ double
 Derived
 ";
             CompileAndVerify(text, expectedOutput: expectedOutPut);
+        }
+
+        [Fact]
+        public void CompAssignOperatorForTargetTypedExpression()
+        {
+            var text = """
+using System;
+public class C
+{
+   private delegate void FooDelegate();
+   
+   private void One() => Console.Write("1");
+
+   private void Two() => Console.Write("2");
+
+   public static void Main() => new C().Print();
+   
+   public void Print()
+   {
+       FooDelegate fooDelegate = new (One);
+      // fooDelegate += 1 switch { _ => new (Two) };
+       fooDelegate += new (Two);
+       fooDelegate += null;
+
+       fooDelegate.Invoke();
+   }
+}
+""";
+            CompileAndVerify(text, expectedOutput: "12", options: TestOptions.DebugExe);
+            CompileAndVerify(text, expectedOutput: "12", options: TestOptions.ReleaseExe);
         }
     }
 }

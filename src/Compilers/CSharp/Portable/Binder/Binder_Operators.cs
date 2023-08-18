@@ -120,7 +120,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             LookupResultKind resultKind;
             ImmutableArray<MethodSymbol> originalUserDefinedOperators;
-            BinaryOperatorAnalysisResult best = this.BinaryOperatorOverloadResolution(kind, isChecked: CheckOverflowAtRuntime, left, right, node, diagnostics, out resultKind, out originalUserDefinedOperators);
+            BinaryOperatorAnalysisResult best = this.BinaryOperatorOverloadResolution(kind, isChecked: CheckOverflowAtRuntime, left, right, node, diagnostics, out resultKind, out originalUserDefinedOperators, allowTypeless: true);
             if (!best.HasValue)
             {
                 ReportAssignmentOperatorError(node, diagnostics, left, right, resultKind);
@@ -1280,9 +1280,10 @@ namespace Microsoft.CodeAnalysis.CSharp
             CSharpSyntaxNode node,
             BindingDiagnosticBag diagnostics,
             out LookupResultKind resultKind,
-            out ImmutableArray<MethodSymbol> originalUserDefinedOperators)
+            out ImmutableArray<MethodSymbol> originalUserDefinedOperators,
+            bool allowTypeless = false)
         {
-            if (!IsTypelessExpressionAllowedInBinaryOperator(kind, left, right))
+            if (!allowTypeless && !IsTypelessExpressionAllowedInBinaryOperator(kind, left, right))
             {
                 resultKind = LookupResultKind.OverloadResolutionFailure;
                 originalUserDefinedOperators = default(ImmutableArray<MethodSymbol>);
