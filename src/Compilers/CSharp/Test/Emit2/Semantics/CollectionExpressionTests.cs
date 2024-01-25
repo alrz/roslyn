@@ -28281,6 +28281,7 @@ partial class Program
         [InlineData((int)SpecialMember.System_Collections_IEnumerator__Current)]
         [InlineData((int)SpecialMember.System_Collections_IEnumerator__MoveNext)]
         [InlineData((int)SpecialMember.System_Collections_IEnumerator__Reset)]
+        [InlineData((int)SpecialMember.System_IDisposable__Dispose)]
         public void SynthesizedReadOnlyList_Singleton_MissingSpecialMembers(int missingMember)
         {
             string source = """
