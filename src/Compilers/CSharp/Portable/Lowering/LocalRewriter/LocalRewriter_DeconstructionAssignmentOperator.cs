@@ -63,15 +63,35 @@ namespace Microsoft.CodeAnalysis.CSharp
             {
                 var conditional = (BoundConditionalOperator)right;
                 Debug.Assert(!conditional.IsRef);
-                return conditional.Update(
-                    conditional.IsRef,
-                    VisitExpression(conditional.Condition),
-                    RewriteDeconstruction(lhsTargets, conversion, leftType, conditional.Consequence, isUsed: true)!,
-                    RewriteDeconstruction(lhsTargets, conversion, leftType, conditional.Alternative, isUsed: true)!,
-                    conditional.ConstantValueOpt,
-                    leftType,
-                    wasTargetTyped: true,
-                    leftType);
+                return RewriteConditionalOperator(
+                    syntax: conditional.Syntax,
+                    rewrittenCondition: VisitExpression(conditional.Condition),
+                    rewrittenConsequence: RewriteDeconstruction(lhsTargets, conversion, leftType, conditional.Consequence, isUsed: true)!,
+                    rewrittenAlternative: RewriteDeconstruction(lhsTargets, conversion, leftType, conditional.Alternative, isUsed: true)!,
+                    constantValueOpt: conditional.ConstantValueOpt,
+                    rewrittenType: leftType,
+                    isRef: conditional.IsRef);
+            }
+
+            if (right.Kind == BoundKind.ConvertedSwitchExpression)
+            {
+                var switchExpr = (BoundConvertedSwitchExpression)right;
+                switchExpr = switchExpr.Update(
+                    switchExpr.NaturalTypeOpt,
+                    switchExpr.WasTargetTyped,
+                    switchExpr.Expression,
+                    switchExpr.SwitchArms.SelectAsArray(
+                        static (switchArm, t) => switchArm.Update(
+                            switchArm.Locals,
+                            switchArm.Pattern,
+                            switchArm.WhenClause,
+                            t.self.RewriteDeconstruction(t.lhsTargets, t.conversion, t.leftType, switchArm.Value, isUsed: true)!,
+                            switchArm.Label), (self: this, lhsTargets, conversion, leftType)),
+                    switchExpr.ReachabilityDecisionDag,
+                    switchExpr.DefaultLabel,
+                    switchExpr.ReportedNotExhaustive,
+                    switchExpr.Type);
+                return VisitExpression(switchExpr);
             }
 
             var temps = ArrayBuilder<LocalSymbol>.GetInstance();
